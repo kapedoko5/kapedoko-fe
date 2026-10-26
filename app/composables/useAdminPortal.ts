@@ -1,5 +1,5 @@
 import type { AdCampaignRow, AdminDashboardCounts, AdminUserRow, AdminUsersResponse } from '~/types/admin'
-import type { ContentReportRow, MarkerTier, ProfileRole, ProfileRow, ShopClaimRow, ShopPlacementRow, ShopRow, ShopStatus, WeeklyHours } from '~/types/shop'
+import type { ContentReportRow, MarkerTier, ProfileRole, ProfileRow, ShopCheckinTotalsRow, ShopClaimRow, ShopPlacementRow, ShopRow, ShopStatus, WeeklyHours } from '~/types/shop'
 import { authUserId } from '~/utils/auth'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import {
@@ -74,6 +74,7 @@ export function useAdminData() {
   const reports = useState<ContentReportRow[]>('kd-admin-reports', () => [])
   const ads = useState<AdCampaignRow[]>('kd-admin-ads', () => [])
   const claims = useState<ShopClaimRow[]>('kd-admin-claims', () => [])
+  const checkIns30d = useState('kd-admin-checkins-30d', () => 0)
   const status = useState<'idle' | 'loading' | 'ready' | 'forbidden' | 'error'>('kd-admin-status', () => 'idle')
   const loadSeq = useState('kd-admin-load-seq', () => 0)
   const error = ref('')
@@ -120,6 +121,7 @@ export function useAdminData() {
       activePlacements: placements.value.filter((row) => new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() > now).length,
       activeAds: ads.value.filter((row) => row.enabled && !row.cancelled_at && new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() > now).length,
       users: 0,
+      checkIns30d: checkIns30d.value,
     }
   })
 
@@ -178,6 +180,20 @@ export function useAdminData() {
     claims.value = (data ?? []) as ShopClaimRow[]
   }
 
+  const loadCheckIns = async () => {
+    const { data, error: checkInError } = await supabase
+      .from('shop_checkin_totals')
+      .select('checkins_30d')
+      .limit(1)
+    if (checkInError) {
+      checkIns30d.value = 0
+      return
+    }
+    const row = Array.isArray(data) ? data[0] : data
+    const count = (row as ShopCheckinTotalsRow | null)?.checkins_30d
+    checkIns30d.value = typeof count === 'number' && Number.isFinite(count) ? count : 0
+  }
+
   const loadShops = async (seq: number) => {
     const rows = await fetchAdminShopRows(supabase)
     if (seq !== loadSeq.value) return false
@@ -207,7 +223,7 @@ export function useAdminData() {
       }
       const applied = await loadShops(seq)
       if (!applied) return
-      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadClaims()])
+      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadClaims(), loadCheckIns()])
       if (seq !== loadSeq.value) return
       status.value = 'ready'
     } catch (err) {

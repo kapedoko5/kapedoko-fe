@@ -53,6 +53,7 @@ export interface Cafe {
     label: string
     count: number
   } | null
+  checkIns30d: number
   reviews: CafeReview[]
   lat: number
   lng: number

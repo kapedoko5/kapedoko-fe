@@ -38,8 +38,9 @@
           <p>
             KapéDoko helps you choose a café you can work from. You can search, filter for Wi‑Fi
             and outlets, check hours, open a map, save cafés, write a review, or submit a café.
-            Browsing does not need an account. An account is for keeping saves and reviews under
-            your name, submitting a café, reporting a listing, or claiming a shop you operate.
+            Browsing does not need an account. An account is for checking in, keeping saves and
+            reviews under your name, submitting a café, reporting a listing, or claiming a shop
+            you operate.
           </p>
         </section>
 
@@ -67,6 +68,14 @@
           <p>
             Those stay on the device. Saved cafés sync to your account after you sign in. We do
             not receive a guest’s saved list before that.
+          </p>
+
+          <h3>Check-ins</h3>
+          <p>
+            A check-in stores your account, the café, how packed it felt, and the time. The public
+            café page only shows a rolled-up crowd level and how many KapéBeans checked in recently.
+            It does not show who checked in. Check-ins are not sent to analytics as a completed
+            event; staff can see a 30-day count.
           </p>
 
           <h3>Reviews</h3>

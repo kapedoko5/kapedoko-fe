@@ -232,14 +232,116 @@ export function isBusynessCooldown(
   now: Date = new Date(),
   windowMs: number = BUSYNESS_COOLDOWN_MS,
 ): boolean {
-  if (!lastReportedAt) return false
+  return cooldownRemainingMs(lastReportedAt, now, windowMs) > 0
+}
+
+export function cooldownRemainingMs(
+  lastReportedAt: string | Date | null | undefined,
+  now: Date = new Date(),
+  windowMs: number = BUSYNESS_COOLDOWN_MS,
+): number {
+  if (!lastReportedAt) return 0
   const then = lastReportedAt instanceof Date ? lastReportedAt : new Date(lastReportedAt)
-  if (Number.isNaN(then.getTime())) return false
-  return now.getTime() - then.getTime() < windowMs
+  if (Number.isNaN(then.getTime())) return 0
+  return Math.max(0, then.getTime() + windowMs - now.getTime())
+}
+
+export function cooldownWaitCopy(remainingMs: number): string {
+  if (remainingMs <= 0) return 'You can check in again now.'
+  const minutes = Math.max(1, Math.ceil(remainingMs / 60_000))
+  if (minutes === 1) return 'You can check in again in 1 minute.'
+  return `You can check in again in ${minutes} minutes.`
+}
+
+export const CHECK_IN_AT_PREFIX = 'kapedoko-checkin-at:'
+
+const checkInAtMemory = new Map<string, string>()
+
+export function checkInAtStorageKey(userId: string, shopId: string): string {
+  return `${CHECK_IN_AT_PREFIX}${userId}:${shopId}`
+}
+
+export function readCheckInAt(userId: string, shopId: string): string | null {
+  if (!userId || !shopId) return null
+  const key = checkInAtStorageKey(userId, shopId)
+  const remembered = checkInAtMemory.get(key)
+  if (remembered) return remembered
+  if (!import.meta.client) return null
+  try {
+    const stored = window.localStorage.getItem(key)
+    if (stored) checkInAtMemory.set(key, stored)
+    return stored
+  } catch {
+    return null
+  }
+}
+
+export function writeCheckInAt(userId: string, shopId: string, at: Date = new Date()): void {
+  if (!userId || !shopId) return
+  const key = checkInAtStorageKey(userId, shopId)
+  const iso = at.toISOString()
+  checkInAtMemory.set(key, iso)
+  if (!import.meta.client) return
+  try {
+    window.localStorage.setItem(key, iso)
+  } catch {
+    /* private mode still keeps this visit in memory */
+  }
 }
 
 export function isValidBusynessLevel(value: string | null | undefined): value is BusynessLevel {
   return BUSYNESS_LEVELS.includes(value as BusynessLevel)
+}
+
+export const BUSYNESS_METER_SEATS = 4
+
+const BUSYNESS_METER_FILL: Record<BusynessLevel, number> = {
+  quiet: 1,
+  comfortable: 2,
+  busy: 3,
+  full: 4,
+}
+
+export function busynessMeterFill(level: BusynessLevel | null | undefined): number {
+  if (!level || !isValidBusynessLevel(level)) return 0
+  return BUSYNESS_METER_FILL[level]
+}
+
+export function queryString(value: unknown): string {
+  if (Array.isArray(value)) return queryString(value[0])
+  return typeof value === 'string' ? value : ''
+}
+
+export function parseBusynessLevelQuery(value: unknown): BusynessLevel | null {
+  const raw = queryString(value)
+  return isValidBusynessLevel(raw) ? raw : null
+}
+
+export function shouldSkipReviewBusyness(
+  from: unknown,
+  lastCheckInAt?: string | Date | null,
+  now: Date = new Date(),
+): boolean {
+  return queryString(from) === 'check-in' || isBusynessCooldown(lastCheckInAt, now)
+}
+
+export function firstReviewChapter(
+  from: unknown,
+  lastCheckInAt?: string | Date | null,
+  now: Date = new Date(),
+): ReviewChapter {
+  return shouldSkipReviewBusyness(from, lastCheckInAt, now) ? 2 : 1
+}
+
+export function checkInPath(shopId: string, level?: BusynessLevel | null): string {
+  const base = `/app/cafes/${shopId}/check-in`
+  return level ? `${base}?level=${level}` : base
+}
+
+export function monthCheckInCopy(count: number): string {
+  if (!Number.isFinite(count) || count <= 0) return ''
+  const rounded = Math.trunc(count)
+  return `${rounded} KapéBean${rounded === 1 ? '' : 's'} this month`
 }
 
 export function reviewQuote(row: Pick<ShopReviewPublicRow, 'comment' | 'wifi_available' | 'wifi_speed' | 'power_available' | 'power_access' | 'recommend'>): string {

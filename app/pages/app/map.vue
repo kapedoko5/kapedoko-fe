@@ -233,6 +233,7 @@
       @present="onDetailPresent"
       @dismissed="onDetailDismissed"
       @review="onReviewCafe"
+      @checkin="onCheckInCafe"
     />
   </IonPage>
 </template>
@@ -332,7 +333,7 @@ function hasConfirmedPlug(cafe: Cafe) {
 
 const selectedCafe = computed(() => cafeById(selectedId.value))
 const lastDetailCafe = ref<Cafe | null>(null)
-const pendingReviewId = ref<string | null>(null)
+const pendingCafePath = ref<string | null>(null)
 watch(selectedCafe, (cafe) => {
   if (cafe) lastDetailCafe.value = cafe
 })
@@ -468,28 +469,38 @@ const onSelectCafe = (id: string) => {
   })
 }
 
-const onReviewCafe = () => {
-  const id = selectedId.value || lastDetailCafe.value?.id
-  if (!id) return
+const queueCafePage = (path: string) => {
   listWasOpen.value = false
   sheetOpen.value = false
   if (!detailOpen.value) {
-    void navigateTo(`/app/cafes/${id}/review`)
+    void navigateTo(path)
     return
   }
-  pendingReviewId.value = id
+  pendingCafePath.value = path
   detailOpen.value = false
   window.setTimeout(() => {
-    if (pendingReviewId.value === id) onDetailDismissed()
+    if (pendingCafePath.value === path) onDetailDismissed()
   }, 450)
 }
 
-const onDetailDismissed = () => {
-  const id = pendingReviewId.value
+const onReviewCafe = () => {
+  const id = selectedId.value || lastDetailCafe.value?.id
   if (!id) return
-  pendingReviewId.value = null
+  queueCafePage(`/app/cafes/${id}/review`)
+}
+
+const onCheckInCafe = () => {
+  const id = selectedId.value || lastDetailCafe.value?.id
+  if (!id) return
+  queueCafePage(`/app/cafes/${id}/check-in`)
+}
+
+const onDetailDismissed = () => {
+  const path = pendingCafePath.value
+  if (!path) return
+  pendingCafePath.value = null
   selectedId.value = null
-  void navigateTo(`/app/cafes/${id}/review`)
+  void navigateTo(path)
 }
 
 const onViewChange = (view: { bounds: GeoBounds; center: { lat: number; lng: number } }) => {
@@ -568,7 +579,7 @@ watch(detailOpen, (open) => {
     refreshMap()
     return
   }
-  if (pendingReviewId.value) {
+  if (pendingCafePath.value) {
     refreshMap()
     return
   }

@@ -15,6 +15,7 @@ export const ANALYTICS_EVENTS = {
   LOCATION_PERMISSION: 'location_permission',
   AUTH_PROMPT_SHOWN: 'auth_prompt_shown',
   REVIEW_STARTED: 'review_started',
+  CHECK_IN_STARTED: 'check_in_started',
   PROMOTION_VIEWED: 'promotion_viewed',
   PROMOTION_CLICKED: 'promotion_clicked',
 } as const
@@ -44,7 +45,7 @@ export type CardSurface = 'home' | 'search' | 'map' | 'favorites'
 export type DetailSource = 'feed' | 'map' | 'search' | 'favorites' | 'promotion'
 export type CafeActionType = 'navigate' | 'call' | 'photo_view'
 export type LocationPermissionResult = 'granted' | 'denied' | 'fallback_used'
-export type AuthPromptTrigger = 'review' | 'submit' | 'report' | 'claim' | 'favorites_sync'
+export type AuthPromptTrigger = 'review' | 'submit' | 'report' | 'claim' | 'favorites_sync' | 'check_in'
 export type PromotionKind = 'ad' | 'promoted' | 'partner'
 export type OnboardingStep = 1 | 2 | 3
 export type SearchQueryType = 'name' | 'area'
@@ -117,6 +118,7 @@ export type AnalyticsEventProps = {
   location_permission: { result: LocationPermissionResult }
   auth_prompt_shown: { trigger: AuthPromptTrigger }
   review_started: { cafe_id: string }
+  check_in_started: { cafe_id: string }
   promotion_viewed: {
     promotion_id: string
     cafe_id: string
@@ -194,6 +196,7 @@ const ALLOWED_KEYS: Record<AnalyticsEventName, ReadonlySet<string>> = {
   location_permission: new Set(['result']),
   auth_prompt_shown: new Set(['trigger']),
   review_started: new Set(['cafe_id']),
+  check_in_started: new Set(['cafe_id']),
   promotion_viewed: new Set(['promotion_id', 'cafe_id', 'promotion_kind', 'placement']),
   promotion_clicked: new Set(['promotion_id', 'cafe_id', 'promotion_kind', 'placement']),
 }
@@ -369,6 +372,7 @@ export const cardViewKey = (cafeId: string, surface: CardSurface) => `card:${sur
 export const promotionViewKey = (promotionId: string) => `promo:${promotionId}`
 export const detailViewKey = (cafeId: string) => `detail:${cafeId}`
 export const reviewStartKey = (cafeId: string) => `review:${cafeId}`
+export const checkInStartKey = (cafeId: string) => `checkin:${cafeId}`
 export const CARD_IMPRESSION_RATIO = 0.5
 export const CARD_IMPRESSION_MS = 750
 export const APP_RESUME_MS = 30 * 60 * 1000
