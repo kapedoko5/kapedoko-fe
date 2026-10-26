@@ -27,6 +27,7 @@ export interface AdminDashboardCounts {
   activePlacements: number
   activeAds: number
   users: number
+  checkIns30d: number
 }
 
 export interface AdCampaignRow {

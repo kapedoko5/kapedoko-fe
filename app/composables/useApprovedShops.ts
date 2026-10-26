@@ -57,6 +57,7 @@ export function useApprovedShops() {
             matchaInsight: next.matchaInsight ?? prev.matchaInsight,
             reviews: next.reviews.length ? next.reviews : prev.reviews,
             busyness: next.busyness ?? prev.busyness,
+            checkIns30d: next.checkIns30d || prev.checkIns30d,
           }
         : cafe
     ))

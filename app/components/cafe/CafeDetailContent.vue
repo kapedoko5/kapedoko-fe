@@ -28,14 +28,64 @@
         </a>
       </div>
 
-      <p
-        v-if="cafe.busyness"
-        class="cafe-detail__crowd"
-        :aria-label="`${cafe.busyness.label}, based on ${cafe.busyness.count} recent check-ins`"
-      >
-        {{ cafe.busyness.label }}
-        <span>· {{ cafe.busyness.count }} check-ins</span>
-      </p>
+      <div class="cafe-detail__crowd-block">
+        <p
+          v-if="cafe.busyness"
+          class="cafe-detail__crowd"
+          :class="`is-${cafe.busyness.level}`"
+          :aria-label="`${cafe.busyness.label}, based on ${cafe.busyness.count} recent check-ins`"
+        >
+          <span class="cafe-detail__meter" aria-hidden="true">
+            <span
+              v-for="n in meterSeats"
+              :key="n"
+              class="cafe-detail__seat"
+              :class="{ 'is-on': n <= crowdFill }"
+              :style="{ '--seat': n }"
+            >
+              <svg viewBox="0 0 16 20" fill="none">
+                <path
+                  class="cafe-detail__bean"
+                  d="M8 1.4c3.5 0 6.4 3.6 6.4 8.6S11.5 18.6 8 18.6 1.6 15 1.6 10 4.5 1.4 8 1.4Z"
+                />
+                <path
+                  class="cafe-detail__crease"
+                  d="M8 3.6c1.15 1.7 1.75 3.8 1.75 6.4S9.15 14.7 8 16.4C6.85 14.7 6.25 12.6 6.25 10S6.85 5.3 8 3.6Z"
+                />
+              </svg>
+            </span>
+          </span>
+          <span class="cafe-detail__crowd-copy">
+            <strong>{{ cafe.busyness.label }}</strong>
+            <span>{{ cafe.busyness.count }} check-ins</span>
+          </span>
+        </p>
+        <p
+          v-else
+          class="cafe-detail__crowd is-empty"
+          :aria-label="monthCopy ? 'No check-ins in the last two hours' : undefined"
+        >
+          <span class="cafe-detail__meter" aria-hidden="true">
+            <span v-for="n in meterSeats" :key="n" class="cafe-detail__seat">
+              <svg viewBox="0 0 16 20" fill="none">
+                <path
+                  class="cafe-detail__bean"
+                  d="M8 1.4c3.5 0 6.4 3.6 6.4 8.6S11.5 18.6 8 18.6 1.6 15 1.6 10 4.5 1.4 8 1.4Z"
+                />
+                <path
+                  class="cafe-detail__crease"
+                  d="M8 3.6c1.15 1.7 1.75 3.8 1.75 6.4S9.15 14.7 8 16.4C6.85 14.7 6.25 12.6 6.25 10S6.85 5.3 8 3.6Z"
+                />
+              </svg>
+            </span>
+          </span>
+          <span v-if="!monthCopy" class="cafe-detail__crowd-copy">
+            <strong>How packed is it?</strong>
+            <span>Check in so other KapéBeans can see.</span>
+          </span>
+        </p>
+        <p v-if="monthCopy" class="cafe-detail__month">{{ monthCopy }}</p>
+      </div>
 
       <p v-if="variant !== 'page' && cafe.reviews.length === 0" class="cafe-detail__prompt">
         Not yet reviewed, add your review?
@@ -213,6 +263,13 @@
         <button
           type="button"
           class="cafe-detail__leave"
+          @click="emit('checkin')"
+        >
+          I’m working here
+        </button>
+        <button
+          type="button"
+          class="cafe-detail__leave cafe-detail__leave--quiet"
           @click="emit('review')"
         >
           Leave a review
@@ -305,6 +362,7 @@ import {
   type CafeActionType,
 } from '~/utils/analytics'
 import { fetchOwnShopReview } from '~/utils/approved-shops'
+import { BUSYNESS_METER_SEATS, busynessMeterFill, monthCheckInCopy } from '~/utils/cafe-review'
 
 const props = withDefaults(
   defineProps<{
@@ -316,6 +374,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   review: []
+  checkin: []
 }>()
 
 const favorites = useFavorites()
@@ -330,6 +389,9 @@ const ownReviewId = ref<string | null>(null)
 const ownReviewChecked = ref(false)
 let ownReviewRequest = 0
 const saved = computed(() => favorites.isSaved(props.cafe.id))
+const monthCopy = computed(() => monthCheckInCopy(props.cafe.checkIns30d))
+const meterSeats = BUSYNESS_METER_SEATS
+const crowdFill = computed(() => busynessMeterFill(props.cafe.busyness?.level))
 
 const refreshOwnReview = async () => {
   const request = ++ownReviewRequest
@@ -537,8 +599,7 @@ const selectPhoto = (index: number) => {
 .cafe-detail--page .cafe-detail__address { order: 2; }
 .cafe-detail--page .cafe-detail__actions { order: 3; }
 .cafe-detail--page .cafe-detail__presses { order: 4; }
-.cafe-detail--page .cafe-detail__crowd,
-.cafe-detail--page .cafe-detail__prompt { order: 5; }
+.cafe-detail--page .cafe-detail__crowd-block { order: 5; }
 .cafe-detail--page .cafe-detail__rating { order: 6; }
 .cafe-detail--page .cafe-detail__page-actions { order: 7; }
 
@@ -814,15 +875,116 @@ const selectPhoto = (index: number) => {
   font-variant-numeric: tabular-nums;
 }
 
-.cafe-detail__crowd {
-  margin-top: 8px;
-  color: var(--kd-ink);
-  font-size: 0.75rem;
-  font-weight: 700;
+.cafe-detail__crowd-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 10px;
 }
 
-.cafe-detail__crowd span {
+.cafe-detail__crowd {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin: 0;
+  padding: 6px 10px 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border-radius: 16px;
+  background: #faf8f5;
+  color: var(--kd-ink);
+}
+
+.cafe-detail__crowd.is-empty {
+  background: transparent;
+}
+
+.cafe-detail__meter {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cafe-detail__seat {
+  display: grid;
+  width: 14px;
+  height: 18px;
+  transform-origin: 50% 80%;
+}
+
+.cafe-detail__seat svg {
+  display: block;
+  width: 14px;
+  height: 18px;
+  overflow: visible;
+}
+
+.cafe-detail__bean {
+  fill: none;
+  stroke: color-mix(in srgb, var(--kd-ink) 28%, transparent);
+  stroke-width: 1.35;
+  stroke-linejoin: round;
+}
+
+.cafe-detail__crease {
+  fill: none;
+  stroke: color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+}
+
+.cafe-detail__seat.is-on {
+  animation: cafe-bean-pop 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc((var(--seat, 1) - 1) * 70ms);
+}
+
+.cafe-detail__seat.is-on .cafe-detail__bean {
+  fill: var(--kd-accent);
+  stroke: var(--kd-ink);
+}
+
+.cafe-detail__seat.is-on .cafe-detail__crease {
+  stroke: var(--kd-ink);
+}
+
+.cafe-detail__crowd.is-full .cafe-detail__seat.is-on .cafe-detail__bean {
+  fill: #8c3a2f;
+  stroke: #8c3a2f;
+}
+
+.cafe-detail__crowd.is-full .cafe-detail__seat.is-on .cafe-detail__crease {
+  stroke: #faf8f5;
+}
+
+.cafe-detail__crowd-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cafe-detail__crowd-copy strong {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.cafe-detail__crowd-copy span {
+  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
+  font-size: 0.6875rem;
   font-weight: 400;
+  line-height: 1.2;
+}
+
+.cafe-detail__month {
+  margin: 0;
+  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .cafe-detail__address {
@@ -941,6 +1103,11 @@ const selectPhoto = (index: number) => {
   color: var(--kd-ink);
 }
 
+.cafe-detail--page .cafe-detail__leave--quiet {
+  border-color: color-mix(in srgb, var(--kd-ink) 34%, transparent);
+  background: #ffffff;
+}
+
 .cafe-detail__hero {
   overflow: hidden;
   height: 175px;
@@ -1032,6 +1199,9 @@ const selectPhoto = (index: number) => {
 }
 
 .cafe-detail__review-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-top: 22px;
 }
 
@@ -1196,6 +1366,11 @@ const selectPhoto = (index: number) => {
     background: var(--kd-accent);
     box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
   }
+
+  .cafe-detail--page .cafe-detail__leave--quiet:hover {
+    background: #faf8f5;
+    box-shadow: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1204,11 +1379,28 @@ const selectPhoto = (index: number) => {
     transform: rotate(var(--tilt, 0deg));
   }
 
+  .cafe-detail__seat.is-on {
+    animation: none;
+  }
+
   .cafe-detail__action-face--primary:active,
   .cafe-detail__action-face--quiet:active,
   .cafe-detail__leave:active,
   .cafe-detail__thumb:active {
     box-shadow: none;
+  }
+}
+
+@keyframes cafe-bean-pop {
+  from {
+    opacity: 0.4;
+    filter: blur(2px);
+    transform: scale(0.72) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
   }
 }
 

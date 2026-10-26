@@ -17,6 +17,7 @@ function cafe(partial: Partial<Cafe> & Pick<Cafe, 'id' | 'name'>): Cafe {
     popular: false,
     rating: 0,
     ratingLabel: 'New',
+    checkIns30d: 0,
     reviews: [],
     lat: 14.55,
     lng: 121.02,

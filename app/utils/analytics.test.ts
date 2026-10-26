@@ -52,7 +52,9 @@ describe('shouldCapture', () => {
 describe('event catalog', () => {
   test('drops unknown event names', () => {
     expect(isAnalyticsEventName('review_submitted')).toBe(false)
+    expect(isAnalyticsEventName('check_in_submitted')).toBe(false)
     expect(isAnalyticsEventName(ANALYTICS_EVENTS.CAFE_DETAIL_VIEWED)).toBe(true)
+    expect(isAnalyticsEventName(ANALYTICS_EVENTS.CHECK_IN_STARTED)).toBe(true)
   })
 
   test('strips forbidden and unknown keys', () => {

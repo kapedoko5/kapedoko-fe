@@ -3,6 +3,7 @@ import type { GeoBounds } from './geography'
 import type {
   MarkerTier,
   ShopBusynessNowRow,
+  ShopCheckinStatsRow,
   ShopMarkerTierRow,
   ShopReviewPublicRow,
   ShopReviewRow,
@@ -14,6 +15,7 @@ import type { ShopAmenityResolutionRow } from './amenity-status'
 import {
   mapShopToCafe,
   withCafeBusyness,
+  withCafeCheckIns,
   withCafeReviews,
 } from './shop-mapper'
 import { paymentFromRow, type CafePayment, type ShopPaymentRow } from './cafe-payment'
@@ -671,13 +673,30 @@ export async function fetchShopBusynessNow(
   return firstRow(data as ShopBusynessNowRow[] | ShopBusynessNowRow | null)
 }
 
+export async function fetchShopCheckinStats(
+  supabase: { from: (relation: string) => any },
+  shopId: string,
+): Promise<ShopCheckinStatsRow | null> {
+  if (!isShopId(shopId)) return null
+
+  const { data, error } = await supabase
+    .from('shop_checkin_stats')
+    .select('*')
+    .eq('shop_id', shopId)
+    .limit(1)
+
+  if (error) return null
+  return firstRow(data as ShopCheckinStatsRow[] | ShopCheckinStatsRow | null)
+}
+
 export async function hydrateCafeDetail(
   supabase: { from: (relation: string) => any },
   cafe: Cafe,
 ): Promise<Cafe> {
-  const [rowsResult, busynessResult] = await Promise.allSettled([
+  const [rowsResult, busynessResult, checkInResult] = await Promise.allSettled([
     fetchPublicCafeReviewRows(supabase, cafe.id),
     fetchShopBusynessNow(supabase, cafe.id),
+    fetchShopCheckinStats(supabase, cafe.id),
   ])
   const rows = rowsResult.status === 'fulfilled' ? rowsResult.value : []
   const derived = statsFromPublicReviews(rows)
@@ -688,7 +707,8 @@ export async function hydrateCafeDetail(
     matchaInsight: cafe.matchaInsight ?? matchaInsightFromStats(derived),
   }
   const busyness = busynessResult.status === 'fulfilled' ? busynessResult.value : null
-  return withCafeBusyness(reviewed, busyness)
+  const checkIns = checkInResult.status === 'fulfilled' ? checkInResult.value : null
+  return withCafeCheckIns(withCafeBusyness(reviewed, busyness), checkIns)
 }
 
 export async function fetchOwnShopReview(

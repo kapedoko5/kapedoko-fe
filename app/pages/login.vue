@@ -1,7 +1,7 @@
 <template>
   <AuthShell
     title="Sign in"
-    lede="Sign in to keep saved cafes, reviews, and cafe submissions with this account."
+    :lede="lede"
   >
     <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
     <form class="auth-form" @submit.prevent="onSubmit">
@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import AuthShell from '~/components/auth/AuthShell.vue'
-import { safeRedirectPath } from '~/utils/auth'
+import { loginLedeForRedirect, safeRedirectPath } from '~/utils/auth'
 
 definePageMeta({
   middleware: 'guest',
@@ -68,6 +68,7 @@ const query = computed(() => {
   const redirect = route.query.redirect
   return typeof redirect === 'string' ? { redirect } : {}
 })
+const lede = computed(() => loginLedeForRedirect(query.value.redirect))
 
 const onSubmit = async () => {
   if (loading.value) return

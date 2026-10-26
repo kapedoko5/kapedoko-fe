@@ -4,8 +4,14 @@ import {
   displayNameError,
   emailError,
   friendlyAuthError,
+  isCheckInRedirect,
   isSafeAppPath,
+  LOGIN_LEDE_CHECK_IN,
+  LOGIN_LEDE_DEFAULT,
+  loginLedeForRedirect,
   passwordError,
+  REGISTER_LEDE_CHECK_IN,
+  registerLedeForRedirect,
   safeRedirectPath,
 } from './auth'
 
@@ -43,7 +49,13 @@ describe('auth helpers', () => {
     expect(safeRedirectPath('/')).toBe('/app')
     expect(safeRedirectPath('//evil.example')).toBe('/app')
     expect(safeRedirectPath('/app/cafes/abc/review')).toBe('/app/cafes/abc/review')
+    expect(safeRedirectPath('/app/cafes/abc/check-in?level=quiet')).toBe('/app/cafes/abc/check-in?level=quiet')
     expect(safeRedirectPath(undefined, '/app/profile')).toBe('/app/profile')
+    expect(isCheckInRedirect('/app/cafes/abc/check-in?level=busy')).toBe(true)
+    expect(isCheckInRedirect('/app/cafes/abc/review')).toBe(false)
+    expect(loginLedeForRedirect('/app/cafes/abc/check-in')).toBe(LOGIN_LEDE_CHECK_IN)
+    expect(loginLedeForRedirect('/app/profile')).toBe(LOGIN_LEDE_DEFAULT)
+    expect(registerLedeForRedirect('/app/cafes/abc/check-in')).toBe(REGISTER_LEDE_CHECK_IN)
   })
 
   test('maps auth failures to recovery copy', () => {
