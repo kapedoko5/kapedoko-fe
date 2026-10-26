@@ -7,49 +7,51 @@
       :error="error"
     >
       <p v-if="openReports.length === 0" class="admin-meta">No open reports.</p>
-      <article v-for="report in openReports" :key="report.id" class="admin-card report-card">
-        <header class="report-head">
-          <h2>{{ report.target_type === 'review' ? 'Review report' : 'Photo report' }}</h2>
-          <span class="report-stamp report-stamp--open">
-            <span class="report-stamp__mark" aria-hidden="true" />
-            Open
-          </span>
-        </header>
-        <template v-if="reportedText(report)">
-          <blockquote class="report-quote">{{ reportedText(report) }}</blockquote>
-        </template>
-        <p class="report-note">{{ report.reason || 'No note from the reporter.' }}</p>
-        <p class="report-meta">
-          <span>{{ formatAdminDate(report.created_at) }}</span>
-          <span v-if="reference(report)" :title="referenceTitle(report)">{{ reference(report) }}</span>
-        </p>
-        <div class="report-actions">
-          <button
-            type="button"
-            class="report-warn"
-            :disabled="savingId === report.id"
-            :aria-busy="savingId === report.id && pendingOutcome === 'hidden' || undefined"
-            :aria-label="`Keep ${targetWord(report)} hidden`"
-            @click="onResolve(report, 'hidden')"
-          >
-            <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'hidden'">
-              {{ savingId === report.id && pendingOutcome === 'hidden' ? 'Hiding…' : 'Keep hidden' }}
-            </AdminBusyLabel>
-          </button>
-          <button
-            type="button"
-            class="report-restore"
-            :disabled="savingId === report.id"
-            :aria-busy="savingId === report.id && pendingOutcome === 'dismissed' || undefined"
-            :aria-label="`Restore ${targetWord(report)}`"
-            @click="onResolve(report, 'dismissed')"
-          >
-            <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'dismissed'">
-              {{ savingId === report.id && pendingOutcome === 'dismissed' ? 'Restoring…' : 'Restore' }}
-            </AdminBusyLabel>
-          </button>
-        </div>
-      </article>
+      <div v-else class="report-list">
+        <article v-for="report in openReports" :key="report.id" class="admin-card report-card">
+          <header class="report-head">
+            <h2>{{ report.target_type === 'review' ? 'Review report' : 'Photo report' }}</h2>
+            <span class="report-stamp report-stamp--open">
+              <span class="report-stamp__mark" aria-hidden="true" />
+              Open
+            </span>
+          </header>
+          <template v-if="reportedText(report)">
+            <blockquote class="report-quote">{{ reportedText(report) }}</blockquote>
+          </template>
+          <p class="report-note">{{ report.reason || 'No note from the reporter.' }}</p>
+          <p class="report-meta">
+            <span>{{ formatAdminDate(report.created_at) }}</span>
+            <span v-if="reference(report)" :title="referenceTitle(report)">{{ reference(report) }}</span>
+          </p>
+          <div class="report-actions">
+            <button
+              type="button"
+              class="report-warn"
+              :disabled="savingId === report.id"
+              :aria-busy="savingId === report.id && pendingOutcome === 'hidden' || undefined"
+              :aria-label="`Keep ${targetWord(report)} hidden`"
+              @click="onResolve(report, 'hidden')"
+            >
+              <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'hidden'">
+                {{ savingId === report.id && pendingOutcome === 'hidden' ? 'Hiding…' : 'Keep hidden' }}
+              </AdminBusyLabel>
+            </button>
+            <button
+              type="button"
+              class="report-restore"
+              :disabled="savingId === report.id"
+              :aria-busy="savingId === report.id && pendingOutcome === 'dismissed' || undefined"
+              :aria-label="`Restore ${targetWord(report)}`"
+              @click="onResolve(report, 'dismissed')"
+            >
+              <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'dismissed'">
+                {{ savingId === report.id && pendingOutcome === 'dismissed' ? 'Restoring…' : 'Restore' }}
+              </AdminBusyLabel>
+            </button>
+          </div>
+        </article>
+      </div>
     </AdminShell>
   </IonPage>
 </template>
@@ -118,6 +120,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.report-list {
+  display: grid;
+  gap: 12px;
+}
+
 .report-card {
   caret-color: var(--kd-primary);
 }
