@@ -3,6 +3,7 @@ import { auditQueueRows } from '~/utils/amenity-status'
 import type { CafeAuditDraft } from '~/utils/audit-form'
 import { auditOutletsPayload, auditWifiPayload } from '~/utils/audit-form'
 import { cafePickerOptions, type AdminPickerOption } from '~/utils/admin-picker'
+import { fetchApprovedPickerRows } from '~/utils/approved-shops'
 import { auditedCafeRows, auditQueueCafes, type AuditedCafeListRow, type AuditQueueCafe } from '~/utils/audit-list'
 
 export interface CafeAuditRow {
@@ -74,13 +75,7 @@ export function useCafeAudits() {
   const supabase = useSupabaseClient()
 
   const loadApprovedOptions = async (): Promise<AdminPickerOption[]> => {
-    const { data, error } = await supabase
-      .from('shops')
-      .select('id,name,address,status')
-      .eq('status', 'approved')
-      .order('name')
-    if (error) throw error
-    return cafePickerOptions((data ?? []) as Pick<ShopRow, 'id' | 'name' | 'address' | 'status'>[])
+    return cafePickerOptions(await fetchApprovedPickerRows(supabase))
   }
 
   const submitDraft = async (draft: CafeAuditDraft, idempotencyKey: string) => {
