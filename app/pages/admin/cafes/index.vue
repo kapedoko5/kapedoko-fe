@@ -275,6 +275,7 @@ import {
 } from '~/utils/admin-logos'
 import { formatAdminDate } from '~/utils/admin-nav'
 import { ledgerPageCount, ledgerPageRange, ledgerPageSlice, ledgerPageTokens } from '~/utils/admin-ledger'
+import { adminActionErrorMessage } from '~/utils/admin-feedback'
 import {
   cafeDeskBusyLabel,
   cafeDeskConfirmAction,
@@ -292,6 +293,8 @@ definePageMeta({
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const route = useRoute()
 const config = useRuntimeConfig()
 const { shops, counts, status, error, savingId, load, moderate, updateShopLogos, deleteShop } = admin
@@ -460,14 +463,22 @@ const assignLogo = async (payload: { logoFile: File | null; logoObjectKey: strin
       payload.logoObjectKey,
       Boolean(payload.logoFile),
     )
-    if (!window.confirm(stampLogoConfirmCopy(queue.length, overwrite))) return
+    const choice = await askAdmin({
+      title: 'Stamp this logo?',
+      message: stampLogoConfirmCopy(queue.length, overwrite),
+      confirmLabel: 'Stamp logo',
+      variant: overwrite > 0 ? 'warning' : 'default',
+    })
+    if (!choice.confirmed) return
   }
   try {
     const done = await updateShopLogos(queue, payload)
-    stampNotice.value = stampLogoDoneCopy(done.length)
+    const copy = stampLogoDoneCopy(done.length)
+    stampNotice.value = copy
+    toast.success('Logo stamped', copy)
     closeLogoPicker()
-  } catch {
-    /* shown in the admin shell */
+  } catch (err) {
+    toast.error('Could not stamp this logo', err, 'Could not stamp this logo.')
   }
 }
 
@@ -513,12 +524,14 @@ const confirmPending = async () => {
     } else {
       await moderate(current.shop, 'approved')
     }
-    stampNotice.value = cafeDeskDoneCopy(current.kind, current.shop.name)
+    const copy = cafeDeskDoneCopy(current.kind, current.shop.name)
+    stampNotice.value = copy
+    toast.success(cafeDeskConfirmAction(current.kind), copy)
     pendingAction.value = null
     rejectReason.value = ''
     rejectIssue.value = ''
-  } catch {
-    /* shown in the admin shell */
+  } catch (err) {
+    toast.error('Could not update this cafe', err, adminActionErrorMessage(err, 'Could not update this cafe.'))
   }
 }
 

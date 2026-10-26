@@ -8,7 +8,10 @@
       <div
         ref="dialogEl"
         class="confirm-dialog"
-        :class="{ 'is-destructive': variant === 'destructive' }"
+        :class="{
+          'is-destructive': variant === 'destructive',
+          'is-warning': variant === 'warning',
+        }"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="titleId"
@@ -34,6 +37,7 @@
         <p v-if="promptError" class="confirm-dialog__error" role="alert">{{ promptError }}</p>
         <div class="confirm-dialog__actions">
           <button
+            v-if="!alert"
             ref="cancelEl"
             type="button"
             class="confirm-dialog__btn confirm-dialog__btn--cancel"
@@ -48,9 +52,10 @@
             class="confirm-dialog__btn confirm-dialog__btn--confirm"
             :class="{ 'is-destructive': variant === 'destructive' }"
             :disabled="busy"
+            :aria-busy="busy || undefined"
             @click="emit('confirm')"
           >
-            {{ busy ? busyLabel : confirmLabel }}
+            <AdminBusyLabel :busy="busy">{{ busy ? busyLabel : confirmLabel }}</AdminBusyLabel>
           </button>
         </div>
       </div>
@@ -59,6 +64,8 @@
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
+
 const props = withDefaults(defineProps<{
   open: boolean
   title: string
@@ -66,7 +73,9 @@ const props = withDefaults(defineProps<{
   confirmLabel?: string
   cancelLabel?: string
   busyLabel?: string
-  variant?: 'default' | 'destructive'
+  variant?: 'default' | 'destructive' | 'warning'
+  /** One acknowledgement button. Escape and the scrim still close the dialog. */
+  alert?: boolean
   busy?: boolean
   promptLabel?: string
   promptValue?: string
@@ -77,6 +86,7 @@ const props = withDefaults(defineProps<{
   cancelLabel: 'Cancel',
   busyLabel: 'Working…',
   variant: 'default',
+  alert: false,
   busy: false,
   promptLabel: '',
   promptValue: '',
@@ -121,6 +131,7 @@ const onKeydown = (event: KeyboardEvent) => {
   if (nodes.length === 0) return
   const first = nodes[0]
   const last = nodes[nodes.length - 1]
+  if (!first || !last) return
   const active = document.activeElement
   if (event.shiftKey && active === first) {
     event.preventDefault()
@@ -139,7 +150,7 @@ watch(() => props.open, async (open) => {
   }
   document.body.style.overflow = 'hidden'
   await nextTick()
-  ;(promptEl.value || cancelEl.value)?.focus()
+  ;(promptEl.value || (props.alert ? confirmEl.value : cancelEl.value))?.focus()
 })
 
 onBeforeUnmount(() => {
@@ -174,6 +185,10 @@ onBeforeUnmount(() => {
 
 .confirm-dialog.is-destructive {
   border-color: color-mix(in srgb, var(--kd-destructive) 38%, #faf8f5);
+}
+
+.confirm-dialog.is-warning {
+  border-color: color-mix(in srgb, var(--kd-accent) 70%, #faf8f5);
 }
 
 .confirm-dialog__title {

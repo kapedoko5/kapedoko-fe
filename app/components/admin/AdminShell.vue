@@ -60,8 +60,13 @@
             <slot name="actions" />
           </div>
         </header>
-        <div class="admin-shell__body">
-          <p v-if="!status || status === 'idle' || status === 'loading'" class="admin-shell__state">Loading…</p>
+        <div
+          class="admin-shell__body"
+          :aria-busy="!status || status === 'idle' || status === 'loading' ? 'true' : undefined"
+        >
+          <p v-if="!status || status === 'idle' || status === 'loading'" class="admin-shell__state" role="status">
+            <AdminBusyLabel busy>Loading…</AdminBusyLabel>
+          </p>
           <p v-else-if="status === 'forbidden'" class="admin-shell__state">This portal is for KapeDoko staff.</p>
           <p v-else-if="status === 'error'" class="admin-shell__state admin-shell__state--error">{{ error }}</p>
           <template v-else>
@@ -71,11 +76,18 @@
         </div>
       </div>
     </div>
+    <AdminToastStack v-if="isFeedbackHost" />
+    <AdminBusyOverlay v-if="isFeedbackHost" />
+    <AdminConfirmHost v-if="isFeedbackHost" />
   </IonContent>
 </template>
 
 <script lang="ts" setup>
 import { IonContent, useIonRouter } from '@ionic/vue'
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
+import AdminBusyOverlay from '~/components/admin/AdminBusyOverlay.vue'
+import AdminConfirmHost from '~/components/admin/AdminConfirmHost.vue'
+import AdminToastStack from '~/components/admin/AdminToastStack.vue'
 import { adminNavIdFromPath, staffNav } from '~/utils/admin-nav'
 import { isForeignSurface, isSameAppPath, resolveAppPath } from '~/utils/app-tabs'
 
@@ -102,6 +114,14 @@ const ionRouter = useIonRouter()
 const navOpen = ref(false)
 const desktop = ref(true)
 const shellEl = ref<HTMLElement | null>(null)
+const feedbackOwnerId = useId()
+const feedbackHostId = useState<string | null>('kd-admin-feedback-host', () => null)
+let feedbackReleased = false
+const claimFeedbackHost = () => {
+  if (feedbackReleased || feedbackHostId.value) return
+  feedbackHostId.value = feedbackOwnerId
+}
+const isFeedbackHost = computed(() => feedbackHostId.value === feedbackOwnerId)
 const ownedPath = route.path
 const pendingPath = useState<string | null>('kd-admin-nav-path', () => null)
 const items = computed(() => staffNav(props.navRole))
@@ -159,12 +179,17 @@ const go = async (href: string) => {
 }
 
 onMounted(() => {
+  claimFeedbackHost()
   onResize()
   window.addEventListener('resize', onResize)
   window.addEventListener('keydown', onKeydown)
 })
 
+watch(feedbackHostId, claimFeedbackHost)
+
 onBeforeUnmount(() => {
+  feedbackReleased = true
+  if (feedbackHostId.value === feedbackOwnerId) feedbackHostId.value = null
   window.removeEventListener('resize', onResize)
   window.removeEventListener('keydown', onKeydown)
 })
@@ -516,6 +541,7 @@ watch(() => route.path, (path) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 44px;
   padding: 0 16px;
   border: 0;

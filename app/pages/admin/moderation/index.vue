@@ -28,19 +28,25 @@
             type="button"
             class="report-warn"
             :disabled="savingId === report.id"
+            :aria-busy="savingId === report.id && pendingOutcome === 'hidden' || undefined"
             :aria-label="`Keep ${targetWord(report)} hidden`"
             @click="onResolve(report, 'hidden')"
           >
-            {{ savingId === report.id && pendingOutcome === 'hidden' ? 'Hiding…' : 'Keep hidden' }}
+            <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'hidden'">
+              {{ savingId === report.id && pendingOutcome === 'hidden' ? 'Hiding…' : 'Keep hidden' }}
+            </AdminBusyLabel>
           </button>
           <button
             type="button"
             class="report-restore"
             :disabled="savingId === report.id"
+            :aria-busy="savingId === report.id && pendingOutcome === 'dismissed' || undefined"
             :aria-label="`Restore ${targetWord(report)}`"
             @click="onResolve(report, 'dismissed')"
           >
-            {{ savingId === report.id && pendingOutcome === 'dismissed' ? 'Restoring…' : 'Restore' }}
+            <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'dismissed'">
+              {{ savingId === report.id && pendingOutcome === 'dismissed' ? 'Restoring…' : 'Restore' }}
+            </AdminBusyLabel>
           </button>
         </div>
       </article>
@@ -49,6 +55,7 @@
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import { formatAdminDate } from '~/utils/admin-nav'
 import { reportedReviewCopy } from '~/utils/moderation'
@@ -59,6 +66,8 @@ definePageMeta({
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const { reports, status, error, savingId, load, resolveReport } = admin
 const openReports = computed(() => reports.value.filter((report) => report.status === 'open'))
 const reportedText = (report: ContentReportRow) => reportedReviewCopy(report)
@@ -75,15 +84,29 @@ const reference = (report: ContentReportRow) => {
 const referenceTitle = (report: ContentReportRow) => report.review_id || report.shop_id || report.id
 
 const onResolve = async (report: ContentReportRow, outcome: 'hidden' | 'dismissed') => {
-  if (outcome === 'hidden') {
-    const word = targetWord(report)
-    if (!window.confirm(`Keep this ${word} hidden? It stays off the cafe until you restore the report.`)) return
-  }
+  const word = targetWord(report)
+  const choice = outcome === 'hidden'
+    ? await askAdmin({
+      title: `Keep this ${word} hidden?`,
+      message: 'It stays off the cafe until you restore the report.',
+      confirmLabel: 'Keep hidden',
+      variant: 'destructive',
+    })
+    : await askAdmin({
+      title: `Restore this ${word}?`,
+      message: 'It can show on the cafe again.',
+      confirmLabel: 'Restore',
+    })
+  if (!choice.confirmed) return
   pendingOutcome.value = outcome
   try {
     await resolveReport(report.id, outcome)
-  } catch {
-    /* shown in the admin shell */
+    toast.success(
+      outcome === 'hidden' ? 'Kept hidden' : 'Restored',
+      outcome === 'hidden' ? `The ${word} stays off the cafe.` : `The ${word} can show on the cafe again.`,
+    )
+  } catch (err) {
+    toast.error('Could not update this report', err, 'Could not update this report.')
   } finally {
     pendingOutcome.value = null
   }

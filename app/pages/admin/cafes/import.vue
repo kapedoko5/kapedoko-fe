@@ -123,10 +123,11 @@
             type="button"
             class="admin-btn"
             :disabled="!canCommitCrate(tickets) || saving"
+            :aria-busy="saving || undefined"
             aria-describedby="crate-dock-copy"
             @click="commitCrate"
           >
-            {{ saving ? 'Importing…' : importLabel }}
+            <AdminBusyLabel :busy="saving">{{ saving ? 'Importing…' : importLabel }}</AdminBusyLabel>
           </button>
         </div>
       </template>
@@ -135,6 +136,7 @@
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import {
   canCommitCrate,
@@ -157,6 +159,9 @@ definePageMeta({
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
+const { track: trackBusy } = useAdminBusy()
 const { shops, counts, status, error, load } = admin
 const router = useRouter()
 const dragging = ref(false)
@@ -215,6 +220,7 @@ const readFile = async (file: File) => {
   dragging.value = false
   if (!file.name.toLowerCase().endsWith('.csv') && file.type && file.type !== 'text/csv') {
     parseError.value = 'Choose a .csv file.'
+    toast.warning('Choose a CSV', parseError.value)
     return
   }
   try {
@@ -224,6 +230,7 @@ const readFile = async (file: File) => {
   } catch (err) {
     tickets.value = []
     parseError.value = err instanceof Error ? err.message : 'Could not read that CSV.'
+    toast.warning('Could not read that file', parseError.value)
   }
 }
 
@@ -267,16 +274,31 @@ const resetCrate = () => {
 
 const commitCrate = async () => {
   if (!canCommitCrate(tickets.value) || saving.value) return
+  const count = tally.value.keep
+  const choice = await askAdmin({
+    title: count === 1 ? 'Import 1 cafe?' : `Import ${count} cafes?`,
+    message: 'They land unpublished. Publish them from the cafe list when the addresses look right.',
+    confirmLabel: count === 1 ? 'Import cafe' : 'Import cafes',
+  })
+  if (!choice.confirmed) return
   saving.value = true
   admin.error.value = ''
   try {
-    const created = await admin.importShops(keptImportDrafts(tickets.value))
+    const created = await trackBusy(
+      count === 1 ? 'Importing 1 cafe…' : `Importing ${count} cafes…`,
+      () => admin.importShops(keptImportDrafts(tickets.value)),
+    )
+    toast.success(
+      'Cafes imported',
+      created.length === 1 ? '1 cafe landed unpublished.' : `${created.length} cafes landed unpublished.`,
+    )
     await router.push({
       path: '/admin/cafes',
       query: { imported: String(created.length) },
     })
   } catch (err) {
     admin.error.value = err instanceof Error ? err.message : 'Could not import these cafes.'
+    toast.error('Could not import', admin.error.value)
   } finally {
     saving.value = false
   }

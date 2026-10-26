@@ -15,8 +15,8 @@
           v-if="shop.status === 'approved'"
           type="button"
           class="admin-btn admin-btn--ghost"
-          :disabled="saving || deleting"
-          @click="unpublish"
+          :disabled="saving || acting"
+          @click="askAction('unpublish')"
         >
           Unpublish
         </button>
@@ -24,16 +24,16 @@
           v-else-if="shop.status === 'hidden'"
           type="button"
           class="admin-btn"
-          :disabled="saving || deleting"
-          @click="publish"
+          :disabled="saving || acting"
+          @click="askAction('publish')"
         >
           Publish
         </button>
         <button
           type="button"
           class="admin-btn admin-btn--danger"
-          :disabled="saving || deleting"
-          @click="askDelete"
+          :disabled="saving || acting"
+          @click="askAction('delete')"
         >
           Delete
         </button>
@@ -50,21 +50,21 @@
         <AdminCafeForm
           :key="shop.id"
           :shop="shop"
-          :saving="saving || deleting"
+          :saving="saving || acting"
           submit-label="Save changes"
           @save="onSave"
         />
       </div>
       <AdminConfirmDialog
-        :open="deleteOpen"
-        variant="destructive"
-        :title="shop ? deleteCafeTitle(shop.name) : ''"
-        :message="deleteCafeMessage()"
-        :confirm-label="deleteCafeAction()"
-        :busy-label="deleteCafeBusyLabel()"
-        :busy="deleting"
-        @confirm="confirmDelete"
-        @cancel="cancelDelete"
+        :open="Boolean(pending)"
+        :variant="pending ? cafeDeskConfirmVariant(pending) : 'default'"
+        :title="shop && pending ? cafeDeskConfirmTitle(pending, shop.name) : ''"
+        :message="pending ? cafeDeskConfirmMessage(pending) : ''"
+        :confirm-label="pending ? cafeDeskConfirmAction(pending) : ''"
+        :busy-label="pending ? cafeDeskBusyLabel(pending) : ''"
+        :busy="acting"
+        @confirm="confirmPending"
+        @cancel="cancelPending"
       />
     </AdminShell>
   </IonPage>
@@ -77,12 +77,16 @@ import AdminConfirmDialog from '~/components/admin/AdminConfirmDialog.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { ShopRow } from '~/types/shop'
 import {
-  deleteCafeAction,
-  deleteCafeBusyLabel,
-  deleteCafeMessage,
-  deleteCafeTitle,
+  cafeDeskBusyLabel,
+  cafeDeskConfirmAction,
+  cafeDeskConfirmMessage,
+  cafeDeskConfirmTitle,
+  cafeDeskConfirmVariant,
+  cafeDeskDoneCopy,
   shopStatusWord,
+  type CafeDeskAction,
 } from '~/utils/admin-shop'
+import { adminActionErrorMessage } from '~/utils/admin-feedback'
 import { shopIdFromRoute } from '~/utils/approved-shops'
 
 definePageMeta({
@@ -93,9 +97,10 @@ const route = useRoute()
 const ionRouter = useIonRouter()
 const admin = useAdminData()
 const { error, updateShop, moderate, deleteShop } = admin
+const toast = useAdminToast()
 const saving = ref(false)
-const deleting = ref(false)
-const deleteOpen = ref(false)
+const acting = ref(false)
+const pending = ref<Extract<CafeDeskAction, 'publish' | 'unpublish' | 'delete'> | null>(null)
 const formError = ref('')
 const shop = ref<ShopRow | null>(null)
 const lookingUp = ref(true)
@@ -156,54 +161,47 @@ const onSave = async (payload: Parameters<typeof updateShop>[1]) => {
   formError.value = ''
   try {
     shop.value = await updateShop(shop.value.id, payload)
+    toast.success('Changes saved', `${shop.value.name} is up to date.`)
   } catch (err) {
-    formError.value = err instanceof Error ? err.message : 'Could not save this cafe.'
+    formError.value = adminActionErrorMessage(err, 'Could not save this cafe.')
+    toast.error('Could not save this cafe', formError.value)
   } finally {
     saving.value = false
   }
 }
 
-const unpublish = async () => {
-  if (!shop.value) return
-  if (!window.confirm(`Unpublish ${shop.value.name}? It leaves Home and Map until you publish it again.`)) return
+const askAction = (action: Extract<CafeDeskAction, 'publish' | 'unpublish' | 'delete'>) => {
+  if (!shop.value || saving.value || acting.value) return
+  pending.value = action
+}
+
+const cancelPending = () => {
+  if (acting.value) return
+  pending.value = null
+}
+
+const confirmPending = async () => {
+  const action = pending.value
+  const current = shop.value
+  if (!action || !current || acting.value) return
+  acting.value = true
   try {
-    shop.value = await moderate(shop.value, 'hidden')
-  } catch {
-    /* shown in the admin shell */
-  }
-}
-
-const publish = async () => {
-  if (!shop.value) return
-  if (!window.confirm(`Publish ${shop.value.name}? It goes live on Home and Map.`)) return
-  try {
-    shop.value = await moderate(shop.value, 'approved')
-  } catch {
-    /* shown in the admin shell */
-  }
-}
-
-const askDelete = () => {
-  if (!shop.value || saving.value) return
-  deleteOpen.value = true
-}
-
-const cancelDelete = () => {
-  if (deleting.value) return
-  deleteOpen.value = false
-}
-
-const confirmDelete = async () => {
-  if (!shop.value || deleting.value) return
-  deleting.value = true
-  try {
-    await deleteShop(shop.value)
-    deleteOpen.value = false
-    await navigateTo('/admin/cafes')
-  } catch {
-    /* shown in the admin shell */
+    if (action === 'delete') {
+      await deleteShop(current)
+      pending.value = null
+      toast.success('Cafe deleted', cafeDeskDoneCopy('delete', current.name))
+      await navigateTo('/admin/cafes')
+      return
+    }
+    const next = action === 'unpublish' ? 'hidden' : 'approved'
+    shop.value = await moderate(current, next)
+    toast.success(action === 'unpublish' ? 'Unpublished' : 'Published', cafeDeskDoneCopy(action, current.name))
+    pending.value = null
+  } catch (err) {
+    const fallback = action === 'delete' ? 'Could not delete this cafe.' : 'Could not update this cafe.'
+    toast.error(action === 'delete' ? 'Could not delete' : 'Could not update this cafe', err, fallback)
   } finally {
-    deleting.value = false
+    acting.value = false
   }
 }
 
