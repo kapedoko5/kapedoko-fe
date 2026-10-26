@@ -15,7 +15,7 @@
           v-if="shop.status === 'approved'"
           type="button"
           class="admin-btn admin-btn--ghost"
-          :disabled="saving"
+          :disabled="saving || deleting"
           @click="unpublish"
         >
           Unpublish
@@ -24,10 +24,18 @@
           v-else-if="shop.status === 'hidden'"
           type="button"
           class="admin-btn"
-          :disabled="saving"
+          :disabled="saving || deleting"
           @click="publish"
         >
           Publish
+        </button>
+        <button
+          type="button"
+          class="admin-btn admin-btn--danger"
+          :disabled="saving || deleting"
+          @click="askDelete"
+        >
+          Delete
         </button>
       </template>
       <div v-if="shop" class="cafe-editor">
@@ -42,11 +50,22 @@
         <AdminCafeForm
           :key="shop.id"
           :shop="shop"
-          :saving="saving"
+          :saving="saving || deleting"
           submit-label="Save changes"
           @save="onSave"
         />
       </div>
+      <AdminConfirmDialog
+        :open="deleteOpen"
+        variant="destructive"
+        :title="shop ? deleteCafeTitle(shop.name) : ''"
+        :message="deleteCafeMessage()"
+        :confirm-label="deleteCafeAction()"
+        :busy-label="deleteCafeBusyLabel()"
+        :busy="deleting"
+        @confirm="confirmDelete"
+        @cancel="cancelDelete"
+      />
     </AdminShell>
   </IonPage>
 </template>
@@ -54,9 +73,16 @@
 <script lang="ts" setup>
 import { useIonRouter } from '@ionic/vue'
 import AdminCafeForm from '~/components/admin/AdminCafeForm.vue'
+import AdminConfirmDialog from '~/components/admin/AdminConfirmDialog.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { ShopRow } from '~/types/shop'
-import { shopStatusWord } from '~/utils/admin-shop'
+import {
+  deleteCafeAction,
+  deleteCafeBusyLabel,
+  deleteCafeMessage,
+  deleteCafeTitle,
+  shopStatusWord,
+} from '~/utils/admin-shop'
 import { shopIdFromRoute } from '~/utils/approved-shops'
 
 definePageMeta({
@@ -66,8 +92,10 @@ definePageMeta({
 const route = useRoute()
 const ionRouter = useIonRouter()
 const admin = useAdminData()
-const { error, updateShop, moderate } = admin
+const { error, updateShop, moderate, deleteShop } = admin
 const saving = ref(false)
+const deleting = ref(false)
+const deleteOpen = ref(false)
 const formError = ref('')
 const shop = ref<ShopRow | null>(null)
 const lookingUp = ref(true)
@@ -152,6 +180,30 @@ const publish = async () => {
     shop.value = await moderate(shop.value, 'approved')
   } catch {
     /* shown in the admin shell */
+  }
+}
+
+const askDelete = () => {
+  if (!shop.value || saving.value) return
+  deleteOpen.value = true
+}
+
+const cancelDelete = () => {
+  if (deleting.value) return
+  deleteOpen.value = false
+}
+
+const confirmDelete = async () => {
+  if (!shop.value || deleting.value) return
+  deleting.value = true
+  try {
+    await deleteShop(shop.value)
+    deleteOpen.value = false
+    await navigateTo('/admin/cafes')
+  } catch {
+    /* shown in the admin shell */
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -347,5 +399,9 @@ watch(
   .cafe-editor :deep(.details__day-controls select) {
     grid-column: 1 / -1;
   }
+}
+
+.admin-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kd-destructive) 88%, #1c1917);
 }
 </style>
