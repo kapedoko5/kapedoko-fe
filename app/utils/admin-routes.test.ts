@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ADMIN_NAV, adminNavIdFromPath, staffNav } from './admin-nav'
+import { ADMIN_NAV, adminBackNav, adminNavIdFromPath, staffNav } from './admin-nav'
 
 describe('admin routes', () => {
   test('covers every portal section under /admin', () => {
@@ -33,5 +33,41 @@ describe('admin routes', () => {
   test('auditors only see the audits section', () => {
     expect(staffNav('auditor').map((item) => item.id)).toEqual(['audits'])
     expect(staffNav('admin').map((item) => item.id)).toContain('cafes')
+  })
+
+  test('nested cafe pages return to the cafes index', () => {
+    expect(adminBackNav('/admin/cafes')).toBeNull()
+    expect(adminBackNav('/admin/cafes/new')).toEqual({ to: '/admin/cafes', label: 'Cafes' })
+    expect(adminBackNav('/admin/cafes/import')).toEqual({ to: '/admin/cafes', label: 'Cafes' })
+    expect(adminBackNav('/admin/cafes/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toEqual({
+      to: '/admin/cafes',
+      label: 'Cafes',
+    })
+  })
+
+  test('nested audit pages return to the audits index or cafe history', () => {
+    const shop = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+    expect(adminBackNav('/admin/audits')).toBeNull()
+    expect(adminBackNav('/admin/audits/new')).toEqual({ to: '/admin/audits', label: 'Audits' })
+    expect(adminBackNav('/admin/audits/new', { shop })).toEqual({
+      to: `/admin/audits/${shop}`,
+      label: 'Cafe audits',
+    })
+    expect(adminBackNav(`/admin/audits/new?shop=${shop}&corrects=1`, { shop })).toEqual({
+      to: `/admin/audits/${shop}`,
+      label: 'Cafe audits',
+    })
+    expect(adminBackNav('/admin/audits/new', { shop: 'not-a-shop' })).toEqual({
+      to: '/admin/audits',
+      label: 'Audits',
+    })
+    expect(adminBackNav(`/admin/audits/${shop}`)).toEqual({ to: '/admin/audits', label: 'Audits' })
+  })
+
+  test('section indexes do not grow a back control', () => {
+    expect(adminBackNav('/admin')).toBeNull()
+    expect(adminBackNav('/admin/requests')).toBeNull()
+    expect(adminBackNav('/admin/claims')).toBeNull()
+    expect(adminBackNav('/admin/users')).toBeNull()
   })
 })

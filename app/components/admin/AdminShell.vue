@@ -52,7 +52,13 @@
           >
             Menu
           </button>
-          <div class="admin-shell__heading">
+          <div class="admin-shell__heading" :class="{ 'has-back': Boolean(backNav) }">
+            <AdminBackButton
+              v-if="backNav"
+              :to="backNav.to"
+              :label="backNav.label"
+              @navigate="go"
+            />
             <h1>{{ title }}</h1>
             <p v-if="lede">{{ lede }}</p>
           </div>
@@ -84,11 +90,12 @@
 
 <script lang="ts" setup>
 import { IonContent, useIonRouter } from '@ionic/vue'
+import AdminBackButton from '~/components/admin/AdminBackButton.vue'
 import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminBusyOverlay from '~/components/admin/AdminBusyOverlay.vue'
 import AdminConfirmHost from '~/components/admin/AdminConfirmHost.vue'
 import AdminToastStack from '~/components/admin/AdminToastStack.vue'
-import { adminNavIdFromPath, staffNav } from '~/utils/admin-nav'
+import { adminBackNav, adminNavIdFromPath, staffNav } from '~/utils/admin-nav'
 import { isForeignSurface, isSameAppPath, resolveAppPath } from '~/utils/app-tabs'
 
 const props = withDefaults(
@@ -101,6 +108,13 @@ const props = withDefaults(
     claimCount?: number
     navRole?: 'admin' | 'auditor'
     layout?: 'cafe'
+    /**
+     * Override the resolved parent path. Nested cafe/audit routes already
+     * resolve on their own; pass this only when a page needs a different parent.
+     */
+    backTo?: string
+    /** Override the visible destination name next to the chevron. */
+    backLabel?: string
   }>(),
   {
     pendingCount: 0,
@@ -139,6 +153,14 @@ const hideOwnedPage = () => {
 const browserPath = () => (
   import.meta.client ? `${window.location.pathname}${window.location.hash}` : ''
 )
+
+const backNav = computed(() => {
+  const label = props.backLabel?.trim()
+  if (props.backTo) return { to: props.backTo, label: label || 'Back' }
+  const auto = adminBackNav(resolveAppPath(route.path, browserPath()), route.query)
+  if (!auto) return null
+  return label ? { ...auto, label } : auto
+})
 
 const settleAdminPages = () => {
   const pages = [...document.querySelectorAll('ion-router-outlet .ion-page')]
@@ -387,6 +409,21 @@ watch(() => route.path, (path) => {
 .admin-shell__heading {
   flex: 1;
   min-width: 0;
+}
+
+.admin-shell__heading.has-back {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.admin-shell__heading.has-back :deep(.admin-back) {
+  margin: -8px 0 -4px -10px;
+}
+
+.admin-shell__heading.has-back h1 {
+  overflow-wrap: anywhere;
 }
 
 .admin-shell__heading h1 {
@@ -945,7 +982,8 @@ watch(() => route.path, (path) => {
 .admin-shell__link:focus-visible,
 .admin-shell__menu:focus-visible,
 .admin-shell__close:focus-visible,
-.admin-shell__back:focus-visible {
+.admin-shell__back:focus-visible,
+.admin-shell :deep(.admin-back:focus-visible) {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;
 }

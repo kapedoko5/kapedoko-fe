@@ -8,10 +8,6 @@
       :pending-count="counts.pending"
       :claim-count="counts.pendingClaims"
     >
-      <template #actions>
-        <NuxtLink class="admin-btn admin-btn--quiet" to="/admin/cafes">Back to cafes</NuxtLink>
-      </template>
-
       <label
         v-if="tickets.length === 0"
         class="crate-drop"
