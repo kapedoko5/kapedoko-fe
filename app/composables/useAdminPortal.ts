@@ -2,6 +2,11 @@ import type { AdCampaignRow, AdminDashboardCounts, AdminUserRow, AdminUsersRespo
 import type { ContentReportRow, MarkerTier, ProfileRole, ProfileRow, ShopClaimRow, ShopPlacementRow, ShopRow, ShopStatus, WeeklyHours } from '~/types/shop'
 import { authUserId } from '~/utils/auth'
 import { adminLogoPayload } from '~/utils/admin-logos'
+import {
+  missingDeleteAdminShopCopy,
+  parseDeletedAdminShop,
+  uniqueDeletableAdminObjectKeys,
+} from '~/utils/admin-shop'
 import { fetchAdminShopRows } from '~/utils/approved-shops'
 import { chunkImportDrafts, pendingImportDrafts } from '~/utils/cafe-csv-import'
 import { isValidWeeklyHours } from '~/utils/hours'
@@ -53,6 +58,15 @@ export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'ad-ba
   return payload.objectKey
 }
 
+export async function deleteAdminAssets(objectKeys: string[]): Promise<void> {
+  const keys = uniqueDeletableAdminObjectKeys(objectKeys)
+  if (keys.length === 0) return
+  const supabase = useSupabaseClient<AdminDatabase>()
+  await supabase.functions.invoke('presign-upload', {
+    body: { action: 'delete-objects', objectKeys: keys },
+  }).catch(() => undefined)
+}
+
 export function useAdminData() {
   const supabase = useSupabaseClient<AdminDatabase>()
   const shops = useState<ShopRow[]>('kd-admin-shops', () => [])
@@ -73,6 +87,15 @@ export function useAdminData() {
       return
     }
     shops.value = shops.value.map((item) => (item.id === row.id ? row : item))
+  }
+
+  const dropShop = (shopId: string) => {
+    loadSeq.value += 1
+    shops.value = shops.value.filter((item) => item.id !== shopId)
+    placements.value = placements.value.filter((row) => row.shop_id !== shopId)
+    ads.value = ads.value.filter((row) => row.shop_id !== shopId)
+    claims.value = claims.value.filter((row) => row.shop_id !== shopId)
+    reports.value = reports.value.filter((row) => row.shop_id !== shopId)
   }
 
   const placementsByShop = computed(() => {
@@ -565,6 +588,32 @@ export function useAdminData() {
     return updated
   }
 
+  const deleteShop = async (shop: ShopRow) => {
+    savingId.value = shop.id
+    error.value = ''
+    try {
+      const { data, error: rpcError } = await supabase.rpc('delete_admin_shop', {
+        p_shop_id: shop.id,
+      })
+      if (rpcError) {
+        throw new Error(
+          missingDeleteAdminShopCopy(rpcError.message)
+          || rpcError.message
+          || 'Could not delete this cafe.',
+        )
+      }
+      const deleted = parseDeletedAdminShop(data) ?? { id: shop.id, name: shop.name, objectKeys: [] }
+      dropShop(deleted.id)
+      void deleteAdminAssets(deleted.objectKeys)
+      return deleted
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Could not delete this cafe.'
+      throw err
+    } finally {
+      savingId.value = null
+    }
+  }
+
   const resolveReport = async (reportId: string, outcome: 'hidden' | 'dismissed') => {
     savingId.value = reportId
     try {
@@ -687,6 +736,7 @@ export function useAdminData() {
     updateShop,
     updateShopLogo,
     updateShopLogos,
+    deleteShop,
     resolveReport,
     saveAd,
     cancelAd,

@@ -2,7 +2,7 @@
   <IonPage>
     <AdminShell
       title="Cafes"
-      lede="Search, edit, or publish a cafe immediately. Location is not limited to Metro Manila."
+      lede="Search, edit, publish, or delete a cafe immediately. Location is not limited to Metro Manila."
       :status="status"
       :error="error"
       :pending-count="counts.pending"
@@ -137,29 +137,14 @@
                 <td>{{ shop.address }}</td>
                 <td class="cafe-when">{{ formatAdminDate(shop.updated_at) }}</td>
                 <td>
-                  <div class="cafe-actions">
-                    <NuxtLink class="cafe-edit" :to="`/admin/cafes/${shop.id}`">Edit</NuxtLink>
-                    <button
-                      v-if="shop.status === 'approved'"
-                      type="button"
-                      class="cafe-warn"
-                      :disabled="savingId === shop.id"
-                      :aria-label="`Unpublish ${shop.name}`"
-                      @click="unpublish(shop)"
-                    >
-                      {{ savingId === shop.id ? 'Unpublishing…' : 'Unpublish' }}
-                    </button>
-                    <button
-                      v-else-if="shop.status === 'hidden'"
-                      type="button"
-                      class="cafe-edit"
-                      :disabled="savingId === shop.id"
-                      :aria-label="`Publish ${shop.name}`"
-                      @click="publish(shop)"
-                    >
-                      {{ savingId === shop.id ? 'Publishing…' : 'Publish' }}
-                    </button>
-                  </div>
+                  <AdminCafeActionsMenu
+                    :shop="shop"
+                    :open="menuShopId === shop.id"
+                    :busy="savingId === shop.id"
+                    @toggle="toggleMenu(shop.id)"
+                    @close="closeMenu"
+                    @select="onMenuAction(shop, $event)"
+                  />
                 </td>
               </tr>
             </tbody>
@@ -193,6 +178,15 @@
               <h2>
                 <NuxtLink class="cafe-name" :to="`/admin/cafes/${shop.id}`">{{ shop.name }}</NuxtLink>
               </h2>
+              <AdminCafeActionsMenu
+                class="cafe-menu-slot"
+                :shop="shop"
+                :open="menuShopId === shop.id"
+                :busy="savingId === shop.id"
+                @toggle="toggleMenu(shop.id)"
+                @close="closeMenu"
+                @select="onMenuAction(shop, $event)"
+              />
             </div>
             <p>
               <span class="cafe-stamp" :class="`cafe-stamp--${shop.status}`">
@@ -201,29 +195,6 @@
               </span>
             </p>
             <p>{{ shop.address }}</p>
-            <div class="cafe-actions">
-              <NuxtLink class="cafe-edit" :to="`/admin/cafes/${shop.id}`">Edit</NuxtLink>
-              <button
-                v-if="shop.status === 'approved'"
-                type="button"
-                class="cafe-warn"
-                :disabled="savingId === shop.id"
-                :aria-label="`Unpublish ${shop.name}`"
-                @click="unpublish(shop)"
-              >
-                {{ savingId === shop.id ? 'Unpublishing…' : 'Unpublish' }}
-              </button>
-              <button
-                v-else-if="shop.status === 'hidden'"
-                type="button"
-                class="cafe-edit"
-                :disabled="savingId === shop.id"
-                :aria-label="`Publish ${shop.name}`"
-                @click="publish(shop)"
-              >
-                {{ savingId === shop.id ? 'Publishing…' : 'Publish' }}
-              </button>
-            </div>
           </article>
         </div>
 
@@ -268,14 +239,30 @@
         </div>
       </div>
 
+      <AdminConfirmDialog
+        :open="Boolean(pendingAction)"
+        :variant="pendingAction ? cafeDeskConfirmVariant(pendingAction.kind) : 'default'"
+        :title="pendingAction ? cafeDeskConfirmTitle(pendingAction.kind, pendingAction.shop.name) : ''"
+        :message="pendingAction ? cafeDeskConfirmMessage(pendingAction.kind) : ''"
+        :confirm-label="pendingAction ? cafeDeskConfirmAction(pendingAction.kind) : ''"
+        :busy-label="pendingAction ? cafeDeskBusyLabel(pendingAction.kind) : ''"
+        :busy="Boolean(pendingAction && savingId === pendingAction.shop.id)"
+        :prompt-label="pendingAction?.kind === 'reject' ? 'Why this listing stays off Home and Map' : ''"
+        v-model:prompt-value="rejectReason"
+        :prompt-error="rejectIssue"
+        @confirm="confirmPending"
+        @cancel="cancelPending"
+      />
     </AdminShell>
   </IonPage>
 </template>
 
 <script lang="ts" setup>
 import { onIonViewWillEnter } from '@ionic/vue'
+import AdminCafeActionsMenu from '~/components/admin/AdminCafeActionsMenu.vue'
 import AdminCafeLogoButton from '~/components/admin/AdminCafeLogoButton.vue'
 import AdminCafeLogoDialog from '~/components/admin/AdminCafeLogoDialog.vue'
+import AdminConfirmDialog from '~/components/admin/AdminConfirmDialog.vue'
 import AdminPendingRail from '~/components/admin/AdminPendingRail.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { ShopRow, ShopStatus } from '~/types/shop'
@@ -288,19 +275,36 @@ import {
 } from '~/utils/admin-logos'
 import { formatAdminDate } from '~/utils/admin-nav'
 import { ledgerPageCount, ledgerPageRange, ledgerPageSlice, ledgerPageTokens } from '~/utils/admin-ledger'
-import { shopStatusWord } from '~/utils/admin-shop'
+import { adminActionErrorMessage } from '~/utils/admin-feedback'
+import {
+  cafeDeskBusyLabel,
+  cafeDeskConfirmAction,
+  cafeDeskConfirmMessage,
+  cafeDeskConfirmTitle,
+  cafeDeskConfirmVariant,
+  cafeDeskDoneCopy,
+  shopStatusWord,
+  type CafeDeskAction,
+} from '~/utils/admin-shop'
+import { requestRejectionReasonError } from '~/utils/cafe-requests'
 
 definePageMeta({
   middleware: ['auth', 'admin'],
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const route = useRoute()
 const config = useRuntimeConfig()
-const { shops, counts, status, error, savingId, load, moderate, updateShopLogos } = admin
+const { shops, counts, status, error, savingId, load, moderate, updateShopLogos, deleteShop } = admin
 const publicBase = String(config.public.r2PublicBaseUrl || '')
 const query = ref('')
 const logoShop = ref<ShopRow | null>(null)
+const menuShopId = ref<string | null>(null)
+const pendingAction = ref<{ shop: ShopRow; kind: Exclude<CafeDeskAction, 'edit'> } | null>(null)
+const rejectReason = ref('')
+const rejectIssue = ref('')
 const selectedIds = ref<Set<string>>(new Set())
 const stampNotice = ref('')
 const pageTickEl = ref<HTMLInputElement | null>(null)
@@ -353,8 +357,17 @@ const busy = computed(() => Boolean(savingId.value))
 const pageTick = computed(() => logoTickState(paged.value.map((shop) => shop.id), selectedIds.value))
 const selectedShops = computed(() => shops.value.filter((shop) => selectedIds.value.has(shop.id)))
 
+const closeMenu = () => {
+  menuShopId.value = null
+}
+
+const toggleMenu = (id: string) => {
+  menuShopId.value = menuShopId.value === id ? null : id
+}
+
 watch([query, statusFilter], () => {
   page.value = 1
+  closeMenu()
 })
 
 watch(pageCount, (count) => {
@@ -377,6 +390,7 @@ const scrollLedgerIntoView = async (el: HTMLElement) => {
 const goToPage = (next: number) => {
   const target = Math.min(Math.max(1, next), pageCount.value)
   if (target === currentPage.value) return
+  closeMenu()
   page.value = target
   void nextTick(() => {
     const el = ledgerEl.value
@@ -387,6 +401,7 @@ const goToPage = (next: number) => {
 const statusWord = shopStatusWord
 
 const openLogoPicker = (shop: ShopRow) => {
+  closeMenu()
   stampNotice.value = ''
   if (!logoShop.value) {
     selectedIds.value = new Set([shop.id])
@@ -448,14 +463,22 @@ const assignLogo = async (payload: { logoFile: File | null; logoObjectKey: strin
       payload.logoObjectKey,
       Boolean(payload.logoFile),
     )
-    if (!window.confirm(stampLogoConfirmCopy(queue.length, overwrite))) return
+    const choice = await askAdmin({
+      title: 'Stamp this logo?',
+      message: stampLogoConfirmCopy(queue.length, overwrite),
+      confirmLabel: 'Stamp logo',
+      variant: overwrite > 0 ? 'warning' : 'default',
+    })
+    if (!choice.confirmed) return
   }
   try {
     const done = await updateShopLogos(queue, payload)
-    stampNotice.value = stampLogoDoneCopy(done.length)
+    const copy = stampLogoDoneCopy(done.length)
+    stampNotice.value = copy
+    toast.success('Logo stamped', copy)
     closeLogoPicker()
-  } catch {
-    /* shown in the admin shell */
+  } catch (err) {
+    toast.error('Could not stamp this logo', err, 'Could not stamp this logo.')
   }
 }
 
@@ -463,21 +486,52 @@ watch(pageTick, (state) => {
   if (pageTickEl.value) pageTickEl.value.indeterminate = state === 'some'
 })
 
-const unpublish = async (shop: ShopRow) => {
-  if (!window.confirm(`Unpublish ${shop.name}? It leaves Home and Map until you publish it again.`)) return
-  try {
-    await moderate(shop, 'hidden')
-  } catch {
-    /* shown in the admin shell */
-  }
+const onMenuAction = (shop: ShopRow, action: Exclude<CafeDeskAction, 'edit'>) => {
+  closeMenu()
+  rejectReason.value = ''
+  rejectIssue.value = ''
+  pendingAction.value = { shop, kind: action }
 }
 
-const publish = async (shop: ShopRow) => {
-  if (!window.confirm(`Publish ${shop.name}? It goes live on Home and Map.`)) return
+const cancelPending = () => {
+  if (pendingAction.value && savingId.value === pendingAction.value.shop.id) return
+  pendingAction.value = null
+  rejectReason.value = ''
+  rejectIssue.value = ''
+}
+
+const confirmPending = async () => {
+  const current = pendingAction.value
+  if (!current) return
+  if (current.kind === 'reject') {
+    const issue = requestRejectionReasonError(rejectReason.value)
+    rejectIssue.value = issue || ''
+    if (issue) return
+  }
   try {
-    await moderate(shop, 'approved')
-  } catch {
-    /* shown in the admin shell */
+    if (current.kind === 'delete') {
+      await deleteShop(current.shop)
+      if (logoShop.value?.id === current.shop.id) closeLogoPicker()
+      else {
+        const next = new Set(selectedIds.value)
+        next.delete(current.shop.id)
+        selectedIds.value = next
+      }
+    } else if (current.kind === 'unpublish') {
+      await moderate(current.shop, 'hidden')
+    } else if (current.kind === 'reject') {
+      await moderate(current.shop, 'rejected', rejectReason.value.trim())
+    } else {
+      await moderate(current.shop, 'approved')
+    }
+    const copy = cafeDeskDoneCopy(current.kind, current.shop.name)
+    stampNotice.value = copy
+    toast.success(cafeDeskConfirmAction(current.kind), copy)
+    pendingAction.value = null
+    rejectReason.value = ''
+    rejectIssue.value = ''
+  } catch (err) {
+    toast.error('Could not update this cafe', err, adminActionErrorMessage(err, 'Could not update this cafe.'))
   }
 }
 
@@ -610,8 +664,13 @@ onIonViewWillEnter(() => {
   min-width: 0;
 }
 
+.cafe-menu-slot {
+  margin-left: auto;
+}
+
 .cafe-identity h2 {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .cafe-name {
@@ -699,66 +758,6 @@ onIonViewWillEnter(() => {
 .cafe-board.admin-ledger th:last-child,
 .cafe-board.admin-ledger td:last-child {
   width: 1%;
-  white-space: nowrap;
-}
-
-.cafe-actions {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-}
-
-.cafe-edit,
-.cafe-warn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 16px;
-  font: inherit;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.cafe-edit {
-  border: 1px solid var(--kd-primary);
-  background: transparent;
-  color: var(--kd-primary);
-}
-
-.cafe-warn {
-  border: 1px solid var(--kd-destructive);
-  background: var(--kd-destructive);
-  color: var(--kd-white);
-}
-
-.cafe-edit:hover {
-  background: color-mix(in srgb, var(--kd-primary) 10%, #faf8f5);
-}
-
-.cafe-warn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--kd-destructive) 88%, #1c1917);
-}
-
-.cafe-edit:focus-visible,
-.cafe-warn:focus-visible {
-  outline: 2px solid var(--kd-primary);
-  outline-offset: 2px;
-}
-
-.cafe-edit:active,
-.cafe-warn:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.cafe-warn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .cafe-pages {
@@ -842,23 +841,12 @@ onIonViewWillEnter(() => {
 }
 
 @media (max-width: 767px) {
-  .cafe-actions {
-    justify-content: flex-start;
-  }
-
-  .cafe-edit,
-  .cafe-warn {
-    flex: 1 1 0;
-  }
-
   .cafe-stamp-pad :deep(.admin-btn) {
     flex: 1 1 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cafe-edit:active,
-  .cafe-warn:active:not(:disabled),
   .cafe-page:active:not(:disabled),
   .cafe-stamp-pad :deep(.admin-btn) {
     transform: none;

@@ -52,8 +52,10 @@
         </p>
         <div class="admin-span admin-row-actions">
           <p v-if="formError" class="admin-error">{{ formError }}</p>
-          <button class="admin-btn" type="submit" :disabled="saving">
-            {{ editingId ? 'Save changes' : 'Schedule banner' }}
+          <button class="admin-btn" type="submit" :disabled="saving" :aria-busy="saving || undefined">
+            <AdminBusyLabel :busy="saving">
+              {{ saving ? 'Saving…' : (editingId ? 'Save changes' : 'Schedule banner') }}
+            </AdminBusyLabel>
           </button>
           <button
             v-if="editingId"
@@ -96,9 +98,13 @@
                     v-if="ad.enabled && !ad.cancelled_at"
                     type="button"
                     class="admin-btn admin-btn--quiet"
-                    @click="cancelAd(ad.id)"
+                    :disabled="endingId === ad.id || saving"
+                    :aria-busy="endingId === ad.id || undefined"
+                    @click="onEndAd(ad)"
                   >
-                    End now
+                    <AdminBusyLabel :busy="endingId === ad.id">
+                      {{ endingId === ad.id ? 'Ending…' : 'End now' }}
+                    </AdminBusyLabel>
                   </button>
                 </div>
               </td>
@@ -125,9 +131,13 @@
               v-if="ad.enabled && !ad.cancelled_at"
               type="button"
               class="admin-btn admin-btn--quiet"
-              @click="cancelAd(ad.id)"
+              :disabled="endingId === ad.id || saving"
+              :aria-busy="endingId === ad.id || undefined"
+              @click="onEndAd(ad)"
             >
-              End now
+              <AdminBusyLabel :busy="endingId === ad.id">
+                {{ endingId === ad.id ? 'Ending…' : 'End now' }}
+              </AdminBusyLabel>
             </button>
           </div>
         </article>
@@ -137,9 +147,11 @@
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminSearchPicker from '~/components/admin/AdminSearchPicker.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { AdCampaignRow } from '~/types/admin'
+import { adminActionErrorMessage } from '~/utils/admin-feedback'
 import { bannerAspectError, bannerFileError, campaignWindowError, isAdCampaignActive } from '~/utils/admin-ads'
 import { formatAdminDate, toLocalInput } from '~/utils/admin-nav'
 import { cafePickerOptions } from '~/utils/admin-picker'
@@ -150,9 +162,11 @@ definePageMeta({
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const config = useRuntimeConfig()
 const publicBase = String(config.public.r2PublicBaseUrl || '')
-const { shops, ads, status, error, load, saveAd, cancelAd } = admin
+const { shops, ads, status, error, load, saveAd, cancelAd: cancelAdRow } = admin
 const formRef = ref<HTMLFormElement | null>(null)
 const emptyDraft = () => ({
   shopId: '',
@@ -168,6 +182,7 @@ const preview = ref('')
 const previewIsBlob = ref(false)
 const formError = ref('')
 const saving = ref(false)
+const endingId = ref('')
 const editingId = ref('')
 const cafeOptions = computed(() => cafePickerOptions(shops.value))
 const pickerStatus = computed(() => {
@@ -227,6 +242,7 @@ const onFile = async (event: Event) => {
   if (issue) {
     input.value = ''
     formError.value = issue
+    toast.warning('Check the banner', issue)
     return
   }
   formError.value = ''
@@ -245,19 +261,25 @@ const onFile = async (event: Event) => {
     draft.file = null
     clearPreview()
     if (draft.bannerObjectKey) preview.value = publicObjectUrl(draft.bannerObjectKey, publicBase) ?? ''
+    toast.warning('Check the banner', formError.value)
   }
 }
 
 const onSave = async () => {
   if (!draft.shopId) {
     formError.value = 'Choose an approved cafe.'
+    toast.warning('Choose a cafe', formError.value)
     return
   }
   formError.value = campaignWindowError(draft.startsAt, draft.endsAt)
     ?? bannerFileError(draft.file, !draft.bannerObjectKey)
     ?? ''
-  if (formError.value) return
+  if (formError.value) {
+    toast.warning('Check the banner', formError.value)
+    return
+  }
   saving.value = true
+  const wasEdit = Boolean(editingId.value)
   try {
     const saved = await saveAd({
       id: editingId.value || undefined,
@@ -275,10 +297,34 @@ const onSave = async () => {
     draft.bannerObjectKey = saved.banner_object_key
     clearPreview()
     preview.value = publicObjectUrl(saved.banner_object_key, publicBase) ?? ''
+    toast.success(wasEdit ? 'Banner saved' : 'Banner scheduled', shopName(saved.shop_id))
   } catch (err) {
-    formError.value = err instanceof Error ? err.message : 'Could not save this ad.'
+    formError.value = adminActionErrorMessage(err, 'Could not save this ad.')
+    toast.error('Could not save this ad', formError.value)
   } finally {
     saving.value = false
+  }
+}
+
+const onEndAd = async (ad: AdCampaignRow) => {
+  const name = shopName(ad.shop_id)
+  const choice = await askAdmin({
+    title: `End this banner for ${name}?`,
+    message: 'It leaves Home immediately.',
+    confirmLabel: 'End banner',
+    variant: 'destructive',
+  })
+  if (!choice.confirmed) return
+  endingId.value = ad.id
+  try {
+    await cancelAdRow(ad.id)
+    if (editingId.value === ad.id) resetDraft()
+    toast.success('Banner ended', `${name} is off Home.`)
+  } catch (err) {
+    formError.value = adminActionErrorMessage(err, 'Could not end this ad.')
+    toast.error('Could not end this ad', formError.value)
+  } finally {
+    endingId.value = ''
   }
 }
 
