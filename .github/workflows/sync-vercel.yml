@@ -9,7 +9,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Push branch to kapedoko5
+        env:
+          VERCEL_REPO_TOKEN: ${{ secrets.VERCEL_REPO_TOKEN }}
         run: |
-          git remote add vercel "https://x-access-token:${{ secrets.VERCEL_REPO_TOKEN }}@github.com/kapedoko5/kapedoko-fe.git"
+          if [ -z "$VERCEL_REPO_TOKEN" ]; then
+            echo "VERCEL_REPO_TOKEN is empty. Add it as a repository secret on KapeDoko/kapedoko-fe."
+            exit 1
+          fi
+          git remote add vercel "https://x-access-token:${VERCEL_REPO_TOKEN}@github.com/kapedoko5/kapedoko-fe.git"
           git push vercel "HEAD:${{ github.ref_name }}"
