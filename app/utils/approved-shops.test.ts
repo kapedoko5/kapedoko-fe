@@ -8,6 +8,7 @@ import {
   fetchAmenityRowsForShopIds,
   fetchApprovedCafePage,
   fetchApprovedCafes,
+  fetchApprovedPickerRows,
   fetchPages,
   groupAmenityRows,
   POSTGREST_PAGE_SIZE,
@@ -35,6 +36,27 @@ describe('approved shop catalog fetch', () => {
     })
     expect(starts).toEqual([0, POSTGREST_PAGE_SIZE])
     expect(rows).toHaveLength(POSTGREST_PAGE_SIZE + 1)
+  })
+
+  test('loads every approved picker cafe past the PostgREST 1000-row cap', async () => {
+    const shops = Array.from({ length: 1498 }, (_, index) => shopRow(index + 1))
+    const starts: number[] = []
+    const rows = await fetchApprovedPickerRows({
+      from() {
+        return {
+          select() { return this },
+          eq() { return this },
+          order() { return this },
+          range(from: number, to: number) {
+            starts.push(from)
+            return Promise.resolve({ data: shops.slice(from, to + 1), error: null })
+          },
+        }
+      },
+    })
+    expect(starts).toEqual([0, POSTGREST_PAGE_SIZE])
+    expect(rows).toHaveLength(1498)
+    expect(rows.at(-1)?.name).toBe('Cafe 1498')
   })
 
   test('loads every admin shop past the PostgREST 1000-row cap', async () => {

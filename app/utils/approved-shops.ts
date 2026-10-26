@@ -77,6 +77,9 @@ export const SHOP_ID_GET_CHUNK = 8
 export const SHOP_ID_MIN_CHUNK = 1
 export const POSTGREST_PAGE_SIZE = 1000
 export const SIDECAR_RPC = 'shop_card_sidecars'
+export const PICKER_SHOP_COLUMNS = 'id,name,address,status'
+
+export type PickerShopRow = Pick<ShopRow, 'id' | 'name' | 'address' | 'status'>
 
 const AMENITY_RESOLUTION_COLUMNS =
   'shop_id,amenity_key,availability,confidence,source_at,decided_count,yes_count,no_count,is_stale,needs_recheck,wifi_speed,wifi_time_limit,outlet_reliability'
@@ -344,6 +347,20 @@ export async function fetchAdminShopRows(supabase: ShopClient): Promise<ShopRow[
       .order('id', { ascending: false })
       .range(from, to),
   )
+}
+
+/** Name and address only, paged past the PostgREST 1000-row cap. */
+export async function fetchApprovedPickerRows(supabase: ShopClient): Promise<PickerShopRow[]> {
+  const rows = await fetchPages<PickerShopRow>((from, to) =>
+    supabase
+      .from('shops')
+      .select(PICKER_SHOP_COLUMNS)
+      .eq('status', 'approved')
+      .order('name')
+      .order('id')
+      .range(from, to),
+  )
+  return rows.filter((shop) => shop.status === 'approved')
 }
 
 export async function fetchApprovedShopRows(
