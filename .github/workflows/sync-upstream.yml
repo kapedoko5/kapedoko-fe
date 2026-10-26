@@ -1,0 +1,43 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: "0 * * * *" # hourly
+  workflow_dispatch:
+    inputs:
+      upstream_repository:
+        description: "Upstream repository (owner/name)"
+        required: true
+        default: "KapeDoko/kapedoko-fe"
+      upstream_branch:
+        description: "Upstream branch"
+        required: true
+        default: "release/v0.1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync from upstream
+        env:
+          UPSTREAM_REPOSITORY: ${{ inputs.upstream_repository || 'KapeDoko/kapedoko-fe' }}
+          UPSTREAM_BRANCH: ${{ inputs.upstream_branch || 'release/v0.1.0' }}
+          UPSTREAM_READ_TOKEN: ${{ secrets.UPSTREAM_READ_TOKEN }}
+        run: |
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
+          git -c http.extraheader="AUTHORIZATION: bearer ${UPSTREAM_READ_TOKEN}" \
+            fetch upstream "$UPSTREAM_BRANCH"
+
+          git checkout "$UPSTREAM_BRANCH" 2>/dev/null || \
+            git checkout -b "$UPSTREAM_BRANCH"
+
+          git merge --ff-only "upstream/$UPSTREAM_BRANCH"
+          git push origin "$UPSTREAM_BRANCH"
