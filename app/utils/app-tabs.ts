@@ -65,6 +65,11 @@ export function isOnboardingPath(path: string): boolean {
   return current === '/app/onboarding' || current.startsWith('/app/onboarding/')
 }
 
+/** Marketing landing at `/`. Not an app shell, not a splash redirect. */
+export function isLandingPath(path: string): boolean {
+  return pathFromHref(path) === '/'
+}
+
 /** App routes where the shell tab bar must stay hidden (everything except home, saved, profile). */
 export function isAppTabBarHiddenRoute(path: string): boolean {
   const current = pathFromHref(path)
@@ -80,11 +85,11 @@ export function isAppShellPath(path: string): boolean {
 
 export type AppTabBarMode = 'show' | 'hide'
 
-/** Tab bar for a single current path. `/` is undecided (splash / redirect). */
+/** Tab bar for a single current path. `/` is the marketing landing and stays hidden. */
 export function tabBarModeForPath(path: string): AppTabBarMode | null {
   const current = pathFromHref(path)
-  if (!current || current === '/') return null
-  if (isForeignSurface(current) || isOnboardingPath(current) || isAppTabBarHiddenRoute(current)) return 'hide'
+  if (!current) return null
+  if (isLandingPath(current) || isForeignSurface(current) || isOnboardingPath(current) || isAppTabBarHiddenRoute(current)) return 'hide'
   if (isAppTabRoute(current)) return 'show'
   return 'hide'
 }

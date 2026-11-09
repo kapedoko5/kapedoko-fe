@@ -1,0 +1,23 @@
+{
+  "scanned": "2026-11-09",
+  "findings": {
+    "fonts": "Kumbh Sans variable via Google Fonts (nuxt.config.ts L26–34); Satoshi leftover @font-face unused",
+    "palette": "DESIGN.md locked: shelf #F2F2F2, stock #FAF8F5, ink #1c1917, teal #1F6F6B, orange #D9793B, brick #8c3a2f. tokens.css still carries old enamel/chrome names; landing uses hex literals",
+    "motion": "No framer-motion. CSS keyframes: bag settle 460ms, reprint clip 520ms, stamp press. prefers-reduced-motion present",
+    "spacing": "DESIGN.md 4px scale (4/8/12/16/20/32/40/48). Landing has 6/10/14px off-scale gaps",
+    "framework": "Nuxt 4 + Ionic Vue + Tailwind + shadcn-vue. Capacitor native shells skip /",
+    "brand": "Raster wordmark kapedoko-horizontal-text_dark.png; product name kapé DOKO / KapeDoko",
+    "together": "TOGETHER_API_KEY unset"
+  },
+  "preserve": [
+    "DESIGN.md locked coffee-bag-label system",
+    "Kumbh Sans, teal/orange/ink/shelf/stock",
+    "Landing wiring: /app, /login, /register, /privacy, filter reprint, native skip",
+    "Content facts already on the page"
+  ],
+  "introduce": [
+    "Hallmark floor tokens for landing (no new brand)",
+    "Hero discipline and capped container",
+    "Stamp, sloplint, copy gates within DESIGN.md"
+  ]
+}

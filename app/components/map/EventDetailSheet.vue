@@ -6,20 +6,36 @@
     :handle="compact"
     :handle-behavior="compact ? 'cycle' : undefined"
     :backdrop-breakpoint="compact ? EXPANDED : undefined"
+    :expand-to-scroll="false"
     :show-backdrop="false"
     class="event-detail-modal"
     @didPresent="onPresent"
     @didDismiss="onDismiss"
   >
-    <div class="event-sheet">
+    <IonHeader class="event-sheet-header ion-no-border" :class="{ 'is-compact': compact }">
+      <div class="event-sheet-header__row">
+        <h2>{{ event?.name }}</h2>
+        <button
+          type="button"
+          class="event-sheet-header__close"
+          aria-label="Close event details"
+          @pointerdown.stop
+          @click.stop="onClose"
+        >
+          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+            <path d="M5 5l14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+    </IonHeader>
+    <IonContent :scroll-y="true" class="event-sheet-body">
       <EventDetailContent
         v-if="event"
         :event="event"
         variant="sheet"
-        :show-close="!compact"
-        @close="onClose"
+        :show-header="false"
       />
-    </div>
+    </IonContent>
   </IonModal>
 </template>
 
@@ -88,15 +104,6 @@ ion-modal.event-detail-modal .ion-page {
   overflow: hidden;
 }
 
-.event-sheet {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  height: 100%;
-  overflow: hidden;
-}
-
 ion-modal.event-detail-modal::part(handle) {
   width: 50px;
   height: 5px;
@@ -105,4 +112,75 @@ ion-modal.event-detail-modal::part(handle) {
   background: color-mix(in srgb, #1c1917 25%, transparent);
 }
 
+ion-modal.event-detail-modal .event-sheet-header {
+  position: relative;
+  z-index: 6;
+  flex: 0 0 auto;
+  background: #ffffff;
+  box-shadow: none;
+  pointer-events: auto;
+}
+
+ion-modal.event-detail-modal .event-sheet-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+}
+
+ion-modal.event-detail-modal .event-sheet-header.is-compact .event-sheet-header__row {
+  padding-top: 28px;
+}
+
+ion-modal.event-detail-modal .event-sheet-header h2 {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+  color: var(--kd-ink);
+  font-family: 'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1.325rem;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+
+ion-modal.event-detail-modal .event-sheet-header__close {
+  position: relative;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
+  border-radius: 16px;
+  background: #ffffff;
+  color: var(--kd-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+ion-modal.event-detail-modal .event-sheet-header__close svg {
+  display: block;
+}
+
+ion-modal.event-detail-modal .event-sheet-header__close:focus-visible {
+  outline: 2px solid var(--kd-primary);
+  outline-offset: 2px;
+}
+
+ion-modal.event-detail-modal ion-content.event-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  --background: #ffffff;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
 </style>

@@ -34,6 +34,7 @@ const route = useRoute()
 const open = computed(() => (
   consent.value === null
   && !route.path.startsWith('/privacy')
+  && route.path !== '/'
 ))
 
 const allow = async () => {
