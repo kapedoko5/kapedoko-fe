@@ -67,13 +67,14 @@
 </template>
 
 <script lang="ts" setup>
-import { Clock, Navigation, Plug, Wifi } from 'lucide-vue-next'
+import { Clock, Flame, Navigation, Plug, Wifi } from 'lucide-vue-next'
 import LandingOpen from '~/components/landing/LandingOpen.vue'
 
-type FilterId = 'near' | 'wifi' | 'plugs'
+type FilterId = 'near' | 'popular' | 'wifi' | 'plugs'
 
 const filters = [
   { id: 'near' as const, label: 'Near You', icon: Navigation },
+  { id: 'popular' as const, label: 'Popular', icon: Flame },
   { id: 'wifi' as const, label: 'WiFi', icon: Wifi },
   { id: 'plugs' as const, label: 'Plugs', icon: Plug },
 ]
@@ -84,6 +85,11 @@ const FACTS: Record<FilterId, {
   outlets: { word: string, soft: boolean }
 }> = {
   near: {
+    hours: 'Open now',
+    wifi: { word: 'Yes', soft: false },
+    outlets: { word: 'Yes', soft: false },
+  },
+  popular: {
     hours: 'Open now',
     wifi: { word: 'Yes', soft: false },
     outlets: { word: 'Yes', soft: false },
@@ -180,13 +186,9 @@ const setFilter = (id: FilterId) => {
 
 .demo-filters {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-xs);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.demo-filters::-webkit-scrollbar {
-  display: none;
+  overflow-x: clip;
 }
 
 .demo-filters__chip {

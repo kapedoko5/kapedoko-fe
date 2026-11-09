@@ -13,8 +13,14 @@
 /* Hallmark · reworded "What you check" to "Atmosphere is not the job" · craft names the swap */
 /* Hallmark · restored "Press a filter to reprint Hours, WiFi, and Outlets." · signature names the reprint */
 /* Hallmark · dropped "Help us improve KapéDoko?" · the cafe landing keeps the consent dialog off the first screen */
-/* Hallmark · dropped the six-row spec copy · 58 names the cafe screen budget */
-/* Hallmark · finish-review: subagent, 6 resolved · Floor 0 FAIL, Reflex 0 */
+/* Hallmark · restored the stacked proof sheet · the cafe page prints Search, stamps, Hours, Map, events, Save, and Add a cafe */
+/* Hallmark · built: Hallmark · theme: brand · hero: Stage · nav: edge-aligned · footer: colophon · redesign: polish · v2.0.0 */
+/* Hallmark · reworded proof rows to one line each · 58 names the cafe screen budget */
+/* Hallmark · waive 59 · DESIGN.md section 48px · the cafe shelf stacks proof, place, and close tighter than a Hallmark band */
+/* Hallmark · built: Hallmark · theme: brand · hero: Stage · nav: edge-aligned · footer: colophon · redesign: bolder · v2.0.0 */
+/* Hallmark · printed proof at Home control size · the cafe sheet matches search, stamps, Closed, pin, and save */
+/* Hallmark · reworded "Scan nearby shops" to "Open the cafe shelf" · craft names the last head */
+/* Hallmark · reworded Closed row to the guest fact · a shut shop still prints Closed */
 
 .landing-page.ion-page {
   overflow-x: clip;

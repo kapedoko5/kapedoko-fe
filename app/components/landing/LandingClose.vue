@@ -9,7 +9,7 @@
   <section class="landing-close" aria-labelledby="landing-close-title">
     <div class="landing-container">
       <div class="landing-close__panel">
-        <h2 id="landing-close-title">Scan nearby shops</h2>
+        <h2 id="landing-close-title">Open the cafe shelf</h2>
         <p class="lead">
           No account needed to browse. Sign in later for saves on every device.
         </p>
@@ -37,30 +37,42 @@ import LandingOpen from '~/components/landing/LandingOpen.vue'
 
 <style scoped>
 .landing-place {
-  padding-block: var(--space-3xl) var(--space-2xl);
+  padding-block: var(--space-2xl) var(--space-xl);
+}
+
+.landing-place .landing-container {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
 }
 
 .landing-place h2 {
   max-width: 18ch;
   font-size: var(--text-display);
   line-height: 1.02;
+  overflow-wrap: break-word;
+  min-width: 0;
   text-wrap: balance;
 }
 
 .landing-place .lead {
-  margin-top: var(--space-md);
+  margin: 0;
   font-size: var(--text-lg);
 }
 
 .landing-close {
-  padding-block: var(--space-2xl) var(--section-gap-s);
+  padding-block: var(--space-xl) var(--space-2xl);
 }
 
 .landing-close__panel {
   padding: var(--space-xl);
-  border: 1px solid var(--color-rule);
+  border: 1px solid color-mix(in srgb, var(--color-ink) 34%, transparent);
   border-radius: var(--radius-card);
   background: var(--color-paper-2);
+}
+
+.landing-close__panel h2 {
+  max-width: 22ch;
 }
 
 .landing-close__panel .lead {
@@ -119,11 +131,17 @@ import LandingOpen from '~/components/landing/LandingOpen.vue'
 
 @media (min-width: 840px) {
   .landing-place {
-    padding-block: var(--space-4xl) var(--space-2xl);
+    padding-block: var(--space-3xl) var(--space-2xl);
+  }
+
+  .landing-place .landing-container {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+    align-items: end;
+    column-gap: var(--gap-columns);
   }
 
   .landing-close {
-    padding-block: var(--space-2xl) var(--section-gap);
+    padding-block: var(--space-2xl);
   }
 
   .landing-close__panel {

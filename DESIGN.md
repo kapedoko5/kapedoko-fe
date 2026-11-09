@@ -270,7 +270,7 @@ Shelf field `#F2F2F2`, 12% ink hairline, min-height 64px, 20px gutter. Wordmark 
 Landing-only proof of the bag label: matte stock, 16px corners, 34% ink border, 20px padding, no logo slot and no save spine. Name + origin, then Hours / WiFi / Outlets as icon-plus-words. Filter stamps above reprint those three lines with the same ~520ms vertical clip as Home. Caption under the bag stays quiet label type and states the sample is not a listed shop.
 
 ### Proof Sheet
-Stacked print rows on one matte-stock face (16px corners, ~28% ink border, 12% hairlines between rows). Each row shows a miniature of an operate control (underline search, filter stamps, Closed in brick, bean pin, save spine, Add a cafe) beside a sentence of work-readiness copy. Miniatures are aria-hidden; they are not a second chip or button scale. Owner claim stays a quiet print link in the note under the sheet.
+Stacked print rows on one matte-stock face (16px corners, ~28% ink border, 12% hairlines between rows). Each row shows a miniature of an operate control (underline search, filter stamps, Closed in brick, bean pin, teal event pin, save spine, Add a cafe) beside a sentence of work-readiness copy. Miniatures are aria-hidden; they are not a second chip or button scale. Owner claim stays a quiet print link in the note under the sheet.
 
 ## Do's and Don'ts
 
