@@ -112,6 +112,7 @@ watch(
 
 <style scoped>
 .app-tabbar {
+  --tab-pad-x: 8px;
   position: fixed;
   left: 0;
   right: 0;
@@ -122,7 +123,7 @@ watch(
   align-items: stretch;
   width: 100%;
   height: calc(72px + env(safe-area-inset-bottom));
-  padding: 0 8px env(safe-area-inset-bottom);
+  padding: 0 var(--tab-pad-x) env(safe-area-inset-bottom);
   background-color: #f2f2f2;
   border-top: 1px solid color-mix(in srgb, var(--kd-ink) 16%, transparent);
   pointer-events: auto;
@@ -137,9 +138,9 @@ watch(
 .app-tabbar__mark {
   position: absolute;
   top: 6px;
-  left: 8px;
+  left: var(--tab-pad-x);
   z-index: 1;
-  width: calc((100% - 16px) / 4);
+  width: calc((100% - (var(--tab-pad-x) * 2)) / 4);
   height: 2px;
   background-color: var(--kd-accent);
   border-radius: 1px;
@@ -200,13 +201,14 @@ watch(
 }
 
 .app-tabbar.is-float {
+  --tab-pad-x: 24px;
   left: 20px;
   right: auto;
   bottom: calc(16px + env(safe-area-inset-bottom));
   width: min(450px, calc(100% - 40px));
   height: 72px;
   margin-inline: 0;
-  padding: 0 8px;
+  padding: 0 var(--tab-pad-x);
   border: 1px solid color-mix(in srgb, var(--kd-ink) 16%, transparent);
   border-radius: 24px;
   background-color: #f2f2f2;

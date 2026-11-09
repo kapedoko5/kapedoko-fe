@@ -4,7 +4,9 @@ import {
   isAppShellPath,
   isAppTabRoute,
   isForeignSurface,
+  isLandingPath,
   isOnboardingPath,
+  tabBarModeForPath,
   isSameAppPath,
   isVisibleIonPageClass,
   normalizeAppPath,
@@ -32,6 +34,15 @@ describe('app tab paths', () => {
     expect(activeAppTab('/app/map')).toBe('map')
     expect(activeAppTab('/app/cafes/abc')).toBe('home')
     expect(normalizeAppPath('/app/profile/')).toBe('/app/profile')
+  })
+
+  test('hides the shell tab bar on the marketing landing', () => {
+    expect(isLandingPath('/')).toBe(true)
+    expect(isLandingPath('/app')).toBe(false)
+    expect(tabBarModeForPath('/')).toBe('hide')
+    expect(shouldShowAppTabs('/')).toBe(false)
+    expect(shouldShowAppNav('/', 'compact')).toBe(false)
+    expect(shouldShowAppNav('/', 'expanded')).toBe(false)
   })
 
   test('shows the shell tab bar only on home, saved, and profile', () => {

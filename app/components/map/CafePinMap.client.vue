@@ -1,5 +1,10 @@
 <template>
-  <section v-if="hasPoint" class="cafe-pin-map" :aria-labelledby="titleId">
+  <section
+    v-if="hasPoint"
+    class="cafe-pin-map"
+    :class="{ 'is-passthrough': passthroughScroll }"
+    :aria-labelledby="titleId"
+  >
     <h3 :id="titleId">{{ placeLine }}</h3>
 
     <div class="cafe-pin-map__frame">
@@ -60,8 +65,10 @@ const props = withDefaults(defineProps<{
   address: string
   mapsHref: string
   kind?: 'cafe' | 'event'
+  passthroughScroll?: boolean
 }>(), {
   kind: 'cafe',
+  passthroughScroll: false,
 })
 
 const config = useRuntimeConfig()
@@ -194,6 +201,8 @@ const init = () => {
   map = L.map(root.value, {
     zoomControl: false,
     attributionControl: true,
+    dragging: !props.passthroughScroll,
+    touchZoom: !props.passthroughScroll,
     scrollWheelZoom: false,
     fadeAnimation: !prefersReducedMotion(),
     zoomAnimation: !prefersReducedMotion(),
@@ -300,6 +309,10 @@ watch(
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+
+.cafe-pin-map.is-passthrough .cafe-pin-map__canvas {
+  touch-action: pan-y;
 }
 
 .cafe-pin-map :deep(.leaflet-container) {

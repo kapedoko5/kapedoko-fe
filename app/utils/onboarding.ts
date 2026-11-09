@@ -14,7 +14,7 @@ export function onboardingFlagIsSet(value: string | null | undefined): boolean {
 export function shouldShowOnboarding(path: string, finished: boolean): boolean {
   if (finished) return false
   if (path.startsWith('/app/onboarding')) return false
-  if (path === '/' || path.startsWith('/app')) return true
+  if (path.startsWith('/app')) return true
   return false
 }
 

@@ -33,10 +33,15 @@
           aria-label="Close cafe details"
           @click="emit('close')"
         >
-          <X :size="18" :stroke-width="2.25" aria-hidden="true" />
+          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+            <path d="M5 5l14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" />
+          </svg>
         </button>
       </div>
+    </header>
 
+    <div class="cafe-detail__scroll">
+      <div class="cafe-detail__lead">
       <div class="cafe-detail__crowd-block">
         <p
           v-if="cafe.busyness"
@@ -89,8 +94,7 @@
             </span>
           </span>
           <span v-if="!monthCopy" class="cafe-detail__crowd-copy">
-            <strong>How packed is it?</strong>
-            <span>Check in so other KapéBeans can see.</span>
+            <strong>No check-ins</strong>
           </span>
         </p>
         <p v-if="monthCopy" class="cafe-detail__month">{{ monthCopy }}</p>
@@ -187,9 +191,8 @@
           </span>
         </a>
       </div>
-    </header>
+      </div>
 
-    <div class="cafe-detail__scroll">
       <div class="cafe-detail__gallery">
         <div class="cafe-detail__hero" :class="{ 'is-mark': heroIsMark }">
           <img
@@ -347,12 +350,34 @@
           </button>
         </article>
       </section>
+
+      <section
+        v-if="ownerHref"
+        class="cafe-detail__owner"
+        :aria-labelledby="ownerHeadingId"
+      >
+        <div class="cafe-detail__owner-mast">
+          <div class="cafe-detail__owner-stamp" aria-hidden="true">
+            <Store :size="18" :stroke-width="2.25" />
+          </div>
+          <h3 :id="ownerHeadingId">{{ ownerTitle }}</h3>
+        </div>
+        <p class="cafe-detail__owner-hint">{{ ownerHint }}</p>
+        <a
+          class="cafe-detail__claim"
+          :class="{ 'is-quiet': ownerQuiet }"
+          :href="ownerHref"
+          @click.prevent="goOwner"
+        >
+          {{ ownerLabel }}
+        </a>
+      </section>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff, X } from 'lucide-vue-next'
+import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Store, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { Cafe } from '~/types/cafe'
 import { isKapedokoMark, KAPEDOKO_BEAN_PIN_SRC } from '~/utils/logo'
@@ -370,7 +395,7 @@ import {
   confidenceBucketFromCafe,
   type CafeActionType,
 } from '~/utils/analytics'
-import { fetchOwnShopReview } from '~/utils/approved-shops'
+import { fetchOwnShopReview, isShopId } from '~/utils/approved-shops'
 import { BUSYNESS_METER_SEATS, busynessMeterFill, monthCheckInCopy } from '~/utils/cafe-review'
 
 const props = withDefaults(
@@ -389,6 +414,7 @@ const emit = defineEmits<{
 }>()
 
 const favorites = useFavorites()
+const ownership = useShopOwnership()
 const { currentUserId, goToLogin, user } = useAuth()
 const { track } = useAnalytics()
 const supabase = useSupabaseClient()
@@ -427,10 +453,48 @@ const refreshOwnReview = async () => {
   }
 }
 
+const shopId = computed(() => (isShopId(props.cafe.id) ? props.cafe.id : ''))
+const ownerClaim = computed(() => (shopId.value ? ownership.claimForShop(shopId.value) : null))
+const ownerHeadingId = useId()
+const ownerTitle = computed(() => {
+  if (ownerClaim.value?.status === 'verified') return 'You manage this cafe'
+  if (ownerClaim.value?.status === 'pending') return 'We’re reviewing your claim'
+  return 'Are you the owner of this cafe?'
+})
+const ownerHint = computed(() => {
+  if (ownerClaim.value?.status === 'verified') return 'Hours, contact, and the logo are yours to keep current.'
+  if (ownerClaim.value?.status === 'pending') return 'This listing stays on the map while we check.'
+  if (ownerClaim.value?.status === 'rejected') return 'You can send a clearer claim and we’ll look again.'
+  return 'Hours and the logo stay truer when the shop keeps them.'
+})
+const ownerHref = computed(() => {
+  if (!shopId.value) return ''
+  if (!user.value) return `/login?redirect=${encodeURIComponent(`/app/cafes/${shopId.value}/claim`)}`
+  if (ownerClaim.value?.status === 'verified') return `/app/cafes/${shopId.value}/edit`
+  return `/app/cafes/${shopId.value}/claim`
+})
+const ownerLabel = computed(() => {
+  if (!user.value) return 'Sign in to claim this cafe'
+  if (ownerClaim.value?.status === 'verified') return 'Edit listing'
+  if (ownerClaim.value?.status === 'pending') return 'View claim'
+  if (ownerClaim.value?.status === 'rejected') return 'Send a new claim'
+  return 'Claim this cafe'
+})
+const ownerQuiet = computed(() => ownerClaim.value?.status === 'pending')
+
+const goOwner = async () => {
+  if (!ownerHref.value) return
+  if (!user.value) {
+    track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'claim' })
+  }
+  await navigateTo(ownerHref.value)
+}
+
 watch(
   () => [props.cafe.id, user.value?.id ?? ''] as const,
   () => {
     void refreshOwnReview()
+    if (shopId.value && user.value) void ownership.loadClaimForShop(shopId.value)
   },
   { immediate: true },
 )
@@ -574,10 +638,16 @@ const selectPhoto = (index: number) => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   background: #ffffff;
   color: var(--kd-ink);
   padding: 8px 0 0;
   font-family: 'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.cafe-detail--sheet {
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .cafe-detail--page {
@@ -601,18 +671,26 @@ const selectPhoto = (index: number) => {
   background: #faf8f5;
 }
 
-.cafe-detail--page .cafe-detail__header > :not(.cafe-detail__presses) {
+.cafe-detail--page .cafe-detail__header > *,
+.cafe-detail--page .cafe-detail__lead > :not(.cafe-detail__presses) {
   min-width: 0;
   max-width: 100%;
 }
 
-.cafe-detail--page .cafe-detail__title-row { order: 1; }
-.cafe-detail--page .cafe-detail__address { order: 2; }
-.cafe-detail--page .cafe-detail__actions { order: 3; }
-.cafe-detail--page .cafe-detail__presses { order: 4; }
-.cafe-detail--page .cafe-detail__crowd-block { order: 5; }
-.cafe-detail--page .cafe-detail__rating { order: 6; }
-.cafe-detail--page .cafe-detail__page-actions { order: 7; }
+.cafe-detail--page .cafe-detail__lead {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 0 20px;
+  background: #faf8f5;
+}
+
+.cafe-detail--page .cafe-detail__address { order: 1; }
+.cafe-detail--page .cafe-detail__actions { order: 2; }
+.cafe-detail--page .cafe-detail__presses { order: 3; }
+.cafe-detail--page .cafe-detail__crowd-block { order: 4; }
+.cafe-detail--page .cafe-detail__rating { order: 5; }
+.cafe-detail--page .cafe-detail__page-actions { order: 6; }
 
 .cafe-detail--page .cafe-detail__title-row {
   display: grid;
@@ -661,7 +739,8 @@ const selectPhoto = (index: number) => {
 
 .cafe-detail__header {
   flex-shrink: 0;
-  padding: 20px 20px 14px;
+  padding: 16px 20px 12px;
+  background: #ffffff;
 }
 
 .cafe-detail--page .cafe-detail__header {
@@ -676,34 +755,54 @@ const selectPhoto = (index: number) => {
   gap: 8px 12px;
 }
 
-.cafe-detail__title-row:has(.cafe-detail__close) {
+.cafe-detail--sheet .cafe-detail__header {
+  border-bottom: 1px solid color-mix(in srgb, var(--kd-ink) 12%, transparent);
+}
+
+.cafe-detail--sheet .cafe-detail__lead {
+  padding-top: 14px;
+}
+
+.cafe-detail--sheet .cafe-detail__crowd-block {
+  margin-top: 0;
+}
+
+.cafe-detail--sheet .cafe-detail__title-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas:
-    'name close'
+    'name name'
     'save nav';
   align-items: center;
   column-gap: 12px;
   row-gap: 10px;
 }
 
-.cafe-detail__title-row:has(.cafe-detail__close) h2 {
+.cafe-detail--sheet .cafe-detail__title-row:has(.cafe-detail__close) {
+  grid-template-columns: auto minmax(0, 1fr) 44px;
+  grid-template-areas:
+    'name name close'
+    'save nav .';
+}
+
+.cafe-detail--sheet .cafe-detail__title-row h2 {
   grid-area: name;
-  overflow-wrap: break-word;
 }
 
-.cafe-detail__title-row:has(.cafe-detail__close) .cafe-detail__close {
-  grid-area: close;
-  justify-self: end;
-}
-
-.cafe-detail__title-row:has(.cafe-detail__close) .cafe-detail__save {
+.cafe-detail--sheet .cafe-detail__title-row .cafe-detail__save {
   grid-area: save;
 }
 
-.cafe-detail__title-row:has(.cafe-detail__close) .cafe-detail__navigate {
+.cafe-detail--sheet .cafe-detail__title-row .cafe-detail__navigate {
   grid-area: nav;
   justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cafe-detail--sheet .cafe-detail__title-row .cafe-detail__close {
+  grid-area: close;
+  justify-self: end;
 }
 
 .cafe-detail__header h2 {
@@ -746,9 +845,9 @@ const selectPhoto = (index: number) => {
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
   border-radius: 16px;
-  background: #faf8f5;
+  background: #ffffff;
   color: var(--kd-ink);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -954,6 +1053,9 @@ const selectPhoto = (index: number) => {
 }
 
 .cafe-detail__crowd.is-empty {
+  gap: 8px;
+  padding: 0;
+  border: 0;
   background: transparent;
 }
 
@@ -1148,6 +1250,7 @@ const selectPhoto = (index: number) => {
 .cafe-detail--page .cafe-detail__insight,
 .cafe-detail--page .cafe-detail__review-block,
 .cafe-detail--page .cafe-detail__reviews,
+.cafe-detail--page .cafe-detail__owner,
 .cafe-detail--page .cafe-detail__scroll > .cafe-detail__prompt,
 .cafe-detail--page .cafe-detail__map {
   margin-right: 20px;
@@ -1382,7 +1485,91 @@ const selectPhoto = (index: number) => {
   line-height: 1.4;
 }
 
+.cafe-detail__owner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
+  border-radius: 16px;
+  background: #faf8f5;
+}
+
+.cafe-detail--page .cafe-detail__owner {
+  margin-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+.cafe-detail__owner-mast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cafe-detail__owner-stamp {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--kd-accent) 18%, #faf8f5);
+  color: var(--kd-ink);
+}
+
+.cafe-detail__owner-mast h3,
+.cafe-detail__owner-hint {
+  margin: 0;
+  color: var(--kd-ink);
+  overflow-wrap: anywhere;
+}
+
+.cafe-detail__owner-mast h3 {
+  min-width: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.cafe-detail__owner-hint {
+  color: color-mix(in srgb, var(--kd-ink) 78%, #faf8f5);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.cafe-detail__claim {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--kd-accent);
+  border-radius: 16px;
+  background: var(--kd-accent);
+  color: var(--kd-ink);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cafe-detail__claim.is-quiet {
+  border-color: color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  background: #faf8f5;
+}
+
+.cafe-detail__claim:active {
+  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
+}
+
 :root.is-android .cafe-detail__leave,
+:root.is-android .cafe-detail__claim,
 :root.is-android .cafe-detail__page-actions .cafe-detail__action-face {
   min-height: 48px;
 }
@@ -1390,6 +1577,7 @@ const selectPhoto = (index: number) => {
 .cafe-detail__navigate:focus-visible,
 .cafe-detail__call:focus-visible,
 .cafe-detail__leave:focus-visible,
+.cafe-detail__claim:focus-visible,
 .cafe-detail__thumb:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;
@@ -1402,11 +1590,21 @@ const selectPhoto = (index: number) => {
 .cafe-detail__action-face--primary:active,
 .cafe-detail__action-face--quiet:active,
 .cafe-detail__leave:active,
-.cafe-detail__thumb:active {
+.cafe-detail__thumb:active,
+.cafe-detail__close:active {
   box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
 }
 
 @media (hover: hover) {
+  .cafe-detail__close:hover {
+    border-color: color-mix(in srgb, var(--kd-ink) 55%, transparent);
+    background: #faf8f5;
+  }
+
+  .cafe-detail__claim:hover {
+    box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  }
+
   .cafe-detail__navigate:hover .cafe-detail__action-face--primary {
     box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
   }
@@ -1443,7 +1641,9 @@ const selectPhoto = (index: number) => {
   .cafe-detail__action-face--primary:active,
   .cafe-detail__action-face--quiet:active,
   .cafe-detail__leave:active,
-  .cafe-detail__thumb:active {
+  .cafe-detail__claim:active,
+  .cafe-detail__thumb:active,
+  .cafe-detail__close:active {
     box-shadow: none;
   }
 }

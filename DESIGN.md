@@ -16,6 +16,18 @@ typography:
     fontWeight: 700
     lineHeight: 1.05
     letterSpacing: "-0.03em"
+  display-persuade:
+    fontFamily: "'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    fontSize: "clamp(2rem, 7vw, 4.15rem)"
+    fontWeight: 700
+    lineHeight: 1.02
+    letterSpacing: "-0.035em"
+  headline:
+    fontFamily: "'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    fontSize: "clamp(1.7rem, 4.5vw, 2.75rem)"
+    fontWeight: 700
+    lineHeight: 1.06
+    letterSpacing: "-0.03em"
   title:
     fontFamily: "'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     fontSize: "0.95rem"
@@ -44,8 +56,11 @@ spacing:
   md: "12px"
   lg: "16px"
   xl: "20px"
+  "2xl": "32px"
   gutter: "20px"
+  gutter-wide: "40px"
   stack: "12px"
+  section: "48px"
   tabbar: "72px"
 components:
   button-print:
@@ -83,6 +98,11 @@ components:
     textColor: "{colors.ink}"
     rounded: "{rounded.label}"
     padding: "16px 40px 12px 16px"
+  bag-demo:
+    backgroundColor: "{colors.matte-stock}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.label}"
+    padding: "20px 20px 16px"
   nav-tab:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
@@ -93,6 +113,17 @@ components:
     textColor: "{colors.primary-teal}"
     rounded: "{rounded.none}"
     height: "44px"
+  nav-landing:
+    backgroundColor: "{colors.shelf-field}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.none}"
+    height: "64px"
+  link-print:
+    backgroundColor: "transparent"
+    textColor: "{colors.primary-teal}"
+    typography: "{typography.title}"
+    rounded: "{rounded.none}"
+    padding: "0"
 ---
 
 # Design System: KapeDoko
@@ -103,9 +134,9 @@ components:
 
 KapeDoko reads like specialty coffee packaging laid on a cool off-white shelf: dark ink for reading, teal for brand chrome, and orange for actions and highlights. The product name stays **kapé DOKO** / **KapeDoko**. Home is a stack of bag labels — shop name with an optional logo slot, a small Closed line when closed, origin, then Hours / WiFi / Outlets as icon-plus-words — not photo cards, not a route plate, not a dashboard of chips and stars.
 
-Density is quiet and vertical. Shelf, header, filters, and the bottom menu sit on flat cool field `#F2F2F2`. Each bag-label face (and partner cards) uses a flat warm white `#FAF8F5` inside the hairline border — no stipple or shipping-tooth texture. Depth comes from that bordered flat face and ink rules, not lift shadows or textured panels. Map, Saved, and Profile keep their own layouts but inherit this palette and type.
+Density is quiet and vertical. Shelf, header, filters, and the bottom menu sit on flat cool field `#F2F2F2`. Each bag-label face (and partner cards) uses a flat warm white `#FAF8F5` inside the hairline border — no stipple or shipping-tooth texture. Depth comes from that bordered flat face and ink rules, not lift shadows or textured panels. Map, Saved, and Profile keep their own layouts but inherit this palette and type. Web `/` is the same shelf at persuade scale: the offer in the display clamp, a demo bag whose filter stamps reprint Hours / WiFi / Outlets, then a stacked proof sheet and a close panel. Native shells skip `/` and open `/app`.
 
-Rejected by this system: warm enamel as the full-page field, Satoshi or condensed all-caps UI faces, floating elevated cards, icon-only bottom navigation without words, and a "Review WiFi and outlets" control on the bag label. Do not use orange as small body text on stock (≈2.8:1) — put ink on orange fills instead.
+Rejected by this system: warm enamel as the full-page field, Satoshi or condensed all-caps UI faces, floating elevated cards, icon-only bottom navigation without words, and a "Review WiFi and outlets" control on the bag label. Do not use orange as small body text on stock (≈2.8:1) — put ink on orange fills instead. Web `/` refuses a photo hero and a SaaS icon-card grid; work-readiness is printed in words.
 
 **Key Characteristics:**
 - Cool shelf field `#F2F2F2`; flat warm-white label faces `#FAF8F5`
@@ -113,6 +144,7 @@ Rejected by this system: warm enamel as the full-page field, Satoshi or condense
 - Kumbh Sans only — variable Google Font, regular and bold, sentence case
 - Bag labels: 16px corners, logo slot left of name, Closed in brick under the name, facts as icon plus words
 - Menu is Lucide icon plus word; an orange mark slides to the active tab; active label is teal
+- Web `/` offer at `clamp(2rem, 7vw, 4.15rem)`; demo bag reprints Hours / WiFi / Outlets; native shells skip this page
 
 ## Colors
 
@@ -125,9 +157,9 @@ Reading stays ink on the field or stock. Teal owns brand chrome; orange owns fil
 - **Orange** (#D9793B): `--kd-accent` / HSL `--secondary`. Button fills, active filter chips, tab indicator mark, save heart and save-fill strip, amenity icons beside Hours / WiFi / Outlets, text selection. On orange fills use ink `#1c1917` (≈5.6:1) — cream on orange fails AA (~2.8:1). Never use orange as small text on stock.
 
 ### Neutral
-- **Shelf Field** (#F2F2F2): Flat Home chrome, shelf, filters hinterland, and tab bar. Cool 5% off-white; not warm enamel.
-- **Matte Stock** (#FAF8F5): Flat bag-label face and partner card fill. Not the page field; not the old yellow enamel; no tooth/stipple texture.
-- **Ink** (#1c1917): Primary reading color — cafe names, origin, fact keys and values, inactive tabs, inactive chip text, body copy, and the default hairline border mix. Do not recolor cafe names or the page to teal.
+- **Shelf Field** (#F2F2F2): Flat Home chrome, shelf, filters hinterland, the tab bar, and the web landing field. Cool 5% off-white; not warm enamel.
+- **Matte Stock** (#FAF8F5): Flat bag-label face, partner card fill, landing demo bag, proof sheet, and close panel. Not the page field; not the old yellow enamel; no tooth/stipple texture.
+- **Ink** (#1c1917): Primary reading color — cafe names, origin, fact keys and values, inactive tabs, inactive chip text, body copy, landing offer and ledes, and the default hairline border mix. Do not recolor cafe names or the page to teal.
 - **White** (#ffffff): Skeleton shimmer; pure white is optional for label faces but warm white `#FAF8F5` is the default.
 - **Brick Closed** (#8c3a2f): One "Closed" line under the cafe name on bag labels; also destructive / error elsewhere. Not a second brand accent for chrome.
 
@@ -146,15 +178,19 @@ Reading stays ink on the field or stock. Teal owns brand chrome; orange owns fil
 **Character:** One quiet geometric sans for the whole UI. Weight and size carry hierarchy; case stays natural (title case / sentence case). The brand lockup is the raster wordmark; UI type does not imitate condensed packing stamps. Satoshi remains in unused `@font-face` leftovers and is not part of this system.
 
 ### Hierarchy
-- **Display** (700, 1.325rem, line-height 1.05, tracking −0.03em): Cafe name on each bag label.
-- **Title** (700, ~0.95–1.05rem): Search field text, Add a cafe, partner names, and other primary interactive copy.
-- **Body** (400–700, 0.7875–0.85rem, line-height 1.3): Fact values (bold), fact keys, general reading.
-- **Label** (400–700, 0.6875–0.75rem): Filter chips, state line, Closed, origin, tab words, greeting name.
+- **Display** (700, 1.325rem, line-height 1.05, tracking −0.03em): Cafe name on each bag label. Home operate type — do not replace with the landing clamp.
+- **Display Persuade** (700, `clamp(2rem, 7vw, 4.15rem)`, line-height 1.02, tracking −0.035em): Web `/` offer only ("Find a cafe you can actually work from"). Cap the line at ~12–14ch.
+- **Headline** (700, `clamp(1.7rem, 4.5vw, 2.75rem)`, line-height 1.06, tracking −0.03em): Landing section titles (close panel). Proof titles sit slightly smaller at `clamp(1.6rem, 4vw, 2.4rem)`, line-height 1.08.
+- **Title** (700, ~0.95–1.05rem): Search field text, Add a cafe, Open the app, partner names, landing ledes, and other primary interactive copy.
+- **Body** (400–700, 0.7875–0.85rem, line-height 1.3): Fact values (bold), fact keys, general reading, landing proof notes.
+- **Label** (400–700, 0.6875–0.75rem): Filter chips, state line, Closed, origin, tab words, greeting name, landing caption and footer links.
 
 ### Named Rules
 **The Kumbh Sans-Only Rule.** UI type is Kumbh Sans regular or bold. Do not introduce Satoshi, condensed caps faces, serif display for body UI, or a second UI family.
 
 **The Words-With-Icons Rule.** Hours, WiFi, outlets, and distance keep readable words; Lucide icons (~15px, orange) sit beside the keys. Closed stays a small brick text line under the name. The bottom menu pairs each Lucide icon with its word — never icon-only destinations.
+
+**The Persuade Display Rule.** The web `/` offer uses `clamp(2rem, 7vw, 4.15rem)`. Home cafe names stay 1.325rem. Do not carry the persuade clamp into `/app`.
 
 ## Layout
 
@@ -162,21 +198,25 @@ Phone-first vertical shelf. Horizontal gutter is 20px. Labels stack with 12px be
 
 Home chrome puts a time-of-day greeting (and optional first name) on the left and the kapé DOKO wordmark on the right. Search sits under that row as a full-width underline field. When any cafe has `markerTier === 'partner'`, a partner placement sits between search and filters; otherwise that slot is hidden. Filters are a single horizontal scroll of printed tags. Compact lists one column of bag labels; wider sizes keep the same labels in a grid. Infinite scroll appends more labels without changing density.
 
+Web `/` is a marketing shelf on the same field, not a second identity. Compact stacks sticky wordmark + Open the app, then the offer, then the demo bag (filters above the label). Expanded (`≥ 840px`) puts the offer beside the demo bag, widens the gutter to 40px, and splits proof rows into a miniature-plus-copy grid. Medium (`≥ 600px`) reveals the How it works text link in the sticky bar. Native Capacitor shells never show this page; they replace-navigate to `/app`.
+
 ### Named Rules
 **The Shelf Rule.** Home is greeting + wordmark → search → optional partner placement → filters → bag labels. Do not introduce photo grids or map-first chrome. Compact stays one column; medium and expanded may sit labels side by side as the same bag, never as a different card type.
+
+**The Persuade Shelf Rule.** Web `/` is sticky wordmark + Open the app, then the offer beside a demo bag (stacked below 840px). Native shells skip this page. Do not add a photo hero or icon-card grid to the marketing shelf.
 
 ## Elevation & Depth
 
 Flat print. No ambient drop shadows on labels, chips, or the tab bar. Presence comes from the flat label face, 1px ink-mix borders, and occasional inset press marks on active controls. Focus is a 2px teal outline, not a glow.
 
-Motion is short paper behavior: labels settle in (~460ms ease-out), fact blocks reprint with a vertical clip (~520ms), filter list swaps fade/slide 8px (~220ms), saving fills the right heart strip (~280ms), and the bottom menu’s orange active mark slides to the selected tab (~220ms) with a short stamp press on tap. On medium+ a cafe or event tap reprints a detail sheet from the right spine of the shelf (~480ms clip, then the white face prints ~520ms) and dismiss clips it back faster (~280ms). Respect `prefers-reduced-motion: reduce` by removing spatial motion (no mark slide, no press translate, no pane clip) while keeping active color/weight, saved/unsaved state, and a short fade for the pane.
+Motion is short paper behavior: labels settle in (~460ms ease-out), fact blocks reprint with a vertical clip (~520ms), filter list swaps fade/slide 8px (~220ms), saving fills the right heart strip (~280ms), and the bottom menu’s orange active mark slides to the selected tab (~220ms) with a short stamp press on tap. On medium+ a cafe or event tap reprints a detail sheet from the right spine of the shelf (~480ms clip, then the white face prints ~520ms) and dismiss clips it back faster (~280ms). The landing demo bag uses the same settle and reprint clips; Open the app stamps in (scale 0.98, ink inset) on press. Respect `prefers-reduced-motion: reduce` by removing spatial motion (no mark slide, no press translate, no pane clip, no bag settle or reprint) while keeping active color/weight, saved/unsaved state, and a short fade for the pane.
 
 ### Named Rules
 **The Flat Print Rule.** No floating card shadows. Depth is border + flat label face only.
 
 ## Shapes
 
-Clearly rounded label corners (16px radius) on bags, filter tags, partner cards, and filled actions — soft enough to read as rounded, not nearly square, and not pills. Logo slot uses a tighter 8px corner. Search is a bottom rule, not a rounded field. Borders are 1px ink at roughly 12–34% opacity, or solid accent/teal when selected/active. No pills (`rounded-full`), no soft white panels.
+Clearly rounded label corners (16px radius) on bags, filter tags, partner cards, filled actions, the landing proof sheet, and the close panel — soft enough to read as rounded, not nearly square, and not pills. Logo slot uses a tighter 8px corner. Search is a bottom rule, not a rounded field. Borders are 1px ink at roughly 12–34% opacity, or solid accent/teal when selected/active. No pills (`rounded-full`), no soft white panels.
 
 ### Named Rules
 **The Label Corner Rule.** Interactive print pieces use 16px corners or a straight underline — not nearly-square corners or pill chips. Logo slots use 8px.
@@ -184,15 +224,16 @@ Clearly rounded label corners (16px radius) on bags, filter tags, partner cards,
 ## Components
 
 ### Buttons
-- **Filled (primary action):** Orange `#D9793B` fill, ink text, 16px corners, min-height 44px (Add a cafe).
+- **Filled (primary action):** Orange `#D9793B` fill, ink text, 16px corners, min-height 44px (Add a cafe; Open the app on `/`). Title size (0.95rem, 700) on landing; same fill language in the app.
 - **Outline retry:** Teal text and border on the shelf field.
-- **Active / press:** Inset shadow mixing ink — a stamp press, not a lift.
+- **Hover (fine pointer):** 1px inset ink mix on the orange fill — a press ring, not a lift.
+- **Active / press:** Inset shadow mixing ink — a stamp press, not a lift. Landing Open also scales to 0.98.
 - **Focus:** 2px teal outline with small offset.
 
 ### Chips
 - **Style:** Printed filter tags — transparent fill, 1px ink-mix border (~22%), 16px radius, 44px tall, 0.75rem Kumbh Sans, Lucide icon + word.
 - **Active:** Orange fill, ink text, bold weight, matching border.
-- **State:** Horizontal scroll; one active filter at a time.
+- **State:** Horizontal scroll; one active filter at a time. Landing demo stamps (Near You / WiFi / Plugs) are the same tags; pressing one reprints the demo bag’s fact lines.
 
 ### Cards / Containers — Bag Label
 - **Corner Style:** 16px
@@ -214,10 +255,22 @@ Clearly rounded label corners (16px radius) on bags, filter tags, partner cards,
 - **Placement:** Compact docks the menu to the bottom (Home / Saved / Profile). Medium and expanded use an 80px left rail on every `/app` route except onboarding.
 
 ### Wordmark
-Raster lockup (`kapedoko-horizontal-text_dark.png`) at roughly 120×26 on the right of Home chrome, beside the greeting. Do not replace the product name or invent a second wordmark style in UI type.
+Raster lockup (`kapedoko-horizontal-text_dark.png`) at roughly 120×26. Home chrome places it on the right, beside the greeting. The landing sticky bar places it on the left, opposite Open the app. Do not replace the product name or invent a second wordmark style in UI type.
 
 ### Partner Placement
 Shown when any cafe has `markerTier === 'promoted'` or `markerTier === 'partner'`; hidden when neither exists. A horizontal snap track sits between search and filters. Order is sponsored first (`promoted`, from active `shop_placements.kind = 'sponsored'`), then partners. Each card is a placement insert on matte stock `#FAF8F5`: a shared coffee-cup placeholder creative on the left whose ground color comes from CSS (orange `#D9793B` for sponsored, teal `#1F6F6B` for partner), a cream stamp on that creative (“Sponsored” in ink / “Partner” in teal), then the cafe name in ink and the address under it. When more than one placement is showing, `1 of N` counts the whole strip order. Bag labels under the filters stay without photos.
+
+### Print Link
+Teal `#1F6F6B`, 700, 1px underline with 3px offset. Title size (0.95rem) for Sign in, How it works, and Create an account; label size (0.75rem) in the landing footer. Focus is a 2px teal outline with 3px offset. Never orange text links on stock.
+
+### Landing Sticky Header
+Shelf field `#F2F2F2`, 12% ink hairline, min-height 64px, 20px gutter. Wordmark left, Open the app right. How it works is a print link that appears from 600px. Sticky; not the Home greeting row and not the `/app` tab bar.
+
+### Demo Bag
+Landing-only proof of the bag label: matte stock, 16px corners, 34% ink border, 20px padding, no logo slot and no save spine. Name + origin, then Hours / WiFi / Outlets as icon-plus-words. Filter stamps above reprint those three lines with the same ~520ms vertical clip as Home. Caption under the bag stays quiet label type and states the sample is not a listed shop.
+
+### Proof Sheet
+Stacked print rows on one matte-stock face (16px corners, ~28% ink border, 12% hairlines between rows). Each row shows a miniature of an operate control (underline search, filter stamps, Closed in brick, bean pin, teal event pin, save spine, Add a cafe) beside a sentence of work-readiness copy. Miniatures are aria-hidden; they are not a second chip or button scale. Owner claim stays a quiet print link in the note under the sheet.
 
 ## Do's and Don'ts
 
@@ -229,6 +282,8 @@ Shown when any cafe has `markerTier === 'promoted'` or `markerTier === 'partner'
 - **Do** treat each cafe as a bag label: logo slot, name, Closed when closed (brick), origin, then Hours / WiFi / Outlets.
 - **Do** pair each menu destination with a Lucide icon and word; mark the active tab with an orange indicator and teal label.
 - **Do** show partner placement only between search and filters when `markerTier === 'partner'`.
+- **Do** set the web `/` offer in the persuade display clamp and reprint Hours / WiFi / Outlets when a landing filter stamp is pressed.
+- **Do** keep landing links teal, underlined, and 700 — ink on orange for Open the app.
 
 ### Don't:
 - **Don't** use orange as small text on cream stock (~2.8:1).
@@ -242,3 +297,6 @@ Shown when any cafe has `markerTier === 'promoted'` or `markerTier === 'partner'
 - **Don't** rename the product away from kapé DOKO / KapeDoko.
 - **Don't** bring back the bag-stock tooth/stipple on labels, shelf, header, or bottom menu.
 - **Don't** invent prices, ratings, or coverage claims as design system content.
+- **Don't** carry the persuade display clamp into `/app` cafe names.
+- **Don't** put a photo hero or a SaaS icon-card grid on web `/`.
+- **Don't** serve the landing page inside native shells.

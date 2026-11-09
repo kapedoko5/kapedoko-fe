@@ -24,12 +24,12 @@ const {
 
 describe('onboarding gate', () => {
   test('shows on first launch into the app', () => {
-    expect(shouldShowOnboarding('/', false)).toBe(true)
     expect(shouldShowOnboarding('/app', false)).toBe(true)
     expect(shouldShowOnboarding('/app/map', false)).toBe(true)
   })
 
-  test('does not interrupt onboarding, auth, or a finished visit', () => {
+  test('does not interrupt the marketing landing, onboarding, auth, or a finished visit', () => {
+    expect(shouldShowOnboarding('/', false)).toBe(false)
     expect(shouldShowOnboarding('/app/onboarding', false)).toBe(false)
     expect(shouldShowOnboarding('/app/onboarding/done', false)).toBe(false)
     expect(shouldShowOnboarding('/login', false)).toBe(false)
