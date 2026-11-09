@@ -18,7 +18,7 @@ import { IonApp, IonRouterOutlet } from '@ionic/vue'
 import AnalyticsConsentNotice from '~/components/analytics/AnalyticsConsentNotice.vue'
 import LoadingScreen from '~/components/LoadingScreen.vue'
 import AppTabBar from '~/components/navigation/AppTabBar.vue'
-import { isLandingPath } from '~/utils/app-tabs'
+import { isForeignSurface, isLandingPath } from '~/utils/app-tabs'
 import { hasFinishedOnboarding, shouldShowOnboarding } from '~/utils/onboarding'
 
 const supabase = useSupabaseClient()
@@ -28,7 +28,10 @@ const { locked: tabsLocked } = useAppTabsLock()
 const { visible: tabBarVisible } = useAppTabBarVisibility()
 const isLoading = useState('kd-splash-loading', () => true)
 
-const skipSplash = computed(() => isLandingPath(route.path) && !Capacitor.isNativePlatform())
+const skipSplash = computed(() => {
+  if (Capacitor.isNativePlatform()) return false
+  return isLandingPath(route.path) || isForeignSurface(route.path)
+})
 const showAppTabs = computed(() => !isLoading.value && tabBarVisible.value && !tabsLocked.value)
 
 useFavorites()

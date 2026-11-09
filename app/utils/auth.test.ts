@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  authEmailRedirectTo,
   authUserId,
   displayNameError,
   emailError,
@@ -58,11 +59,22 @@ describe('auth helpers', () => {
     expect(registerLedeForRedirect('/app/cafes/abc/check-in')).toBe(REGISTER_LEDE_CHECK_IN)
   })
 
+  test('builds https callback urls for auth emails', () => {
+    expect(authEmailRedirectTo('http://kapedoko.com', '/confirm')).toBe('https://kapedoko.com/confirm')
+    expect(authEmailRedirectTo('https://www.kapedoko.com', '/reset-password')).toBe(
+      'https://www.kapedoko.com/reset-password',
+    )
+    expect(authEmailRedirectTo('http://localhost:3000', '/confirm')).toBe('http://localhost:3000/confirm')
+    expect(authEmailRedirectTo('capacitor://localhost', '/confirm')).toBeUndefined()
+    expect(authEmailRedirectTo('not a url', '/confirm')).toBeUndefined()
+  })
+
   test('maps auth failures to recovery copy', () => {
     expect(friendlyAuthError('Invalid login credentials')).toMatch(/not right/)
     expect(friendlyAuthError('Email not confirmed')).toMatch(/Confirm your email/)
     expect(friendlyAuthError('User already registered')).toMatch(/already exists/)
     expect(friendlyAuthError('Failed to fetch')).toMatch(/connection/)
+    expect(friendlyAuthError('PKCE code verifier not found in storage')).toMatch(/expired/)
     expect(friendlyAuthError('something unexpected')).not.toMatch(/something unexpected/)
   })
 })

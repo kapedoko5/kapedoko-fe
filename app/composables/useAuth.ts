@@ -1,5 +1,6 @@
 import type { ProfileRow } from '~/types/shop'
 import {
+  authEmailRedirectTo,
   authUserId,
   displayNameError,
   emailError,
@@ -44,7 +45,7 @@ export function useAuth() {
       password,
       options: {
         data: { display_name: name.trim() },
-        emailRedirectTo: origin ? `${origin}/confirm` : undefined,
+        emailRedirectTo: authEmailRedirectTo(origin, '/confirm'),
       },
     })
     if (error) throw new Error(friendlyAuthError(error.message))
@@ -61,7 +62,7 @@ export function useAuth() {
     if (emailIssue) throw new Error(emailIssue)
     const origin = import.meta.client ? window.location.origin : ''
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: origin ? `${origin}/reset-password` : undefined,
+      redirectTo: authEmailRedirectTo(origin, '/reset-password'),
     })
     if (error) {
       const text = error.message.toLowerCase()

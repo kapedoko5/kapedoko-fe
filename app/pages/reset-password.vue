@@ -26,7 +26,7 @@
       </form>
     </template>
     <template v-else>
-      <p class="auth-error" role="alert">This reset link expired or was already used.</p>
+      <p class="auth-error" role="alert">{{ error }}</p>
       <div class="auth-links">
         <NuxtLink to="/forgot-password">Request a new link</NuxtLink>
         <NuxtLink to="/login">Back to sign in</NuxtLink>
@@ -37,36 +37,92 @@
 
 <script setup lang="ts">
 import AuthShell from '~/components/auth/AuthShell.vue'
+import { parseConfirmLink } from '~/utils/auth-confirm'
+import { friendlyAuthError } from '~/utils/auth'
 
 const supabase = useSupabaseClient()
+const route = useRoute()
 const { updatePassword } = useAuth()
 const password = ref('')
 const loading = ref(false)
-const error = ref('')
-const status = ref<'checking' | 'ready' | 'expired'>('checking')
-
-let expiredTimer: ReturnType<typeof window.setTimeout> | null = null
+const error = ref('This reset link expired or was already used.')
+const status = ref<'checking' | 'ready' | 'expired' | 'missing'>('checking')
 
 const markReady = () => {
   status.value = 'ready'
-  if (expiredTimer) window.clearTimeout(expiredTimer)
 }
 
+let stopAuthWatch: (() => void) | undefined
+
 onMounted(() => {
-  void supabase.auth.getSession().then(({ data }) => {
-    if (data.session) markReady()
-  })
-  supabase.auth.onAuthStateChange((event, session) => {
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
     if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) markReady()
   })
-  expiredTimer = window.setTimeout(() => {
-    if (status.value === 'checking') status.value = 'expired'
-  }, 5000)
+  stopAuthWatch = () => data.subscription.unsubscribe()
+  void consumeResetLink()
 })
 
 onBeforeUnmount(() => {
-  if (expiredTimer) window.clearTimeout(expiredTimer)
+  stopAuthWatch?.()
 })
+
+async function consumeResetLink() {
+  const intent = parseConfirmLink({
+    query: route.query as Record<string, unknown>,
+    hash: import.meta.client ? window.location.hash : route.hash,
+  })
+
+  if (intent.kind === 'error') {
+    status.value = 'expired'
+    error.value = intent.message
+    return
+  }
+
+  try {
+    if (intent.kind === 'otp') {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: intent.tokenHash,
+        type: 'recovery',
+      })
+      if (verifyError) throw verifyError
+      markReady()
+      return
+    }
+    if (intent.kind === 'code') {
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(intent.code)
+      if (exchangeError) throw exchangeError
+      markReady()
+      return
+    }
+    if (intent.kind === 'session') {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: intent.accessToken,
+        refresh_token: intent.refreshToken,
+      })
+      if (sessionError) throw sessionError
+      markReady()
+      return
+    }
+  } catch (err) {
+    const session = (await supabase.auth.getSession()).data.session
+    if (session) {
+      markReady()
+      return
+    }
+    status.value = 'expired'
+    error.value = friendlyAuthError(err instanceof Error ? err.message : '')
+    return
+  }
+
+  const existing = (await supabase.auth.getSession()).data.session
+  if (existing) {
+    markReady()
+    return
+  }
+
+  status.value = 'missing'
+  error.value = 'Open the reset link we sent to your email.'
+}
 
 const onSubmit = async () => {
   if (loading.value) return

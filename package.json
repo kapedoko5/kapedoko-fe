@@ -16,6 +16,8 @@
     "import:osm": "bun scripts/import-osm-cafes.ts",
     "import:amenities": "bun scripts/import-amenity-reports.ts",
     "export:places": "bun scripts/export-places-cafes.ts",
+    "reviews:clear": "bun scripts/clear-prod-reviews.ts",
+    "checkins:clear": "bun scripts/clear-prod-checkins.ts",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
