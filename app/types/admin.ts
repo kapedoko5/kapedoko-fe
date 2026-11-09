@@ -8,6 +8,7 @@ export type AdminNavId =
   | 'claims'
   | 'partnerships'
   | 'ads'
+  | 'events'
   | 'users'
   | 'moderation'
 
@@ -26,6 +27,7 @@ export interface AdminDashboardCounts {
   openReports: number
   activePlacements: number
   activeAds: number
+  activeEvents: number
   users: number
   checkIns30d: number
 }

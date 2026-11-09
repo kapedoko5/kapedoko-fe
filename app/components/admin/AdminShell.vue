@@ -97,6 +97,7 @@ import AdminConfirmHost from '~/components/admin/AdminConfirmHost.vue'
 import AdminToastStack from '~/components/admin/AdminToastStack.vue'
 import { adminBackNav, adminNavIdFromPath, staffNav } from '~/utils/admin-nav'
 import { isForeignSurface, isSameAppPath, resolveAppPath } from '~/utils/app-tabs'
+import { EXPANDED_MIN_PX } from '~/utils/viewport-layout'
 
 const props = withDefaults(
   defineProps<{
@@ -179,7 +180,7 @@ const settleAdminPages = () => {
 }
 
 const onResize = () => {
-  desktop.value = window.innerWidth >= 1024
+  desktop.value = window.innerWidth >= EXPANDED_MIN_PX
   if (desktop.value) navOpen.value = false
 }
 
@@ -919,7 +920,7 @@ watch(() => route.path, (path) => {
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 840px) {
   .admin-shell {
     grid-template-columns: 224px minmax(0, 1fr);
   }
@@ -939,13 +940,15 @@ watch(() => route.path, (path) => {
     padding: 24px 28px 40px;
     max-width: 1280px;
   }
+}
 
+@media (min-width: 1024px) {
   .admin-shell :deep(.admin-stats) {
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 839px) {
   .admin-shell.is-nav-open .admin-shell__scrim {
     display: block;
     position: fixed;
@@ -997,7 +1000,7 @@ watch(() => route.path, (path) => {
   padding: 20px 20px 36px;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 840px) {
   .admin-shell--cafe .admin-shell__top {
     padding: max(24px, env(safe-area-inset-top)) 32px 20px;
   }

@@ -1,7 +1,7 @@
 <template>
   <IonPage>
     <IonContent class="home-content">
-      <div class="home">
+      <div class="home" :class="{ 'has-detail': paneDocked }">
         <div class="home-plate">
         <header class="home-chrome">
           <div class="home-chrome__greeting">
@@ -90,6 +90,41 @@
           </button>
         </div>
 
+        <section
+          v-if="nearbyEvents.length > 0"
+          class="home-events"
+          aria-label="Kape Events near you"
+        >
+          <h2 class="home-events__title">Kape Events near you</h2>
+          <div class="home-events__track" role="list">
+            <button
+              v-for="(item, index) in nearbyEvents"
+              :key="item.id"
+              type="button"
+              class="home-events__card"
+              :class="{ 'is-selected': item.id === detailEvent?.id }"
+              role="listitem"
+              :aria-label="eventCardLabel(item, index)"
+              @click="openEvent(item.id)"
+            >
+              <span class="home-events__poster">
+                <img
+                  class="home-events__image"
+                  :src="item.poster"
+                  :alt="`${item.name} poster`"
+                  width="320"
+                  height="120"
+                />
+              </span>
+              <span class="home-events__copy">
+                <span class="home-events__name">{{ item.name }}</span>
+                <span class="home-events__when">{{ item.whenLabel }}</span>
+                <span v-if="eventDistance(item)" class="home-events__distance">{{ eventDistance(item) }}</span>
+              </span>
+            </button>
+          </div>
+        </section>
+
         <p v-if="status === 'ready'" class="home-state">
           <component :is="filterIcons[activeFilterMeta.icon]" :size="14" :stroke-width="2.25" aria-hidden="true" />
           <span>{{ activeFilterMeta.label }}</span>
@@ -145,6 +180,7 @@
               v-for="(cafe, index) in pagedCafes"
               :key="cafe.id"
               :cafe="cafe"
+              :selected="cafe.id === detailCafe?.id"
               :distance-label="distanceLabel(cafe)"
               :style="{ '--enter': String(index % 12) }"
               surface="home"
@@ -175,6 +211,27 @@
         </Transition>
         </div>
       </div>
+      <AppDetailPane
+        :open="paneOpen"
+        :label="detailCafe?.name || detailEvent?.name || 'Details'"
+        @close="closeDetail"
+        @after-leave="afterLeave"
+      >
+        <CafeDetailContent
+          v-if="detailCafe"
+          :key="detailCafe.id"
+          :cafe="detailCafe"
+          variant="sheet"
+          @review="onReview"
+          @checkin="onCheckIn"
+        />
+        <EventDetailContent
+          v-else-if="detailEvent"
+          :key="detailEvent.id"
+          :event="detailEvent"
+          variant="sheet"
+        />
+      </AppDetailPane>
     </IonContent>
   </IonPage>
 </template>
@@ -183,7 +240,10 @@
 import { Capacitor } from '@capacitor/core'
 import { onIonViewWillEnter } from '@ionic/vue'
 import { BatteryCharging, CircleAlert, Coffee, Flame, Hourglass, Navigation, Plug, Plus, RefreshCw, Search, Wifi, Zap } from 'lucide-vue-next'
+import AppDetailPane from '~/components/AppDetailPane.vue'
 import CafeCard from '~/components/cafe/CafeCard.vue'
+import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
+import EventDetailContent from '~/components/event/EventDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
 import { featuredAdCopy } from '~/utils/admin-ads'
 import {
@@ -193,16 +253,29 @@ import {
   confidenceBucketFromCafe,
   modalConfidenceBucket,
   promotionViewKey,
-  rememberDetailSource,
 } from '~/utils/analytics'
 import { watchImpression } from '~/utils/analytics-impression'
 import { CAFE_FILTERS, type CafeFilterIcon, type CafeFilterId } from '~/utils/cafe-filters'
 import { feedCountLabel } from '~/utils/cafe-feed'
 import { fetchPlacementCafes } from '~/utils/approved-shops'
+import { EVENT_NEARBY_RADIUS_M, eventsWithinMeters } from '~/utils/events'
+import type { KapeEvent } from '~/types/event'
 import { amenityFilterHint } from '~/utils/amenity-status'
 import { distanceMeters, formatDistance } from '~/utils/geo'
 
 useAppTabBar('show')
+const {
+  cafe: detailCafe,
+  event: detailEvent,
+  paneOpen,
+  paneDocked,
+  openCafe: openCafePane,
+  openEvent: openEventPane,
+  close: closeDetail,
+  afterLeave,
+  onReview,
+  onCheckIn,
+} = useListDetailPane('feed')
 
 const filterIcons: Record<CafeFilterIcon, typeof Navigation> = {
   navigation: Navigation,
@@ -217,6 +290,7 @@ const filterIcons: Record<CafeFilterIcon, typeof Navigation> = {
 const filters = CAFE_FILTERS
 
 const { ads: liveAds } = useActiveAds()
+const { events: activeEvents } = useActiveEvents()
 const { status: locationStatus, location, usingFallback, requestLocation } = useDeviceLocation()
 const { radiusKm: nearbyRadiusKm, radiusMeters, hydrate: hydrateNearbyRadius } = useNearbyRadius()
 const { user, loadProfile } = useAuth()
@@ -301,6 +375,18 @@ const origin = computed(() => (
     ? location.value
     : null
 ))
+
+const nearbyEvents = computed(() => eventsWithinMeters(activeEvents.value, origin.value, EVENT_NEARBY_RADIUS_M))
+
+const eventDistance = (event: KapeEvent) => (
+  origin.value ? formatDistance(distanceMeters(origin.value, event)) : ''
+)
+
+const eventCardLabel = (event: KapeEvent, index: number) => {
+  const distance = eventDistance(event)
+  const parts = [event.name, event.whenLabel, distance].filter(Boolean)
+  return `${parts.join(', ')}, ${index + 1} of ${nearbyEvents.value.length}`
+}
 
 const locationReady = computed(() => (
   locationStatus.value === 'granted'
@@ -432,8 +518,15 @@ const toggleNearby = async () => {
 }
 
 const openCafe = async (id: string) => {
-  rememberDetailSource('feed')
-  await navigateTo(`/app/cafes/${id}`)
+  const fallback = pagedCafes.value.find((item) => item.id === id)
+    || placementList.value.find((item) => item.id === id)
+    || null
+  await openCafePane(id, fallback)
+}
+
+const openEvent = async (id: string) => {
+  const fallback = nearbyEvents.value.find((item) => item.id === id) || null
+  await openEventPane(id, fallback)
 }
 
 const openPromotion = async (ad: { id: string; shopId: string; kind: 'ad' | 'promoted' | 'partner' }) => {
@@ -443,8 +536,10 @@ const openPromotion = async (ad: { id: string; shopId: string; kind: 'ad' | 'pro
     promotion_kind: ad.kind,
     placement: 'home_rail',
   })
-  rememberDetailSource('promotion')
-  await navigateTo(`/app/cafes/${ad.shopId}`)
+  const fallback = placementList.value.find((item) => item.id === ad.shopId)
+    || pagedCafes.value.find((item) => item.id === ad.shopId)
+    || null
+  await openCafePane(ad.shopId, fallback, 'promotion')
 }
 
 const promoEls = new Map<string, Element>()
@@ -547,7 +642,7 @@ onMounted(() => {
 .home {
   min-height: 100%;
   background-color: #f2f2f2;
-  padding: 0 0 calc(72px + env(safe-area-inset-bottom));
+  padding: 0 0 var(--kd-tabbar-inset);
 }
 
 .home-plate {
@@ -806,6 +901,124 @@ onMounted(() => {
   display: none;
 }
 
+.home-events {
+  margin: 0 0 8px;
+}
+
+.home-events__title {
+  margin: 0;
+  padding: 4px 20px 8px;
+  color: var(--kd-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.home-events__track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 20px;
+  scrollbar-width: none;
+  padding: 0 20px 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-events__track::-webkit-scrollbar {
+  display: none;
+}
+
+.home-events__card {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 calc(100% - 56px);
+  scroll-snap-align: start;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 28%, transparent);
+  border-radius: 16px;
+  background: #faf8f5;
+  color: var(--kd-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-events__card.is-selected {
+  border-color: var(--kd-primary);
+}
+
+.home-events__card:only-child {
+  flex-basis: 100%;
+}
+
+.home-events__card:focus-visible {
+  outline: 2px solid var(--kd-primary);
+  outline-offset: 2px;
+}
+
+.home-events__card:active {
+  background: color-mix(in srgb, var(--kd-ink) 6%, #faf8f5);
+}
+
+@media (hover: hover) {
+  .home-events__card:hover {
+    background: color-mix(in srgb, var(--kd-ink) 4%, #faf8f5);
+  }
+}
+
+.home-events__poster {
+  display: block;
+  min-height: 120px;
+  background: var(--kd-primary);
+}
+
+.home-events__image {
+  display: block;
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+}
+
+.home-events__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px 12px 12px;
+}
+
+.home-events__name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.home-events__when,
+.home-events__distance {
+  color: color-mix(in srgb, var(--kd-ink) 78%, #faf8f5);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.home-events__when {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
 .home-filters__chip {
   display: inline-flex;
   align-items: center;
@@ -856,6 +1069,10 @@ onMounted(() => {
   font-weight: 400;
   line-height: 1.3;
   text-align: left;
+}
+
+.home-empty {
+  padding-inline: 0;
 }
 
 .home-state {
@@ -978,7 +1195,7 @@ onMounted(() => {
 .home-skeleton {
   display: block;
   height: 128px;
-  margin: 0 20px 12px;
+  margin: 0;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 12%, transparent);
   border-radius: 16px;
   background: linear-gradient(
@@ -1024,8 +1241,10 @@ onMounted(() => {
 }
 
 .home-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 0 20px 12px;
 }
 
 .home-more {
@@ -1064,9 +1283,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: calc(100% - 40px);
+  width: 100%;
   min-height: 72px;
-  margin: 0 20px 16px;
+  margin: 0;
   padding: 16px;
   border: 1px solid rgba(28, 25, 23, 0.34);
   border-radius: 16px;
@@ -1138,13 +1357,6 @@ onMounted(() => {
 .home-plate ::selection {
   background: var(--kd-accent);
   color: var(--kd-ink);
-}
-
-@media (min-width: 540px) {
-  .home {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -36,7 +36,7 @@
         class="cafe-pin-map__back"
         @click="backToShop"
       >
-        Back to the shop
+        {{ kind === 'event' ? 'Back to the event' : 'Back to the shop' }}
       </button>
     </div>
 
@@ -53,13 +53,16 @@ import { KAPEDOKO_BEAN_PIN_SRC } from '~/utils/logo'
 import { cafeHasMapPoint, cafePlaceLine } from '~/utils/maps'
 import { escapeHtml, pinLabel } from '~/utils/marker-tier'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   lat: number
   lng: number
   name: string
   address: string
   mapsHref: string
-}>()
+  kind?: 'cafe' | 'event'
+}>(), {
+  kind: 'cafe',
+})
 
 const config = useRuntimeConfig()
 const { status: locationStatus, location, requestLocation } = useDeviceLocation()
@@ -85,17 +88,28 @@ const prefersReducedMotion = () =>
 
 const shopLatLng = (): [number, number] => [Number(props.lat), Number(props.lng)]
 
-const pinHtml = () =>
-  `<span class="kd-cafe-pin__stack" aria-hidden="true">
-    <span class="kd-cafe-pin__mark kd-cafe-pin__mark--logo">
-      <img src="${KAPEDOKO_BEAN_PIN_SRC}" alt="" width="32" height="36" />
-    </span>
+const EVENT_PIN_SVG = `<svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+  <circle cx="20" cy="20" r="16.2" fill="#1F6F6B" stroke="#ffffff" stroke-width="3.2" paint-order="stroke fill" />
+  <rect x="12.2" y="13.4" width="15.6" height="14.2" rx="2.2" stroke="#ffffff" stroke-width="2.1" />
+  <path d="M12.2 18.2h15.6" stroke="#ffffff" stroke-width="2.1" />
+  <path d="M16.2 11.2v4.2M23.8 11.2v4.2" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round" />
+</svg>`
+
+const pinHtml = () => {
+  const mark = props.kind === 'event'
+    ? `<span class="kd-cafe-pin__mark kd-event-pin__mark" aria-hidden="true">${EVENT_PIN_SVG}</span>`
+    : `<span class="kd-cafe-pin__mark kd-cafe-pin__mark--logo">
+        <img src="${KAPEDOKO_BEAN_PIN_SRC}" alt="" width="32" height="36" />
+      </span>`
+  return `<span class="kd-cafe-pin__stack" aria-hidden="true">
+    ${mark}
     <span class="kd-cafe-pin__label">${escapeHtml(pinLabel(props.name, 18))}</span>
   </span>`
+}
 
 const makeShopIcon = (entering: boolean) =>
   L.divIcon({
-    className: `leaflet-div-icon kd-cafe-pin is-selected kd-cafe-pin--labeled${entering ? ' is-entering' : ''}`,
+    className: `leaflet-div-icon kd-cafe-pin is-selected kd-cafe-pin--labeled${props.kind === 'event' ? ' kd-event-pin' : ''}${entering ? ' is-entering' : ''}`,
     html: pinHtml(),
     iconSize: [108, 72],
     iconAnchor: [54, 44],
@@ -134,7 +148,9 @@ const showMe = async () => {
   try {
     await requestLocation()
     if (!location.value || locationStatus.value !== 'granted') {
-      locationNote.value = 'Location is off. The pin is still the shop.'
+      locationNote.value = props.kind === 'event'
+        ? 'Location is off. The pin is still the event.'
+        : 'Location is off. The pin is still the shop.'
       return
     }
     const here: [number, number] = [location.value.lat, location.value.lng]
@@ -233,7 +249,7 @@ onMounted(() => {
 onBeforeUnmount(destroy)
 
 watch(
-  () => props.name,
+  () => [props.name, props.kind] as const,
   () => {
     shopMarker?.setIcon(makeShopIcon(false))
   },
@@ -355,6 +371,12 @@ watch(
 
 .cafe-pin-map :deep(.kd-cafe-pin.is-entering .kd-cafe-pin__label) {
   animation-delay: 80ms;
+}
+
+.cafe-pin-map :deep(.kd-event-pin__mark svg) {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .cafe-pin-map :deep(.kd-cafe-pin__mark--logo img) {

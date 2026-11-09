@@ -5,7 +5,7 @@
         class="map-screen"
         :class="{
           'is-ready': mapReady,
-          'is-sheet-open': sheetOpen || detailOpen,
+          'is-sheet-open': sheetOpen || detailOpen || eventDetailOpen,
         }"
       >
         <div class="map-placeholder" aria-hidden="true" />
@@ -17,13 +17,17 @@
           :center="mapCenter"
           :accuracy="accuracy"
           :cafes="visibleCafes"
+          :events="mapEvents"
           :selected-id="selectedId"
-          :sheet-open="sheetOpen || detailOpen"
+          :selected-event-id="selectedEventId"
+          :sheet-open="sheetOpen || detailOpen || eventDetailOpen"
           :header-pad="headerPad"
           :bottom-pad="bottomPad"
+          :end-pad="endPad"
           @tiles-ready="onTilesReady"
           @tiles-error="onTilesError"
           @select="onSelectCafe"
+          @select-event="onSelectEvent"
           @viewchange="onViewChange"
         />
 
@@ -206,7 +210,7 @@
           </button>
 
           <button
-            v-if="mapReady && !sheetOpen && !detailOpen"
+            v-if="mapReady && !sheetOpen && !detailOpen && !eventDetailOpen"
             type="button"
             class="map-cta"
             @click="openSheet"
@@ -235,6 +239,13 @@
       @review="onReviewCafe"
       @checkin="onCheckInCafe"
     />
+
+    <EventDetailSheet
+      v-model:open="eventDetailOpen"
+      :event="selectedEvent || lastDetailEvent"
+      @present="onEventDetailPresent"
+      @dismissed="onEventDetailDismissed"
+    />
   </IonPage>
 </template>
 
@@ -245,13 +256,17 @@ import { onIonViewWillEnter, useIonRouter } from '@ionic/vue'
 import KapeMap from '~/components/map/KapeMap.client.vue'
 import NearbyCafesSheet from '~/components/map/NearbyCafesSheet.vue'
 import CafeDetailSheet from '~/components/map/CafeDetailSheet.vue'
+import EventDetailSheet from '~/components/map/EventDetailSheet.vue'
 import type { Cafe } from '~/types/cafe'
+import type { KapeEvent } from '~/types/event'
 import { cafeMatchesQuery } from '~/utils/cafe-search'
 import { trustedPositive } from '~/utils/amenity-status'
 import { distanceMeters, formatDistance } from '~/utils/geo'
 import { ANALYTICS_EVENTS, confidenceBucketFromStatus, detailViewKey } from '~/utils/analytics'
+import { SIDE_PANE_WIDTH_PX, TABBAR_FLOAT_OFFSET_PX, TABBAR_HEIGHT_PX } from '~/utils/viewport-layout'
 
 useAppTabBar('hide')
+const { compact } = useViewportLayout()
 
 const ionRouter = useIonRouter()
 const { track, once, consent } = useAnalytics()
@@ -268,6 +283,7 @@ const {
   loadViewport,
   searchCafes,
 } = useMapCafes()
+const { events: mapEvents } = useActiveEvents()
 
 const query = ref('')
 const submittedQuery = ref('')
@@ -276,15 +292,18 @@ const searchInput = ref<HTMLInputElement | null>(null)
 const activeIndex = ref(-1)
 const sheetOpen = ref(false)
 const detailOpen = ref(false)
+const eventDetailOpen = ref(false)
 const listWasOpen = ref(false)
 const selectedId = ref<string | null>(null)
+const selectedEventId = ref<string | null>(null)
 const viewBounds = ref<GeoBounds | null>(null)
 const mapReady = ref(false)
 const tilesFailed = ref(false)
 const mapEpoch = ref(0)
 const mapRef = ref<{
   recenter: () => void
-  focusCafe: (cafe: { lat: number; lng: number }, extraBottom?: number) => void
+  focusCafe: (cafe: { lat: number; lng: number }, extraBottom?: number, extraEnd?: number) => void
+  focusEvent: (event: { lat: number; lng: number }, extraBottom?: number, extraEnd?: number) => void
   invalidate: () => void
 } | null>(null)
 
@@ -332,10 +351,15 @@ function hasConfirmedPlug(cafe: Cafe) {
 }
 
 const selectedCafe = computed(() => cafeById(selectedId.value))
+const selectedEvent = computed(() => mapEvents.value.find((event) => event.id === selectedEventId.value) ?? null)
 const lastDetailCafe = ref<Cafe | null>(null)
+const lastDetailEvent = ref<KapeEvent | null>(null)
 const pendingCafePath = ref<string | null>(null)
 watch(selectedCafe, (cafe) => {
   if (cafe) lastDetailCafe.value = cafe
+})
+watch(selectedEvent, (event) => {
+  if (event) lastDetailEvent.value = event
 })
 const distances = computed(() => {
   const origin = mapCenter.value
@@ -346,16 +370,30 @@ const distances = computed(() => {
 })
 
 const headerPad = 188
+const paneOpen = computed(() => sheetOpen.value || detailOpen.value || eventDetailOpen.value)
+useSidePaneGutter(paneOpen)
 const bottomPad = computed(() => {
-  if (sheetOpen.value || detailOpen.value) {
+  if (compact.value && paneOpen.value) {
     return Math.round(window.innerHeight * 0.52)
   }
+  if (!compact.value) return TABBAR_HEIGHT_PX + TABBAR_FLOAT_OFFSET_PX + 16
   return 36
 })
+const endPad = computed(() => {
+  if (!compact.value && paneOpen.value) return SIDE_PANE_WIDTH_PX + 20
+  return 20
+})
+const paneShift = () => compact.value
+  ? { extraBottom: Math.round(window.innerHeight * 0.52), extraEnd: 0 }
+  : { extraBottom: TABBAR_HEIGHT_PX + TABBAR_FLOAT_OFFSET_PX + 16, extraEnd: SIDE_PANE_WIDTH_PX }
 
 const goBack = async () => {
   if (showSuggestions.value) {
     searchFocused.value = false
+    return
+  }
+  if (eventDetailOpen.value) {
+    eventDetailOpen.value = false
     return
   }
   if (detailOpen.value) {
@@ -454,19 +492,44 @@ const openSheet = () => {
 
 const onSelectCafe = (id: string) => {
   selectedId.value = id
+  selectedEventId.value = null
+  eventDetailOpen.value = false
   if (sheetOpen.value) listWasOpen.value = true
   sheetOpen.value = false
   detailOpen.value = true
   const existing = cafeById(id)
   if (existing) {
-    const extra = Math.round(window.innerHeight * 0.52)
-    mapRef.value?.focusCafe(existing, extra)
+    const shift = paneShift()
+    mapRef.value?.focusCafe(existing, shift.extraBottom, shift.extraEnd)
   }
   void hydrateCafe(id).then((cafe) => {
     if (!cafe || selectedId.value !== id) return
-    const extra = Math.round(window.innerHeight * 0.52)
-    mapRef.value?.focusCafe(cafe, extra)
+    const shift = paneShift()
+    mapRef.value?.focusCafe(cafe, shift.extraBottom, shift.extraEnd)
   })
+}
+
+const onSelectEvent = (id: string) => {
+  selectedEventId.value = id
+  selectedId.value = null
+  detailOpen.value = false
+  if (sheetOpen.value) listWasOpen.value = true
+  sheetOpen.value = false
+  eventDetailOpen.value = true
+  const existing = mapEvents.value.find((event) => event.id === id)
+  if (existing) {
+    const shift = paneShift()
+    mapRef.value?.focusEvent(existing, shift.extraBottom, shift.extraEnd)
+  }
+}
+
+const onEventDetailPresent = () => {
+  refreshMap()
+}
+
+const onEventDetailDismissed = () => {
+  selectedEventId.value = null
+  refreshMap()
 }
 
 const queueCafePage = (path: string) => {
@@ -570,7 +633,10 @@ watch(usingFallback, (fallback, previous) => {
 })
 
 watch(sheetOpen, (open) => {
-  if (!open && !detailOpen.value) selectedId.value = null
+  if (!open && !detailOpen.value && !eventDetailOpen.value) {
+    selectedId.value = null
+    selectedEventId.value = null
+  }
   refreshMap()
 })
 
@@ -594,11 +660,31 @@ watch(detailOpen, (open) => {
   refreshMap()
 })
 
+watch(eventDetailOpen, (open) => {
+  if (open) {
+    refreshMap()
+    return
+  }
+  selectedEventId.value = null
+  const restoreList = listWasOpen.value
+  listWasOpen.value = false
+  if (restoreList) {
+    window.setTimeout(() => {
+      sheetOpen.value = true
+    }, 320)
+  }
+  refreshMap()
+})
+
 watch(visibleCafes, (list) => {
   if (detailOpen.value) return
   if (selectedId.value && !list.some((cafe) => cafe.id === selectedId.value)) {
     selectedId.value = null
   }
+})
+
+watch(compact, () => {
+  refreshMap()
 })
 
 const route = useRoute()
@@ -1128,13 +1214,6 @@ onMounted(() => {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-@media (min-width: 540px) {
-  .map-screen {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -26,6 +26,15 @@
             Navigate to this Cafe
           </span>
         </a>
+        <button
+          v-if="showClose"
+          type="button"
+          class="cafe-detail__close"
+          aria-label="Close cafe details"
+          @click="emit('close')"
+        >
+          <X :size="18" :stroke-width="2.25" aria-hidden="true" />
+        </button>
       </div>
 
       <div class="cafe-detail__crowd-block">
@@ -343,7 +352,7 @@
 </template>
 
 <script lang="ts" setup>
-import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff, X } from 'lucide-vue-next'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { Cafe } from '~/types/cafe'
 import { isKapedokoMark, KAPEDOKO_BEAN_PIN_SRC } from '~/utils/logo'
@@ -368,13 +377,15 @@ const props = withDefaults(
   defineProps<{
     cafe: Cafe
     variant?: 'sheet' | 'page'
+    showClose?: boolean
   }>(),
-  { variant: 'sheet' },
+  { variant: 'sheet', showClose: false },
 )
 
 const emit = defineEmits<{
   review: []
   checkin: []
+  close: []
 }>()
 
 const favorites = useFavorites()
@@ -665,6 +676,36 @@ const selectPhoto = (index: number) => {
   gap: 8px 12px;
 }
 
+.cafe-detail__title-row:has(.cafe-detail__close) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name close'
+    'save nav';
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 10px;
+}
+
+.cafe-detail__title-row:has(.cafe-detail__close) h2 {
+  grid-area: name;
+  overflow-wrap: break-word;
+}
+
+.cafe-detail__title-row:has(.cafe-detail__close) .cafe-detail__close {
+  grid-area: close;
+  justify-self: end;
+}
+
+.cafe-detail__title-row:has(.cafe-detail__close) .cafe-detail__save {
+  grid-area: save;
+}
+
+.cafe-detail__title-row:has(.cafe-detail__close) .cafe-detail__navigate {
+  grid-area: nav;
+  justify-self: start;
+}
+
 .cafe-detail__header h2 {
   margin: 0;
   min-width: 0;
@@ -698,7 +739,23 @@ const selectPhoto = (index: number) => {
   color: var(--kd-ink);
 }
 
+.cafe-detail__close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border-radius: 16px;
+  background: #faf8f5;
+  color: var(--kd-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .cafe-detail__save:focus-visible,
+.cafe-detail__close:focus-visible,
 .cafe-detail__report:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;

@@ -61,7 +61,7 @@ const decline = async () => {
 }
 
 html:has(nav.app-tabbar) .analytics-consent {
-  padding-bottom: calc(72px + 20px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--kd-tabbar-inset) + 20px);
 }
 
 .analytics-consent__card {
