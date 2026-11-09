@@ -183,10 +183,10 @@ onBeforeUnmount(() => {
 }
 
 .event-page {
-  width: 100%;
-  max-width: 100%;
+  width: min(100%, var(--kd-readable-max));
+  margin-inline: auto;
   min-height: 100%;
-  overflow-x: clip;
+  overflow: visible;
   background: #f2f2f2;
 }
 
@@ -296,13 +296,6 @@ onBeforeUnmount(() => {
 @keyframes event-page-pulse {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }
-}
-
-@media (min-width: 540px) {
-  .event-page {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 :root.is-android .event-page__home {

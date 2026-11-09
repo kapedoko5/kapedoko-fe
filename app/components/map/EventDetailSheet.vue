@@ -1,20 +1,25 @@
 <template>
   <IonModal
     :is-open="open"
-    :initial-breakpoint="PEEK"
-    :breakpoints="BREAKPOINTS"
-    handle-behavior="cycle"
-    :backdrop-breakpoint="EXPANDED"
+    :initial-breakpoint="compact ? PEEK : undefined"
+    :breakpoints="compact ? BREAKPOINTS : undefined"
+    :handle="compact"
+    :handle-behavior="compact ? 'cycle' : undefined"
+    :backdrop-breakpoint="compact ? EXPANDED : undefined"
     :show-backdrop="false"
     class="event-detail-modal"
     @didPresent="onPresent"
     @didDismiss="onDismiss"
   >
-    <EventDetailContent
-      v-if="event"
-      :event="event"
-      variant="sheet"
-    />
+    <div class="event-sheet">
+      <EventDetailContent
+        v-if="event"
+        :event="event"
+        variant="sheet"
+        :show-close="!compact"
+        @close="onClose"
+      />
+    </div>
   </IonModal>
 </template>
 
@@ -27,6 +32,7 @@ const PEEK_VIEWPORT = 0.62
 const PEEK = PEEK_VIEWPORT / SHEET_HEIGHT
 const EXPANDED = 1
 const BREAKPOINTS = [0, PEEK, EXPANDED]
+const { compact } = useViewportLayout()
 
 defineProps<{
   open: boolean
@@ -40,6 +46,9 @@ const emit = defineEmits<{
 }>()
 
 const onPresent = () => emit('present')
+const onClose = () => {
+  emit('update:open', false)
+}
 const onDismiss = () => {
   emit('update:open', false)
   emit('dismissed')
@@ -65,10 +74,25 @@ ion-modal.event-detail-modal::part(backdrop) {
 
 ion-modal.event-detail-modal::part(content) {
   pointer-events: auto;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 ion-modal.event-detail-modal .ion-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.event-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   height: 100%;
   overflow: hidden;
 }
@@ -81,13 +105,4 @@ ion-modal.event-detail-modal::part(handle) {
   background: color-mix(in srgb, #1c1917 25%, transparent);
 }
 
-@media (min-width: 540px) {
-  ion-modal.event-detail-modal {
-    --width: 480px;
-  }
-
-  ion-modal.event-detail-modal::part(content) {
-    margin-inline: auto;
-  }
-}
 </style>

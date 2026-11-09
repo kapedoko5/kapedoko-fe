@@ -2,6 +2,15 @@
   <div class="event-detail" :class="`event-detail--${variant}`">
     <header class="event-detail__header">
       <h2>{{ event.name }}</h2>
+      <button
+        v-if="showClose"
+        type="button"
+        class="event-detail__close"
+        aria-label="Close event details"
+        @click="emit('close')"
+      >
+        <X :size="18" :stroke-width="2.25" aria-hidden="true" />
+      </button>
     </header>
 
     <div class="event-detail__scroll">
@@ -109,9 +118,15 @@ import { googleMapsDirectionsUrl } from '~/utils/maps'
 const props = withDefaults(defineProps<{
   event: KapeEvent
   variant?: 'page' | 'sheet'
+  showClose?: boolean
 }>(), {
   variant: 'page',
+  showClose: false,
 })
+
+const emit = defineEmits<{
+  close: []
+}>()
 
 const mapsHref = computed(() => googleMapsDirectionsUrl(props.event.lat, props.event.lng))
 const viewer = ref<HTMLDialogElement | null>(null)
@@ -159,6 +174,8 @@ onBeforeUnmount(() => {
 }
 
 .event-detail--sheet {
+  flex: 1;
+  min-height: 0;
   height: 100%;
   overflow: hidden;
   padding-top: 32px;
@@ -166,7 +183,31 @@ onBeforeUnmount(() => {
 }
 
 .event-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   flex-shrink: 0;
+}
+
+.event-detail__close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border-radius: 16px;
+  background: #faf8f5;
+  color: var(--kd-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.event-detail__close:focus-visible {
+  outline: 2px solid var(--kd-primary);
+  outline-offset: 2px;
 }
 
 .event-detail__header h2 {
@@ -191,8 +232,9 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
   overscroll-behavior: contain;
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--kd-ink) 25%, transparent) transparent;

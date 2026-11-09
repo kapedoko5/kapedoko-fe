@@ -145,16 +145,11 @@ const skip = async () => {
 
 .onboarding__frame {
   position: relative;
+  width: min(100%, var(--kd-readable-max));
+  margin-inline: auto;
   height: 100%;
   min-height: 100%;
   overflow: hidden;
-}
-
-@media (min-width: 540px) {
-  .onboarding__frame {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 .onboarding__skip {

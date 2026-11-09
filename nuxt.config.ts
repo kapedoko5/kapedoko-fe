@@ -14,6 +14,7 @@ export default defineNuxtConfig({
       title: "KapeDoko",
       meta: [
         { name: "theme-color", content: "#1F6F6B" },
+        { name: "viewport", content: "viewport-fit=cover, width=device-width, initial-scale=1" },
       ],
       link: [
         { rel: "icon", href: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },

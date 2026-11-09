@@ -2,6 +2,7 @@
   <nav
     v-show="!tabsLocked"
     class="app-tabbar"
+    :class="{ 'is-float': isFloat }"
     aria-label="Primary"
     :aria-hidden="tabsLocked ? 'true' : undefined"
   >
@@ -44,7 +45,9 @@ const props = defineProps<{
 const route = useRoute()
 const ionRouter = useIonRouter()
 const { locked: tabsLocked } = useAppTabsLock()
+const { compact } = useViewportLayout()
 const pendingPath = ref<string | null>(null)
+const isFloat = computed(() => !compact.value && !tabsLocked.value)
 
 const livePath = computed(() => {
   void route.fullPath
@@ -113,7 +116,7 @@ watch(
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1100;
+  z-index: 9000;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   align-items: stretch;
@@ -196,13 +199,22 @@ watch(
   outline-offset: -4px;
 }
 
-@media (min-width: 540px) {
-  .app-tabbar {
-    left: 50%;
-    right: auto;
-    width: min(480px, 100%);
-    transform: translateX(-50%);
-  }
+.app-tabbar.is-float {
+  left: 20px;
+  right: auto;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: min(450px, calc(100% - 40px));
+  height: 72px;
+  margin-inline: 0;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 16%, transparent);
+  border-radius: 24px;
+  background-color: #f2f2f2;
+  box-shadow: 0 12px 32px color-mix(in srgb, #1c1917 18%, transparent);
+}
+
+.app-tabbar.is-float .app-tabbar__mark {
+  top: 8px;
 }
 
 @media (prefers-reduced-motion: reduce) {

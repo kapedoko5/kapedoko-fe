@@ -1,7 +1,7 @@
 <template>
   <IonPage>
     <IonContent class="home-content">
-      <div class="home">
+      <div class="home" :class="{ 'has-detail': paneDocked }">
         <div class="home-plate">
         <header class="home-chrome">
           <div class="home-chrome__greeting">
@@ -102,6 +102,7 @@
               :key="item.id"
               type="button"
               class="home-events__card"
+              :class="{ 'is-selected': item.id === detailEvent?.id }"
               role="listitem"
               :aria-label="eventCardLabel(item, index)"
               @click="openEvent(item.id)"
@@ -179,6 +180,7 @@
               v-for="(cafe, index) in pagedCafes"
               :key="cafe.id"
               :cafe="cafe"
+              :selected="cafe.id === detailCafe?.id"
               :distance-label="distanceLabel(cafe)"
               :style="{ '--enter': String(index % 12) }"
               surface="home"
@@ -209,6 +211,27 @@
         </Transition>
         </div>
       </div>
+      <AppDetailPane
+        :open="paneOpen"
+        :label="detailCafe?.name || detailEvent?.name || 'Details'"
+        @close="closeDetail"
+        @after-leave="afterLeave"
+      >
+        <CafeDetailContent
+          v-if="detailCafe"
+          :key="detailCafe.id"
+          :cafe="detailCafe"
+          variant="sheet"
+          @review="onReview"
+          @checkin="onCheckIn"
+        />
+        <EventDetailContent
+          v-else-if="detailEvent"
+          :key="detailEvent.id"
+          :event="detailEvent"
+          variant="sheet"
+        />
+      </AppDetailPane>
     </IonContent>
   </IonPage>
 </template>
@@ -217,7 +240,10 @@
 import { Capacitor } from '@capacitor/core'
 import { onIonViewWillEnter } from '@ionic/vue'
 import { BatteryCharging, CircleAlert, Coffee, Flame, Hourglass, Navigation, Plug, Plus, RefreshCw, Search, Wifi, Zap } from 'lucide-vue-next'
+import AppDetailPane from '~/components/AppDetailPane.vue'
 import CafeCard from '~/components/cafe/CafeCard.vue'
+import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
+import EventDetailContent from '~/components/event/EventDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
 import { featuredAdCopy } from '~/utils/admin-ads'
 import {
@@ -227,7 +253,6 @@ import {
   confidenceBucketFromCafe,
   modalConfidenceBucket,
   promotionViewKey,
-  rememberDetailSource,
 } from '~/utils/analytics'
 import { watchImpression } from '~/utils/analytics-impression'
 import { CAFE_FILTERS, type CafeFilterIcon, type CafeFilterId } from '~/utils/cafe-filters'
@@ -239,6 +264,18 @@ import { amenityFilterHint } from '~/utils/amenity-status'
 import { distanceMeters, formatDistance } from '~/utils/geo'
 
 useAppTabBar('show')
+const {
+  cafe: detailCafe,
+  event: detailEvent,
+  paneOpen,
+  paneDocked,
+  openCafe: openCafePane,
+  openEvent: openEventPane,
+  close: closeDetail,
+  afterLeave,
+  onReview,
+  onCheckIn,
+} = useListDetailPane('feed')
 
 const filterIcons: Record<CafeFilterIcon, typeof Navigation> = {
   navigation: Navigation,
@@ -481,12 +518,15 @@ const toggleNearby = async () => {
 }
 
 const openCafe = async (id: string) => {
-  rememberDetailSource('feed')
-  await navigateTo(`/app/cafes/${id}`)
+  const fallback = pagedCafes.value.find((item) => item.id === id)
+    || placementList.value.find((item) => item.id === id)
+    || null
+  await openCafePane(id, fallback)
 }
 
 const openEvent = async (id: string) => {
-  await navigateTo(`/app/events/${id}`)
+  const fallback = nearbyEvents.value.find((item) => item.id === id) || null
+  await openEventPane(id, fallback)
 }
 
 const openPromotion = async (ad: { id: string; shopId: string; kind: 'ad' | 'promoted' | 'partner' }) => {
@@ -496,8 +536,10 @@ const openPromotion = async (ad: { id: string; shopId: string; kind: 'ad' | 'pro
     promotion_kind: ad.kind,
     placement: 'home_rail',
   })
-  rememberDetailSource('promotion')
-  await navigateTo(`/app/cafes/${ad.shopId}`)
+  const fallback = placementList.value.find((item) => item.id === ad.shopId)
+    || pagedCafes.value.find((item) => item.id === ad.shopId)
+    || null
+  await openCafePane(ad.shopId, fallback, 'promotion')
 }
 
 const promoEls = new Map<string, Element>()
@@ -600,7 +642,7 @@ onMounted(() => {
 .home {
   min-height: 100%;
   background-color: #f2f2f2;
-  padding: 0 0 calc(72px + env(safe-area-inset-bottom));
+  padding: 0 0 var(--kd-tabbar-inset);
 }
 
 .home-plate {
@@ -906,6 +948,10 @@ onMounted(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
+.home-events__card.is-selected {
+  border-color: var(--kd-primary);
+}
+
 .home-events__card:only-child {
   flex-basis: 100%;
 }
@@ -1023,6 +1069,10 @@ onMounted(() => {
   font-weight: 400;
   line-height: 1.3;
   text-align: left;
+}
+
+.home-empty {
+  padding-inline: 0;
 }
 
 .home-state {
@@ -1145,7 +1195,7 @@ onMounted(() => {
 .home-skeleton {
   display: block;
   height: 128px;
-  margin: 0 20px 12px;
+  margin: 0;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 12%, transparent);
   border-radius: 16px;
   background: linear-gradient(
@@ -1191,8 +1241,10 @@ onMounted(() => {
 }
 
 .home-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 0 20px 12px;
 }
 
 .home-more {
@@ -1231,9 +1283,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: calc(100% - 40px);
+  width: 100%;
   min-height: 72px;
-  margin: 0 20px 16px;
+  margin: 0;
   padding: 16px;
   border: 1px solid rgba(28, 25, 23, 0.34);
   border-radius: 16px;
@@ -1305,13 +1357,6 @@ onMounted(() => {
 .home-plate ::selection {
   background: var(--kd-accent);
   color: var(--kd-ink);
-}
-
-@media (min-width: 540px) {
-  .home {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

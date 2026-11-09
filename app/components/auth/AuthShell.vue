@@ -39,7 +39,7 @@ defineProps<{
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  max-width: 480px;
+  width: min(100%, var(--kd-readable-max));
   margin-inline: auto;
   padding: max(2.75rem, calc(env(safe-area-inset-top) + 16px)) 20px calc(2rem + env(safe-area-inset-bottom));
   background: #f2f2f2;

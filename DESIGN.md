@@ -158,18 +158,18 @@ Reading stays ink on the field or stock. Teal owns brand chrome; orange owns fil
 
 ## Layout
 
-Phone-first vertical shelf. Horizontal gutter is 20px. Labels stack with 12px between bags. Header chrome is at least 72px tall including safe area; the bottom menu is 72px plus safe-area inset. From 540px viewport width, the home column and tab bar lock to a centered 480px phone column — desktop inherits the same label shelf, not a multi-column dashboard.
+Phone-first vertical shelf. Horizontal gutter is 20px. Labels stack with 12px between bags. Header chrome is at least 72px tall including safe area; the bottom menu is 72px plus safe-area inset. Size classes, not device names: compact (`< 600px`, phone and folded cover) keeps one column and the bottom menu; medium (`600–839px`, unfolded fold) and expanded (`≥ 840px`, desktop) move that menu into an 80px left rail and pack bag labels two across (three from `1200px`). Reading surfaces (auth, profile, review, submit) stay a readable column (`~36rem`), not a stretched phone mock. Map on compact keeps bottom sheets; on medium+ the nearby list and cafe/event detail dock as a side pane. Home, Search, and Saved do the same: a cafe or event tap opens that pane on the right; compact still opens the page. On medium+ the pane is resizable from the left spine, from 280px up to half the viewport. Dual-screen spanning leaves the hinge empty.
 
-Home chrome puts a time-of-day greeting (and optional first name) on the left and the kapé DOKO wordmark on the right. Search sits under that row as a full-width underline field. When any cafe has `markerTier === 'partner'`, a partner placement sits between search and filters; otherwise that slot is hidden. Filters are a single horizontal scroll of printed tags. The list is one column of bag labels; infinite scroll appends more labels without changing density.
+Home chrome puts a time-of-day greeting (and optional first name) on the left and the kapé DOKO wordmark on the right. Search sits under that row as a full-width underline field. When any cafe has `markerTier === 'partner'`, a partner placement sits between search and filters; otherwise that slot is hidden. Filters are a single horizontal scroll of printed tags. Compact lists one column of bag labels; wider sizes keep the same labels in a grid. Infinite scroll appends more labels without changing density.
 
 ### Named Rules
-**The Shelf Rule.** Home is one stacked column of labels under greeting + wordmark → search → optional partner placement → filters. Do not introduce photo grids, map-first chrome, or side-by-side cafe cards on this identity.
+**The Shelf Rule.** Home is greeting + wordmark → search → optional partner placement → filters → bag labels. Do not introduce photo grids or map-first chrome. Compact stays one column; medium and expanded may sit labels side by side as the same bag, never as a different card type.
 
 ## Elevation & Depth
 
 Flat print. No ambient drop shadows on labels, chips, or the tab bar. Presence comes from the flat label face, 1px ink-mix borders, and occasional inset press marks on active controls. Focus is a 2px teal outline, not a glow.
 
-Motion is short paper behavior: labels settle in (~460ms ease-out), fact blocks reprint with a vertical clip (~520ms), filter list swaps fade/slide 8px (~220ms), saving fills the right heart strip (~280ms), and the bottom menu’s orange active mark slides to the selected tab (~220ms) with a short stamp press on tap. Respect `prefers-reduced-motion: reduce` by removing spatial motion (no mark slide, no press translate) while keeping active color/weight and saved/unsaved state immediate.
+Motion is short paper behavior: labels settle in (~460ms ease-out), fact blocks reprint with a vertical clip (~520ms), filter list swaps fade/slide 8px (~220ms), saving fills the right heart strip (~280ms), and the bottom menu’s orange active mark slides to the selected tab (~220ms) with a short stamp press on tap. On medium+ a cafe or event tap reprints a detail sheet from the right spine of the shelf (~480ms clip, then the white face prints ~520ms) and dismiss clips it back faster (~280ms). Respect `prefers-reduced-motion: reduce` by removing spatial motion (no mark slide, no press translate, no pane clip) while keeping active color/weight, saved/unsaved state, and a short fade for the pane.
 
 ### Named Rules
 **The Flat Print Rule.** No floating card shadows. Depth is border + flat label face only.
@@ -208,10 +208,10 @@ Clearly rounded label corners (16px radius) on bags, filter tags, partner cards,
 - **Focus:** No glow ring on search; outline buttons and chips use the 2px teal focus outline.
 
 ### Navigation
-- **Style:** Four destinations — Home, Saved, Map, Profile — each a Lucide icon stacked above its word on flat shelf field `#F2F2F2` with a light top hairline. A 2px orange (`--kd-accent` / `#D9793B`) mark sits above the active tab and slides when the selection changes.
+- **Style:** Four destinations — Home, Saved, Map, Profile — each a Lucide icon stacked above its word on flat shelf field `#F2F2F2`. Compact uses a light top hairline; the rail uses a light trailing hairline. A 2px orange (`--kd-accent` / `#D9793B`) mark sits on the active item and slides when the selection changes.
 - **Default:** Ink icon + regular ~0.6875rem word; 44px hit targets.
-- **Active:** Teal icon and bold word; orange mark under that column. Short stamp press on tap. No filled tab plates.
-- **Placement:** Docked bottom; centered with the 480px column from 540px up.
+- **Active:** Teal icon and bold word; orange mark on that item. Short stamp press on tap. No filled tab plates.
+- **Placement:** Compact docks the menu to the bottom (Home / Saved / Profile). Medium and expanded use an 80px left rail on every `/app` route except onboarding.
 
 ### Wordmark
 Raster lockup (`kapedoko-horizontal-text_dark.png`) at roughly 120×26 on the right of Home chrome, beside the greeting. Do not replace the product name or invent a second wordmark style in UI type.

@@ -43,9 +43,11 @@ const props = withDefaults(defineProps<{
   sheetOpen: boolean
   headerPad: number
   bottomPad: number
+  endPad?: number
 }>(), {
   events: () => [],
   selectedEventId: null,
+  endPad: 20,
 })
 
 const emit = defineEmits<{
@@ -201,7 +203,7 @@ const fitToRadius = (animate = true) => {
 
   map.fitBounds(bounds, {
     paddingTopLeft: [20, props.headerPad],
-    paddingBottomRight: [20, props.bottomPad],
+    paddingBottomRight: [props.endPad, props.bottomPad],
     maxZoom: 17,
     animate: animate && !prefersReducedMotion(),
   })
@@ -373,16 +375,17 @@ const syncEvents = () => {
   }
 }
 
-const focusPoint = (point: { lat: number; lng: number }, extraBottom = 0) => {
+const focusPoint = (point: { lat: number; lng: number }, extraBottom = 0, extraEnd = 0) => {
   if (!map) return
   const target = map.project([point.lat, point.lng], map.getZoom())
   target.y += extraBottom / 2
+  target.x -= extraEnd / 2
   const latlng = map.unproject(target, map.getZoom())
   map.panTo(latlng, { animate: !prefersReducedMotion() })
 }
 
-const focusCafe = (cafe: Cafe, extraBottom = 0) => {
-  focusPoint(cafe, extraBottom)
+const focusCafe = (cafe: Cafe, extraBottom = 0, extraEnd = 0) => {
+  focusPoint(cafe, extraBottom, extraEnd)
 }
 
 const emitView = () => {
@@ -548,7 +551,7 @@ watch(
 )
 
 watch(
-  () => [props.headerPad, props.bottomPad],
+  () => [props.headerPad, props.bottomPad, props.endPad],
   () => invalidate(),
 )
 

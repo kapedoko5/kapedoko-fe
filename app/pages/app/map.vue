@@ -23,6 +23,7 @@
           :sheet-open="sheetOpen || detailOpen || eventDetailOpen"
           :header-pad="headerPad"
           :bottom-pad="bottomPad"
+          :end-pad="endPad"
           @tiles-ready="onTilesReady"
           @tiles-error="onTilesError"
           @select="onSelectCafe"
@@ -262,8 +263,10 @@ import { cafeMatchesQuery } from '~/utils/cafe-search'
 import { trustedPositive } from '~/utils/amenity-status'
 import { distanceMeters, formatDistance } from '~/utils/geo'
 import { ANALYTICS_EVENTS, confidenceBucketFromStatus, detailViewKey } from '~/utils/analytics'
+import { SIDE_PANE_WIDTH_PX, TABBAR_FLOAT_OFFSET_PX, TABBAR_HEIGHT_PX } from '~/utils/viewport-layout'
 
 useAppTabBar('hide')
+const { compact } = useViewportLayout()
 
 const ionRouter = useIonRouter()
 const { track, once, consent } = useAnalytics()
@@ -299,8 +302,8 @@ const tilesFailed = ref(false)
 const mapEpoch = ref(0)
 const mapRef = ref<{
   recenter: () => void
-  focusCafe: (cafe: { lat: number; lng: number }, extraBottom?: number) => void
-  focusEvent: (event: { lat: number; lng: number }, extraBottom?: number) => void
+  focusCafe: (cafe: { lat: number; lng: number }, extraBottom?: number, extraEnd?: number) => void
+  focusEvent: (event: { lat: number; lng: number }, extraBottom?: number, extraEnd?: number) => void
   invalidate: () => void
 } | null>(null)
 
@@ -367,12 +370,22 @@ const distances = computed(() => {
 })
 
 const headerPad = 188
+const paneOpen = computed(() => sheetOpen.value || detailOpen.value || eventDetailOpen.value)
+useSidePaneGutter(paneOpen)
 const bottomPad = computed(() => {
-  if (sheetOpen.value || detailOpen.value || eventDetailOpen.value) {
+  if (compact.value && paneOpen.value) {
     return Math.round(window.innerHeight * 0.52)
   }
+  if (!compact.value) return TABBAR_HEIGHT_PX + TABBAR_FLOAT_OFFSET_PX + 16
   return 36
 })
+const endPad = computed(() => {
+  if (!compact.value && paneOpen.value) return SIDE_PANE_WIDTH_PX + 20
+  return 20
+})
+const paneShift = () => compact.value
+  ? { extraBottom: Math.round(window.innerHeight * 0.52), extraEnd: 0 }
+  : { extraBottom: TABBAR_HEIGHT_PX + TABBAR_FLOAT_OFFSET_PX + 16, extraEnd: SIDE_PANE_WIDTH_PX }
 
 const goBack = async () => {
   if (showSuggestions.value) {
@@ -486,13 +499,13 @@ const onSelectCafe = (id: string) => {
   detailOpen.value = true
   const existing = cafeById(id)
   if (existing) {
-    const extra = Math.round(window.innerHeight * 0.52)
-    mapRef.value?.focusCafe(existing, extra)
+    const shift = paneShift()
+    mapRef.value?.focusCafe(existing, shift.extraBottom, shift.extraEnd)
   }
   void hydrateCafe(id).then((cafe) => {
     if (!cafe || selectedId.value !== id) return
-    const extra = Math.round(window.innerHeight * 0.52)
-    mapRef.value?.focusCafe(cafe, extra)
+    const shift = paneShift()
+    mapRef.value?.focusCafe(cafe, shift.extraBottom, shift.extraEnd)
   })
 }
 
@@ -505,8 +518,8 @@ const onSelectEvent = (id: string) => {
   eventDetailOpen.value = true
   const existing = mapEvents.value.find((event) => event.id === id)
   if (existing) {
-    const extra = Math.round(window.innerHeight * 0.52)
-    mapRef.value?.focusEvent(existing, extra)
+    const shift = paneShift()
+    mapRef.value?.focusEvent(existing, shift.extraBottom, shift.extraEnd)
   }
 }
 
@@ -668,6 +681,10 @@ watch(visibleCafes, (list) => {
   if (selectedId.value && !list.some((cafe) => cafe.id === selectedId.value)) {
     selectedId.value = null
   }
+})
+
+watch(compact, () => {
+  refreshMap()
 })
 
 const route = useRoute()
@@ -1197,13 +1214,6 @@ onMounted(() => {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-@media (min-width: 540px) {
-  .map-screen {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

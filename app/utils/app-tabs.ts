@@ -73,6 +73,11 @@ export function isAppTabBarHiddenRoute(path: string): boolean {
   return !isAppTabRoute(current)
 }
 
+export function isAppShellPath(path: string): boolean {
+  const current = pathFromHref(path)
+  return current.startsWith('/app') && !isOnboardingPath(current)
+}
+
 export type AppTabBarMode = 'show' | 'hide'
 
 /** Tab bar for a single current path. `/` is undecided (splash / redirect). */
@@ -123,6 +128,25 @@ export function shouldShowAppTabs(path: string, ...peerPaths: Array<string | nul
     .filter((entry) => entry && entry !== '/')
   if (hints.some(isForeignSurface)) return false
   return tabBarModeForPath(path) === 'show'
+}
+
+/**
+ * Compact keeps the phone tab bar on Home / Saved / Profile only.
+ * Medium and expanded keep a floating bottom bar on every app shell route.
+ * Ionic can leave Vue's route at `/` while the browser is already on `/app`;
+ * peer paths (the real location) still count as the shell.
+ */
+export function shouldShowAppNav(
+  path: string,
+  layout: 'compact' | 'medium' | 'expanded',
+  ...peerPaths: Array<string | null | undefined>
+): boolean {
+  const hints = [path, ...peerPaths]
+    .map((value) => (value ? pathFromHref(value) : ''))
+    .filter((entry) => entry && entry !== '/')
+  if (hints.some(isForeignSurface) || hints.some(isOnboardingPath)) return false
+  if (layout === 'compact') return shouldShowAppTabs(path, ...peerPaths)
+  return hints.some(isAppShellPath)
 }
 
 export function isVisibleIonPageClass(className: string): boolean {

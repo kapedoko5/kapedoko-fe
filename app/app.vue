@@ -2,9 +2,11 @@
   <IonApp>
     <NuxtRouteAnnouncer />
     <IonRouterOutlet />
-    <Teleport to="body">
-      <AppTabBar v-if="showAppTabs && !tabsLocked" />
-    </Teleport>
+    <ClientOnly>
+      <Teleport to="body">
+        <AppTabBar v-if="showAppTabs" />
+      </Teleport>
+    </ClientOnly>
     <LoadingScreen v-if="isLoading" />
     <AnalyticsConsentNotice />
   </IonApp>
@@ -19,9 +21,10 @@ import { hasFinishedOnboarding, shouldShowOnboarding } from '~/utils/onboarding'
 
 const supabase = useSupabaseClient()
 const route = useRoute()
+useViewportLayout()
 const { locked: tabsLocked } = useAppTabsLock()
 const { visible: tabBarVisible } = useAppTabBarVisibility()
-const isLoading = ref(true)
+const isLoading = useState('kd-splash-loading', () => true)
 
 const showAppTabs = computed(() => !isLoading.value && tabBarVisible.value && !tabsLocked.value)
 
