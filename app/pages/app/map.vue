@@ -5,7 +5,7 @@
         class="map-screen"
         :class="{
           'is-ready': mapReady,
-          'is-sheet-open': sheetOpen || detailOpen,
+          'is-sheet-open': sheetOpen || detailOpen || eventDetailOpen,
         }"
       >
         <div class="map-placeholder" aria-hidden="true" />
@@ -17,13 +17,16 @@
           :center="mapCenter"
           :accuracy="accuracy"
           :cafes="visibleCafes"
+          :events="mapEvents"
           :selected-id="selectedId"
-          :sheet-open="sheetOpen || detailOpen"
+          :selected-event-id="selectedEventId"
+          :sheet-open="sheetOpen || detailOpen || eventDetailOpen"
           :header-pad="headerPad"
           :bottom-pad="bottomPad"
           @tiles-ready="onTilesReady"
           @tiles-error="onTilesError"
           @select="onSelectCafe"
+          @select-event="onSelectEvent"
           @viewchange="onViewChange"
         />
 
@@ -206,7 +209,7 @@
           </button>
 
           <button
-            v-if="mapReady && !sheetOpen && !detailOpen"
+            v-if="mapReady && !sheetOpen && !detailOpen && !eventDetailOpen"
             type="button"
             class="map-cta"
             @click="openSheet"
@@ -235,6 +238,13 @@
       @review="onReviewCafe"
       @checkin="onCheckInCafe"
     />
+
+    <EventDetailSheet
+      v-model:open="eventDetailOpen"
+      :event="selectedEvent || lastDetailEvent"
+      @present="onEventDetailPresent"
+      @dismissed="onEventDetailDismissed"
+    />
   </IonPage>
 </template>
 
@@ -245,7 +255,9 @@ import { onIonViewWillEnter, useIonRouter } from '@ionic/vue'
 import KapeMap from '~/components/map/KapeMap.client.vue'
 import NearbyCafesSheet from '~/components/map/NearbyCafesSheet.vue'
 import CafeDetailSheet from '~/components/map/CafeDetailSheet.vue'
+import EventDetailSheet from '~/components/map/EventDetailSheet.vue'
 import type { Cafe } from '~/types/cafe'
+import type { KapeEvent } from '~/types/event'
 import { cafeMatchesQuery } from '~/utils/cafe-search'
 import { trustedPositive } from '~/utils/amenity-status'
 import { distanceMeters, formatDistance } from '~/utils/geo'
@@ -268,6 +280,7 @@ const {
   loadViewport,
   searchCafes,
 } = useMapCafes()
+const { events: mapEvents } = useActiveEvents()
 
 const query = ref('')
 const submittedQuery = ref('')
@@ -276,8 +289,10 @@ const searchInput = ref<HTMLInputElement | null>(null)
 const activeIndex = ref(-1)
 const sheetOpen = ref(false)
 const detailOpen = ref(false)
+const eventDetailOpen = ref(false)
 const listWasOpen = ref(false)
 const selectedId = ref<string | null>(null)
+const selectedEventId = ref<string | null>(null)
 const viewBounds = ref<GeoBounds | null>(null)
 const mapReady = ref(false)
 const tilesFailed = ref(false)
@@ -285,6 +300,7 @@ const mapEpoch = ref(0)
 const mapRef = ref<{
   recenter: () => void
   focusCafe: (cafe: { lat: number; lng: number }, extraBottom?: number) => void
+  focusEvent: (event: { lat: number; lng: number }, extraBottom?: number) => void
   invalidate: () => void
 } | null>(null)
 
@@ -332,10 +348,15 @@ function hasConfirmedPlug(cafe: Cafe) {
 }
 
 const selectedCafe = computed(() => cafeById(selectedId.value))
+const selectedEvent = computed(() => mapEvents.value.find((event) => event.id === selectedEventId.value) ?? null)
 const lastDetailCafe = ref<Cafe | null>(null)
+const lastDetailEvent = ref<KapeEvent | null>(null)
 const pendingCafePath = ref<string | null>(null)
 watch(selectedCafe, (cafe) => {
   if (cafe) lastDetailCafe.value = cafe
+})
+watch(selectedEvent, (event) => {
+  if (event) lastDetailEvent.value = event
 })
 const distances = computed(() => {
   const origin = mapCenter.value
@@ -347,7 +368,7 @@ const distances = computed(() => {
 
 const headerPad = 188
 const bottomPad = computed(() => {
-  if (sheetOpen.value || detailOpen.value) {
+  if (sheetOpen.value || detailOpen.value || eventDetailOpen.value) {
     return Math.round(window.innerHeight * 0.52)
   }
   return 36
@@ -356,6 +377,10 @@ const bottomPad = computed(() => {
 const goBack = async () => {
   if (showSuggestions.value) {
     searchFocused.value = false
+    return
+  }
+  if (eventDetailOpen.value) {
+    eventDetailOpen.value = false
     return
   }
   if (detailOpen.value) {
@@ -454,6 +479,8 @@ const openSheet = () => {
 
 const onSelectCafe = (id: string) => {
   selectedId.value = id
+  selectedEventId.value = null
+  eventDetailOpen.value = false
   if (sheetOpen.value) listWasOpen.value = true
   sheetOpen.value = false
   detailOpen.value = true
@@ -467,6 +494,29 @@ const onSelectCafe = (id: string) => {
     const extra = Math.round(window.innerHeight * 0.52)
     mapRef.value?.focusCafe(cafe, extra)
   })
+}
+
+const onSelectEvent = (id: string) => {
+  selectedEventId.value = id
+  selectedId.value = null
+  detailOpen.value = false
+  if (sheetOpen.value) listWasOpen.value = true
+  sheetOpen.value = false
+  eventDetailOpen.value = true
+  const existing = mapEvents.value.find((event) => event.id === id)
+  if (existing) {
+    const extra = Math.round(window.innerHeight * 0.52)
+    mapRef.value?.focusEvent(existing, extra)
+  }
+}
+
+const onEventDetailPresent = () => {
+  refreshMap()
+}
+
+const onEventDetailDismissed = () => {
+  selectedEventId.value = null
+  refreshMap()
 }
 
 const queueCafePage = (path: string) => {
@@ -570,7 +620,10 @@ watch(usingFallback, (fallback, previous) => {
 })
 
 watch(sheetOpen, (open) => {
-  if (!open && !detailOpen.value) selectedId.value = null
+  if (!open && !detailOpen.value && !eventDetailOpen.value) {
+    selectedId.value = null
+    selectedEventId.value = null
+  }
   refreshMap()
 })
 
@@ -584,6 +637,22 @@ watch(detailOpen, (open) => {
     return
   }
   selectedId.value = null
+  const restoreList = listWasOpen.value
+  listWasOpen.value = false
+  if (restoreList) {
+    window.setTimeout(() => {
+      sheetOpen.value = true
+    }, 320)
+  }
+  refreshMap()
+})
+
+watch(eventDetailOpen, (open) => {
+  if (open) {
+    refreshMap()
+    return
+  }
+  selectedEventId.value = null
   const restoreList = listWasOpen.value
   listWasOpen.value = false
   if (restoreList) {

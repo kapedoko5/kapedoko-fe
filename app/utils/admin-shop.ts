@@ -52,7 +52,7 @@ export function adminCafeHasErrors(input: AdminCafeInput): boolean {
   return Object.values(adminCafeErrors(input)).some(Boolean)
 }
 
-const ADMIN_ASSET_KEY = /^(shop-logos|ad-banners|audit-photos)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
+const ADMIN_ASSET_KEY = /^(shop-logos|ad-banners|audit-photos|event-images)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
 const ADMIN_ASSET_KEY_LIMIT = 80
 
 export function uniqueDeletableAdminObjectKeys(value: unknown, limit = ADMIN_ASSET_KEY_LIMIT): string[] {

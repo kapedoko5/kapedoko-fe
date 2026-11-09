@@ -10,7 +10,7 @@ const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const BANNER_MAX_BYTES = 4 * 1024 * 1024
 const AUDIT_PHOTO_MAX_BYTES = 4 * 1024 * 1024
 
-type UploadPurpose = 'shop-logo' | 'ad-banner' | 'audit-photo'
+type UploadPurpose = 'shop-logo' | 'ad-banner' | 'audit-photo' | 'event-image'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,6 +74,7 @@ function readR2Config(): R2Config | null {
 function parsePurpose(value: unknown): UploadPurpose {
   if (value === 'ad-banner') return 'ad-banner'
   if (value === 'audit-photo') return 'audit-photo'
+  if (value === 'event-image') return 'event-image'
   return 'shop-logo'
 }
 
@@ -146,19 +147,19 @@ function validateImageMeta(
   if (!ext) {
     return { error: 'Use a JPG, PNG, or WebP image.' }
   }
-  const max = purpose === 'shop-logo' ? LOGO_MAX_BYTES : purpose === 'ad-banner' ? BANNER_MAX_BYTES : AUDIT_PHOTO_MAX_BYTES
+  const max = purpose === 'shop-logo' ? LOGO_MAX_BYTES : BANNER_MAX_BYTES
   if (!Number.isFinite(size) || size <= 0 || size > max) {
     return {
-      error: purpose === 'ad-banner' || purpose === 'audit-photo'
-        ? 'Keep the photo under 4 MB.'
-        : 'Keep the logo under 2 MB.',
+      error: purpose === 'shop-logo'
+        ? 'Keep the logo under 2 MB.'
+        : 'Keep the photo under 4 MB.',
     }
   }
   return { ext }
 }
 
 function r2UploadError(status: number, purpose: UploadPurpose): string {
-  const noun = purpose === 'ad-banner' ? 'Banner' : purpose === 'audit-photo' ? 'Photo' : 'Logo'
+  const noun = purpose === 'ad-banner' ? 'Banner' : purpose === 'shop-logo' ? 'Logo' : 'Photo'
   if (status === 403) {
     return `${noun} upload credentials are invalid. Check R2 secrets on presign-upload.`
   }
@@ -176,7 +177,13 @@ async function uploadToR2(
   ext: string,
   body: ArrayBuffer,
 ): Promise<Response> {
-  const folder = purpose === 'ad-banner' ? 'ad-banners' : purpose === 'audit-photo' ? 'audit-photos' : 'shop-logos'
+  const folder = purpose === 'ad-banner'
+    ? 'ad-banners'
+    : purpose === 'audit-photo'
+      ? 'audit-photos'
+      : purpose === 'event-image'
+        ? 'event-images'
+        : 'shop-logos'
   const objectKey = `${folder}/${userId}/${crypto.randomUUID()}.${ext}`
   const endpoint = r2Endpoint(config, objectKey)
   const client = r2Client(config)
@@ -217,7 +224,7 @@ async function handleMultipartUpload(
   }
 
   const purpose = parsePurpose(form.get('purpose'))
-  if (purpose === 'ad-banner' && !(await isAdmin(auth))) {
+  if ((purpose === 'ad-banner' || purpose === 'event-image') && !(await isAdmin(auth))) {
     return json(403, { error: 'Admin only' })
   }
   if (purpose === 'audit-photo' && !(await isAuditor(auth))) {
@@ -226,7 +233,7 @@ async function handleMultipartUpload(
 
   const file = form.get('file')
   if (!(file instanceof File)) {
-    return json(400, { error: purpose === 'ad-banner' ? 'Attach a banner image to upload.' : 'Attach a logo image to upload.' })
+    return json(400, { error: purpose === 'shop-logo' ? 'Attach a logo image to upload.' : 'Attach an image to upload.' })
   }
 
   const validation = validateImageMeta(purpose, file.type, file.size)
@@ -238,7 +245,7 @@ async function handleMultipartUpload(
   return uploadToR2(config, auth.id, purpose, file.type, validation.ext, body)
 }
 
-const ADMIN_ASSET_KEY = /^(shop-logos|ad-banners|audit-photos)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
+const ADMIN_ASSET_KEY = /^(shop-logos|ad-banners|audit-photos|event-images)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
 const ADMIN_ASSET_KEY_LIMIT = 80
 
 function uniqueDeletableObjectKeys(value: unknown): string[] {
@@ -313,7 +320,7 @@ async function handlePresignRequest(
   }
 
   const purpose = parsePurpose(payload.purpose)
-  if (purpose === 'ad-banner' && !(await isAdmin(auth))) {
+  if ((purpose === 'ad-banner' || purpose === 'event-image') && !(await isAdmin(auth))) {
     return json(403, { error: 'Admin only' })
   }
   if (purpose === 'audit-photo' && !(await isAuditor(auth))) {
@@ -327,7 +334,13 @@ async function handlePresignRequest(
     return json(400, { error: validation.error })
   }
 
-  const folder = purpose === 'ad-banner' ? 'ad-banners' : purpose === 'audit-photo' ? 'audit-photos' : 'shop-logos'
+  const folder = purpose === 'ad-banner'
+    ? 'ad-banners'
+    : purpose === 'audit-photo'
+      ? 'audit-photos'
+      : purpose === 'event-image'
+        ? 'event-images'
+        : 'shop-logos'
   const objectKey = `${folder}/${auth.id}/${crypto.randomUUID()}.${validation.ext}`
   const endpoint = r2Endpoint(config, objectKey)
   const signed = await r2Client(config).sign(

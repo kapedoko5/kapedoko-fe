@@ -12,6 +12,7 @@ describe('admin routes', () => {
       '/admin/claims',
       '/admin/partnerships',
       '/admin/ads',
+      '/admin/events',
       '/admin/users',
       '/admin/moderation',
     ])
@@ -27,6 +28,8 @@ describe('admin routes', () => {
     expect(adminNavIdFromPath('/admin/claims')).toBe('claims')
     expect(adminNavIdFromPath('/admin/moderation')).toBe('moderation')
     expect(adminNavIdFromPath('/admin/users')).toBe('users')
+    expect(adminNavIdFromPath('/admin/events')).toBe('events')
+    expect(adminNavIdFromPath('/admin/events/new')).toBe('events')
     expect(adminNavIdFromPath('/admin')).toBe('dashboard')
   })
 
@@ -64,10 +67,20 @@ describe('admin routes', () => {
     expect(adminBackNav(`/admin/audits/${shop}`)).toEqual({ to: '/admin/audits', label: 'Audits' })
   })
 
+  test('nested event pages return to the events index', () => {
+    expect(adminBackNav('/admin/events')).toBeNull()
+    expect(adminBackNav('/admin/events/new')).toEqual({ to: '/admin/events', label: 'Events' })
+    expect(adminBackNav('/admin/events/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toEqual({
+      to: '/admin/events',
+      label: 'Events',
+    })
+  })
+
   test('section indexes do not grow a back control', () => {
     expect(adminBackNav('/admin')).toBeNull()
     expect(adminBackNav('/admin/requests')).toBeNull()
     expect(adminBackNav('/admin/claims')).toBeNull()
     expect(adminBackNav('/admin/users')).toBeNull()
+    expect(adminBackNav('/admin/events')).toBeNull()
   })
 })
