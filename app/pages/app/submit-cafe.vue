@@ -374,6 +374,8 @@ onMounted(() => {
 .submit {
   display: flex;
   flex-direction: column;
+  width: min(100%, var(--kd-readable-max));
+  margin-inline: auto;
   min-height: 100%;
   background: #f2f2f2;
   color: var(--kd-ink);
@@ -382,6 +384,8 @@ onMounted(() => {
 
 .submit.is-map {
   position: relative;
+  width: 100%;
+  max-width: none;
   height: 100%;
   min-height: 100%;
   overflow: hidden;
@@ -649,13 +653,6 @@ onMounted(() => {
 :root.is-android .submit__cta {
   height: 48px;
   min-height: 48px;
-}
-
-@media (min-width: 540px) {
-  .submit {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

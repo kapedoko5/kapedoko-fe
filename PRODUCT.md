@@ -24,7 +24,8 @@ Used on a phone, often while already out or about to leave: search a shop by nam
 
 ## Capabilities and Constraints
 
-- Confirmed in product intent: cafe search, amenity-aware listing (WiFi, power outlets), open/closed status, filters, maps for location, saved cafes, profile, first-run onboarding.
+- Confirmed in product intent: cafe search, amenity-aware listing (WiFi, power outlets), open/closed status, filters, maps for location, saved cafes, profile, first-run onboarding, admin-posted community events.
+- Events are standalone pins (not tied to a listed cafe). Admins set gathering hours and a separate display window. Home shows a nearby event card only within 5 km of a real GPS fix; Map shows live events as teal pins.
 - One shared UI across web and Capacitor iOS/Android. Do not split into separate iOS vs Android design languages.
 - Public cafe submissions cover the Philippines. Pins outside the country stay blocked.
 - Admins can still publish a cafe anywhere, including outside the Philippines.

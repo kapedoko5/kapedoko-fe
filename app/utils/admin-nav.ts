@@ -8,6 +8,7 @@ export const ADMIN_NAV = [
   { id: 'claims', label: 'Claims', href: '/admin/claims' },
   { id: 'partnerships', label: 'Partnerships', href: '/admin/partnerships' },
   { id: 'ads', label: 'Ads', href: '/admin/ads' },
+  { id: 'events', label: 'Events', href: '/admin/events' },
   { id: 'users', label: 'Users', href: '/admin/users' },
   { id: 'moderation', label: 'Moderation', href: '/admin/moderation' },
 ] as const
@@ -57,6 +58,10 @@ export function adminBackNav(
     return { to: '/admin/cafes', label: 'Cafes' }
   }
 
+  if (current.startsWith('/admin/events/') && current !== '/admin/events/') {
+    return { to: '/admin/events', label: 'Events' }
+  }
+
   return null
 }
 
@@ -72,6 +77,7 @@ export function adminNavIdFromPath(path: string): (typeof ADMIN_NAV)[number]['id
   if (path.startsWith('/admin/claims')) return 'claims'
   if (path.startsWith('/admin/partnerships')) return 'partnerships'
   if (path.startsWith('/admin/ads')) return 'ads'
+  if (path.startsWith('/admin/events')) return 'events'
   if (path.startsWith('/admin/users')) return 'users'
   if (path.startsWith('/admin/moderation')) return 'moderation'
   return 'dashboard'

@@ -4,10 +4,13 @@ import {
   isForeignSurface,
   isVisibleIonPageClass,
   pathFromHref,
+  resolveAppPath,
   resolveTabBarVisible,
+  shouldShowAppNav,
   tabBarModeForPath,
   type AppTabBarMode,
 } from '~/utils/app-tabs'
+import { appNavModeFor, applyAppNavToDocument } from '~/utils/viewport-layout'
 
 const tabFreePages = new Set<Element>()
 let pendingTabFreeShells = 0
@@ -209,7 +212,9 @@ export function useAppTabBar(mode: AppTabBarMode) {
 
 export function useAppTabBarVisibility() {
   const route = useRoute()
-  const { setLocked } = useAppTabsLock()
+  const { locked, setLocked } = useAppTabsLock()
+  const { size } = useViewportLayout()
+  const splash = useState('kd-splash-loading', () => true)
   const pageMode = useState<AppTabBarMode | null>('kd-app-tab-page', () => null)
   const pageStamp = useState('kd-app-tab-page-stamp', () => 0)
   const routeMode = useState<AppTabBarMode | null>('kd-app-tab-route', () => null)
@@ -241,7 +246,7 @@ export function useAppTabBarVisibility() {
     if (import.meta.client) {
       locationPath.value = `${window.location.pathname}${window.location.hash}`
     }
-    notePath(path)
+    notePath(resolveAppPath(path, locationPath.value) || path)
   }, { immediate: true, flush: 'sync' })
 
   if (import.meta.client) {
@@ -254,7 +259,7 @@ export function useAppTabBarVisibility() {
     onMounted(() => {
       const href = `${window.location.pathname}${window.location.hash}`
       locationPath.value = href
-      if (isActiveForeignSurface(route.path, href)) notePath(href)
+      notePath(resolveAppPath(route.path, href))
       window.addEventListener('popstate', onLocation)
       window.addEventListener('hashchange', onLocation)
     })
@@ -265,13 +270,37 @@ export function useAppTabBarVisibility() {
     })
   }
 
-  const visible = computed(() => resolveTabBarVisible({
-    pageMode: pageMode.value,
-    pageStamp: pageStamp.value,
-    routeMode: routeMode.value,
-    routeStamp: routeStamp.value,
-    foreign: isActiveForeignSurface(route.path, locationPath.value),
-  }))
+  const liveShellPath = computed(() => (
+    resolveAppPath(
+      route.path,
+      import.meta.client
+        ? (locationPath.value || `${window.location.pathname}${window.location.hash}`)
+        : locationPath.value,
+    )
+  ))
+
+  const visible = computed(() => {
+    const path = liveShellPath.value
+    const compactVisible = resolveTabBarVisible({
+      pageMode: pageMode.value,
+      pageStamp: pageStamp.value,
+      routeMode: routeMode.value,
+      routeStamp: routeStamp.value,
+      foreign: isActiveForeignSurface(path, locationPath.value),
+    })
+    if (size.value === 'compact') return compactVisible
+    return shouldShowAppNav(path, size.value, locationPath.value)
+  })
+
+  const syncNavDataset = () => {
+    if (!import.meta.client) return
+    applyAppNavToDocument(
+      appNavModeFor(visible.value && !locked.value && !splash.value, size.value),
+      document.documentElement,
+    )
+  }
+
+  watch([visible, locked, size, splash], syncNavDataset, { immediate: true })
 
   return { visible }
 }

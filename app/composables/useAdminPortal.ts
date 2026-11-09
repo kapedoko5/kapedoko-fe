@@ -1,4 +1,6 @@
 import type { AdCampaignRow, AdminDashboardCounts, AdminUserRow, AdminUsersResponse } from '~/types/admin'
+import type { EventRow } from '~/types/event'
+import { isEventDisplayActive } from '~/utils/events'
 import type { ContentReportRow, MarkerTier, ProfileRole, ProfileRow, ShopCheckinTotalsRow, ShopClaimRow, ShopPlacementRow, ShopRow, ShopStatus, WeeklyHours } from '~/types/shop'
 import { authUserId } from '~/utils/auth'
 import { adminLogoPayload } from '~/utils/admin-logos'
@@ -45,7 +47,7 @@ export async function requireAdminUserId(): Promise<string> {
   return userId
 }
 
-export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'ad-banner'): Promise<string> {
+export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'ad-banner' | 'event-image'): Promise<string> {
   const supabase = useSupabaseClient<AdminDatabase>()
   const form = new FormData()
   form.append('file', file)
@@ -73,6 +75,7 @@ export function useAdminData() {
   const placements = useState<ShopPlacementRow[]>('kd-admin-placements', () => [])
   const reports = useState<ContentReportRow[]>('kd-admin-reports', () => [])
   const ads = useState<AdCampaignRow[]>('kd-admin-ads', () => [])
+  const events = useState<EventRow[]>('kd-admin-events', () => [])
   const claims = useState<ShopClaimRow[]>('kd-admin-claims', () => [])
   const checkIns30d = useState('kd-admin-checkins-30d', () => 0)
   const status = useState<'idle' | 'loading' | 'ready' | 'forbidden' | 'error'>('kd-admin-status', () => 'idle')
@@ -120,6 +123,7 @@ export function useAdminData() {
       openReports: reports.value.filter((report) => report.status === 'open').length,
       activePlacements: placements.value.filter((row) => new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() > now).length,
       activeAds: ads.value.filter((row) => row.enabled && !row.cancelled_at && new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() > now).length,
+      activeEvents: events.value.filter((row) => isEventDisplayActive(row)).length,
       users: 0,
       checkIns30d: checkIns30d.value,
     }
@@ -166,6 +170,18 @@ export function useAdminData() {
       return
     }
     ads.value = (data ?? []) as AdCampaignRow[]
+  }
+
+  const loadEvents = async () => {
+    const { data, error: eventsError } = await supabase
+      .from('events')
+      .select('*')
+      .order('display_starts_at', { ascending: false })
+    if (eventsError) {
+      events.value = []
+      return
+    }
+    events.value = (data ?? []) as EventRow[]
   }
 
   const loadClaims = async () => {
@@ -223,7 +239,7 @@ export function useAdminData() {
       }
       const applied = await loadShops(seq)
       if (!applied) return
-      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadClaims(), loadCheckIns()])
+      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadEvents(), loadClaims(), loadCheckIns()])
       if (seq !== loadSeq.value) return
       status.value = 'ready'
     } catch (err) {
@@ -685,6 +701,91 @@ export function useAdminData() {
     return data as AdCampaignRow
   }
 
+  const saveEvent = async (payload: {
+    id?: string
+    name: string
+    organizer_name: string
+    organizer_contact_name: string
+    organizer_contact_number: string
+    description: string
+    address: string
+    latitude: number
+    longitude: number
+    event_starts_at: string
+    event_ends_at: string
+    display_starts_at: string
+    display_ends_at: string
+    posterFile: File | null
+    poster_object_key?: string | null
+    galleryFiles: File[]
+    gallery_object_keys: string[]
+    enabled: boolean
+  }) => {
+    let posterKey = payload.poster_object_key ?? null
+    if (payload.posterFile) posterKey = await uploadAdminAsset(payload.posterFile, 'event-image')
+    if (!posterKey) throw new Error('Upload a poster image.')
+    const extraKeys = [...payload.gallery_object_keys]
+    for (const file of payload.galleryFiles) {
+      extraKeys.push(await uploadAdminAsset(file, 'event-image'))
+    }
+    const row = {
+      name: payload.name.trim(),
+      organizer_name: payload.organizer_name.trim(),
+      organizer_contact_name: payload.organizer_contact_name.trim() || null,
+      organizer_contact_number: payload.organizer_contact_number.trim() || null,
+      description: payload.description.trim() || null,
+      address: payload.address.trim(),
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+      event_starts_at: new Date(payload.event_starts_at).toISOString(),
+      event_ends_at: new Date(payload.event_ends_at).toISOString(),
+      display_starts_at: new Date(payload.display_starts_at).toISOString(),
+      display_ends_at: new Date(payload.display_ends_at).toISOString(),
+      poster_object_key: posterKey,
+      gallery_object_keys: extraKeys,
+      enabled: payload.enabled,
+      cancelled_at: payload.enabled ? null : new Date().toISOString(),
+    }
+    if (payload.id) {
+      const { data, error: updateError } = await supabase.from('events').update(row).eq('id', payload.id).select().single()
+      if (updateError || !data) throw new Error(updateError?.message || 'Could not save this event.')
+      events.value = events.value.map((item) => (item.id === payload.id ? (data as EventRow) : item))
+      return data as EventRow
+    }
+    const { data, error: insertError } = await supabase.from('events').insert(row).select().single()
+    if (insertError || !data) throw new Error(insertError?.message || 'Could not save this event.')
+    events.value = [data as EventRow, ...events.value]
+    return data as EventRow
+  }
+
+  const cancelEvent = async (id: string) => {
+    const now = new Date().toISOString()
+    const { data, error: updateError } = await supabase
+      .from('events')
+      .update({ enabled: false, cancelled_at: now })
+      .eq('id', id)
+      .select()
+      .single()
+    if (updateError || !data) throw new Error(updateError?.message || 'Could not end this event.')
+    events.value = events.value.map((item) => (item.id === id ? (data as EventRow) : item))
+  }
+
+  const fetchEvent = async (eventId: string): Promise<EventRow | null> => {
+    const { data, error: eventError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .maybeSingle()
+    if (eventError) throw eventError
+    const row = (data ?? events.value.find((item) => item.id === eventId) ?? null) as EventRow | null
+    if (row) {
+      events.value = events.value.some((item) => item.id === row.id)
+        ? events.value.map((item) => (item.id === row.id ? row : item))
+        : [row, ...events.value]
+    }
+    return row
+  }
+
   const cancelAd = async (id: string) => {
     const now = new Date().toISOString()
     const { data, error: updateError } = await supabase
@@ -732,6 +833,7 @@ export function useAdminData() {
     placementsByShop,
     reports,
     ads,
+    events,
     claims,
     counts,
     status,
@@ -741,6 +843,7 @@ export function useAdminData() {
     fetchShop,
     loadPlacements,
     loadAds,
+    loadEvents,
     loadClaims,
     markerTierFor,
     moderate,
@@ -756,6 +859,9 @@ export function useAdminData() {
     resolveReport,
     saveAd,
     cancelAd,
+    saveEvent,
+    cancelEvent,
+    fetchEvent,
     moderateClaim,
   }
 }
