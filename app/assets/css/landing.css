@@ -1,0 +1,128 @@
+/* Hallmark · shape: Stage then Switcher · genre: editorial · theme: brand · redesign: full · job: try · idea: "the bag reprints Hours, WiFi, Outlets" · vibe: "cool shelf, printed bag labels" · paper: #f2f2f2 · accent: #d9793b · display: Kumbh Sans · body: Kumbh Sans · hero: Stage · nav: edge-aligned · footer: colophon · imagery: the product built · signature: filter stamps reprint the bag
+ * axes: cool-grey/geometric-sans/orange · posture: restrained · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V5 · weakest: H, first screen was sparse; Stage bag now fills the fold */
+/* Hallmark · waive 22 · chroma 0 on --color-paper · the cafe shelf stays the locked cool off-white */
+/* Hallmark · waive 26b · not a form control, no aria-disabled anywhere · Open the app on this cafe page is a route */
+/* Hallmark · waive 42 · stamp names nav: edge-aligned · the cafe page keeps How it works beside Open the app */
+/* Hallmark · answered F3 · display heads on the cafe page use text-wrap: balance */
+/* Hallmark · answered F4 · Open the app is the job in the sticky bar and the hero */
+/* Hallmark · answered F16 · cafe page sets selection, caret, and scrollbar against the shelf */
+/* Hallmark · dismissed 58 · Hours WiFi and Outlets on the bag sit beside the cafe offer */
+/* Hallmark · reworded "Find a cafe you can actually work from" to "A cafe you can actually work from" · 58 names the opener */
+/* Hallmark · reworded "Choose a cafe you can work from" to "Scan nearby shops" · 69 names the echo */
+/* Hallmark · reworded "What you check" to "Atmosphere is not the job" · craft names the swap */
+/* Hallmark · restored "Press a filter to reprint Hours, WiFi, and Outlets." · signature names the reprint */
+/* Hallmark · dropped "Help us improve KapéDoko?" · the cafe landing keeps the consent dialog off the first screen */
+/* Hallmark · dropped the six-row spec copy · 58 names the cafe screen budget */
+/* Hallmark · finish-review: subagent, 6 resolved · Floor 0 FAIL, Reflex 0 */
+
+.landing-page.ion-page {
+  overflow-x: clip;
+  overflow-y: auto;
+  contain: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.landing {
+  min-height: 100%;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.55;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  caret-color: var(--color-focus);
+  scrollbar-color: var(--color-rule) var(--color-paper);
+}
+
+.landing :deep(::selection),
+.landing ::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+.landing-container {
+  width: 100%;
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  box-sizing: border-box;
+}
+
+.landing h1,
+.landing h2,
+.landing h3 {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-synthesis: none;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.05;
+  overflow-wrap: break-word;
+  min-width: 0;
+  text-wrap: balance;
+}
+
+.landing h1 {
+  max-width: 12ch;
+  font-size: var(--text-display);
+  line-height: 1.02;
+}
+
+.landing h2 {
+  max-width: 16ch;
+  font-size: var(--text-section);
+  line-height: 1.06;
+}
+
+.landing p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.landing .lead {
+  font-size: var(--text-lead);
+  line-height: 1.4;
+  max-width: 36rem;
+}
+
+.landing a:not(.landing-open) {
+  color: var(--color-focus);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.landing a:not(.landing-open):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 840px) {
+  .landing {
+    --gutter: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing *:not(.keep-motion),
+  .landing *:not(.keep-motion)::before,
+  .landing *:not(.keep-motion)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

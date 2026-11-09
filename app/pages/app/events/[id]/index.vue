@@ -182,11 +182,17 @@ onBeforeUnmount(() => {
   --padding-bottom: 0;
 }
 
+.event-page-content :deep(.inner-scroll) {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .event-page {
   width: min(100%, var(--kd-readable-max));
   margin-inline: auto;
   min-height: 100%;
   overflow: visible;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
   background: #f2f2f2;
 }
 

@@ -11,15 +11,17 @@
     @didPresent="onPresent"
     @didDismiss="onDismiss"
   >
-    <CafeDetailContent
-      v-if="cafe"
-      :cafe="cafe"
-      variant="sheet"
-      :show-close="!compact"
-      @review="emit('review')"
-      @checkin="emit('checkin')"
-      @close="onClose"
-    />
+    <div class="cafe-sheet">
+      <CafeDetailContent
+        v-if="cafe"
+        :cafe="cafe"
+        variant="sheet"
+        :show-close="!compact"
+        @review="emit('review')"
+        @checkin="emit('checkin')"
+        @close="onClose"
+      />
+    </div>
   </IonModal>
 </template>
 
@@ -76,6 +78,27 @@ ion-modal.cafe-detail-modal::part(backdrop) {
 
 ion-modal.cafe-detail-modal::part(content) {
   pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+ion-modal.cafe-detail-modal .ion-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.cafe-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 ion-modal.cafe-detail-modal::part(handle) {

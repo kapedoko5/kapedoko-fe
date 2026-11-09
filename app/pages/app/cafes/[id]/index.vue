@@ -42,23 +42,6 @@
         <p v-if="cafe && cafe.source === 'openstreetmap'" class="cafe-page__attr">
           Place data © OpenStreetMap contributors
         </p>
-        <section v-if="cafe && status === 'ready' && ownerHref" class="cafe-page__owner" :aria-labelledby="ownerHeadingId">
-          <div class="cafe-page__mast">
-            <div class="cafe-page__stamp" aria-hidden="true">
-              <Store :size="18" :stroke-width="2.25" />
-            </div>
-            <h2 :id="ownerHeadingId">{{ ownerTitle }}</h2>
-          </div>
-          <p class="cafe-page__owner-hint">{{ ownerHint }}</p>
-          <a
-            class="cafe-page__claim"
-            :class="{ 'is-quiet': ownerQuiet }"
-            :href="ownerHref"
-            @click.prevent="goOwner"
-          >
-            {{ ownerLabel }}
-          </a>
-        </section>
       </div>
     </IonContent>
   </IonPage>
@@ -67,7 +50,7 @@
 <script lang="ts" setup>
 import { Capacitor } from '@capacitor/core'
 import { onIonViewWillEnter, useIonRouter } from '@ionic/vue'
-import { ChevronLeft, Store } from 'lucide-vue-next'
+import { ChevronLeft } from 'lucide-vue-next'
 import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
 import {
@@ -89,9 +72,7 @@ const route = useRoute()
 const ionRouter = useIonRouter()
 const supabase = useSupabaseClient()
 const config = useRuntimeConfig()
-const { user } = useAuth()
 const { track, once, consent } = useAnalytics()
-const ownership = useShopOwnership()
 
 const { upsertCafe } = useApprovedShops()
 const cafe = ref<Cafe | null>(null)
@@ -99,33 +80,6 @@ const status = ref<'loading' | 'ready' | 'missing' | 'error'>('loading')
 
 const shopId = computed(() => resolveShopId())
 const heading = computed(() => cafe.value?.name || 'Cafe details')
-const ownerClaim = computed(() => (shopId.value ? ownership.claimForShop(shopId.value) : null))
-const ownerHeadingId = 'cafe-owner-invite'
-const ownerTitle = computed(() => {
-  if (ownerClaim.value?.status === 'verified') return 'You manage this cafe'
-  if (ownerClaim.value?.status === 'pending') return 'We’re reviewing your claim'
-  return 'Are you the owner of this cafe?'
-})
-const ownerHint = computed(() => {
-  if (ownerClaim.value?.status === 'verified') return 'Hours, contact, and the logo are yours to keep current.'
-  if (ownerClaim.value?.status === 'pending') return 'This listing stays on the map while we check.'
-  if (ownerClaim.value?.status === 'rejected') return 'You can send a clearer claim and we’ll look again.'
-  return 'Hours and the logo stay truer when the shop keeps them.'
-})
-const ownerHref = computed(() => {
-  if (!shopId.value) return ''
-  if (!user.value) return `/login?redirect=${encodeURIComponent(`/app/cafes/${shopId.value}/claim`)}`
-  if (ownerClaim.value?.status === 'verified') return `/app/cafes/${shopId.value}/edit`
-  return `/app/cafes/${shopId.value}/claim`
-})
-const ownerLabel = computed(() => {
-  if (!user.value) return 'Sign in to claim this cafe'
-  if (ownerClaim.value?.status === 'verified') return 'Edit listing'
-  if (ownerClaim.value?.status === 'pending') return 'View claim'
-  if (ownerClaim.value?.status === 'rejected') return 'Send a new claim'
-  return 'Claim this cafe'
-})
-const ownerQuiet = computed(() => ownerClaim.value?.status === 'pending')
 
 function resolveShopId(): string {
   const param = route.params.id
@@ -177,14 +131,6 @@ const onCheckIn = async () => {
   const id = shopId.value || cafe.value?.id
   if (!id) return
   await navigateTo(`/app/cafes/${id}/check-in`)
-}
-
-const goOwner = async () => {
-  if (!ownerHref.value) return
-  if (!user.value) {
-    track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'claim' })
-  }
-  await navigateTo(ownerHref.value)
 }
 
 const trackCafeDetail = (next: Cafe) => {
@@ -244,7 +190,6 @@ const bootstrap = async (id: string, force = false) => {
     }
     cafe.value = nextCafe
     status.value = 'ready'
-    if (user.value) void ownership.loadClaimForShop(id)
     trackCafeDetail(nextCafe)
   } catch {
     if (seq !== loadSeq) return
@@ -399,93 +344,6 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.cafe-page__owner {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  margin: 0 20px calc(20px + env(safe-area-inset-bottom));
-  padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
-  border-radius: 16px;
-  background: #faf8f5;
-}
-
-.cafe-page__mast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.cafe-page__stamp {
-  display: grid;
-  place-items: center;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--kd-accent) 18%, #faf8f5);
-  color: var(--kd-ink);
-}
-
-.cafe-page__mast h2,
-.cafe-page__owner-hint {
-  margin: 0;
-  color: var(--kd-ink);
-  overflow-wrap: anywhere;
-}
-
-.cafe-page__mast h2 {
-  min-width: 0;
-  font-size: 1.125rem;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-}
-
-.cafe-page__owner-hint {
-  color: color-mix(in srgb, var(--kd-ink) 78%, #faf8f5);
-  font-size: 0.75rem;
-  line-height: 1.3;
-}
-
-.cafe-page__claim {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--kd-accent);
-  border-radius: 16px;
-  background: var(--kd-accent);
-  color: var(--kd-ink);
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.2;
-  text-decoration: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: box-shadow 160ms ease;
-}
-
-.cafe-page__claim.is-quiet {
-  border-color: color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  background: #faf8f5;
-}
-
-.cafe-page__claim:active {
-  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
-}
-
-@media (hover: hover) {
-  .cafe-page__claim:hover {
-    box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  }
-}
-
 .cafe-page__attr {
   margin: 0;
   padding: 8px 20px 10px;
@@ -495,8 +353,7 @@ onBeforeUnmount(() => {
 }
 
 .cafe-page__back:focus-visible,
-.cafe-page__home:focus-visible,
-.cafe-page__claim:focus-visible {
+.cafe-page__home:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 3px;
   border-radius: 16px;
@@ -517,16 +374,14 @@ onBeforeUnmount(() => {
   }
 }
 
-:root.is-android .cafe-page__home,
-:root.is-android .cafe-page__claim {
+:root.is-android .cafe-page__home {
   min-height: 48px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cafe-page__pulse span,
   .cafe-page__back,
-  .cafe-page__home,
-  .cafe-page__claim {
+  .cafe-page__home {
     animation: none;
     transition-duration: 1ms;
   }

@@ -1,89 +1,101 @@
 <template>
-  <div class="event-detail" :class="`event-detail--${variant}`">
-    <header class="event-detail__header">
+  <div
+    class="event-detail"
+    :class="[
+      `event-detail--${variant}`,
+      { 'event-detail--flush': !showHeader },
+    ]"
+  >
+    <header v-if="showHeader" class="event-detail__header">
       <h2>{{ event.name }}</h2>
       <button
         v-if="showClose"
         type="button"
         class="event-detail__close"
         aria-label="Close event details"
-        @click="emit('close')"
+        @pointerdown.stop
+        @click.stop="emit('close')"
       >
-        <X :size="18" :stroke-width="2.25" aria-hidden="true" />
+        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+          <path d="M5 5l14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" />
+        </svg>
       </button>
     </header>
 
     <div class="event-detail__scroll">
-      <button
-        type="button"
-        class="event-detail__poster"
-        :aria-label="`View ${event.name} poster`"
-        @click="openPhoto(event.poster, `${event.name} poster`, $event)"
-      >
-        <img :src="event.poster" :alt="`${event.name} poster`" width="720" height="480" />
-      </button>
-
-      <ul class="event-detail__facts" aria-label="Event details">
-        <li>
-          <Calendar :size="15" :stroke-width="2.25" aria-hidden="true" />
-          <span>
-            <strong>When</strong>
-            {{ event.whenLabel }}
-          </span>
-        </li>
-        <li>
-          <MapPin :size="15" :stroke-width="2.25" aria-hidden="true" />
-          <span>
-            <strong>Where</strong>
-            {{ event.address }}
-          </span>
-        </li>
-      </ul>
-
-      <div class="event-detail__actions">
-        <a
-          class="event-detail__navigate"
-          :href="mapsHref"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Navigate to this event in Google Maps"
-        >
-          <Navigation :size="16" :stroke-width="2.25" aria-hidden="true" />
-          Navigate to this event
-        </a>
-      </div>
-
-      <p v-if="event.description" class="event-detail__about">{{ event.description }}</p>
-
-      <div class="event-detail__map">
-        <ClientOnly>
-          <CafePinMap
-            kind="event"
-            :lat="event.lat"
-            :lng="event.lng"
-            :name="event.name"
-            :address="event.address"
-            :maps-href="mapsHref"
-          />
-        </ClientOnly>
-      </div>
-
-      <div v-if="event.gallery.length" class="event-detail__gallery" aria-label="More photos">
+      <div class="event-detail__body">
         <button
-          v-for="(photo, index) in event.gallery"
-          :key="`${photo}-${index}`"
           type="button"
-          class="event-detail__shot"
-          :aria-label="`View ${event.name} photo ${index + 1}`"
-          @click="openPhoto(photo, `${event.name} photo ${index + 1}`, $event)"
+          class="event-detail__poster"
+          :aria-label="`View ${event.name} poster`"
+          @click="openPhoto(event.poster, `${event.name} poster`, $event)"
         >
-          <img
-            :src="photo"
-            :alt="`${event.name} photo ${index + 1}`"
-            width="240"
-            height="180"
-          />
+          <img :src="event.poster" :alt="`${event.name} poster`" width="720" height="480" />
         </button>
+
+        <ul class="event-detail__facts" aria-label="Event details">
+          <li>
+            <Calendar :size="15" :stroke-width="2.25" aria-hidden="true" />
+            <span>
+              <strong>When</strong>
+              {{ event.whenLabel }}
+            </span>
+          </li>
+          <li>
+            <MapPin :size="15" :stroke-width="2.25" aria-hidden="true" />
+            <span>
+              <strong>Where</strong>
+              {{ event.address }}
+            </span>
+          </li>
+        </ul>
+
+        <div class="event-detail__actions">
+          <a
+            class="event-detail__navigate"
+            :href="mapsHref"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Navigate to this event in Google Maps"
+          >
+            <Navigation :size="16" :stroke-width="2.25" aria-hidden="true" />
+            Navigate to this event
+          </a>
+        </div>
+
+        <p v-if="event.description" class="event-detail__about">{{ event.description }}</p>
+
+        <div class="event-detail__map">
+          <ClientOnly>
+            <CafePinMap
+              kind="event"
+              passthrough-scroll
+              :lat="event.lat"
+              :lng="event.lng"
+              :name="event.name"
+              :address="event.address"
+              :maps-href="mapsHref"
+            />
+          </ClientOnly>
+        </div>
+
+        <div v-if="event.gallery.length" class="event-detail__gallery" aria-label="More photos">
+          <button
+            v-for="(photo, index) in event.gallery"
+            :key="`${photo}-${index}`"
+            type="button"
+            class="event-detail__shot"
+            :aria-label="`View ${event.name} photo ${index + 1}`"
+            @click="openPhoto(photo, `${event.name} photo ${index + 1}`, $event)"
+          >
+            <img
+              :src="photo"
+              :alt="`${event.name} photo ${index + 1}`"
+              width="240"
+              height="180"
+            />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -103,14 +115,16 @@
         aria-label="Close photo"
         @click="closePhoto"
       >
-        <X :size="20" :stroke-width="2.25" aria-hidden="true" />
+        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+          <path d="M5 5l14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" />
+        </svg>
       </button>
     </dialog>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { Calendar, MapPin, Navigation, X } from 'lucide-vue-next'
+import { Calendar, MapPin, Navigation } from 'lucide-vue-next'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { KapeEvent } from '~/types/event'
 import { googleMapsDirectionsUrl } from '~/utils/maps'
@@ -119,9 +133,11 @@ const props = withDefaults(defineProps<{
   event: KapeEvent
   variant?: 'page' | 'sheet'
   showClose?: boolean
+  showHeader?: boolean
 }>(), {
   variant: 'page',
   showClose: false,
+  showHeader: true,
 })
 
 const emit = defineEmits<{
@@ -168,41 +184,64 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  padding: 0 20px calc(24px + env(safe-area-inset-bottom));
+  padding: 0 20px calc(32px + env(safe-area-inset-bottom));
   color: var(--kd-ink);
   font-family: 'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+.event-detail--page {
+  display: block;
+  height: auto;
+  overflow: visible;
+}
+
 .event-detail--sheet {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  padding-top: 32px;
+  padding-top: 8px;
   padding-bottom: 0;
+}
+
+.event-detail--flush {
+  display: block;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding-top: 0;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
 }
 
 .event-detail__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-shrink: 0;
 }
 
 .event-detail__close {
+  position: relative;
+  z-index: 5;
   display: grid;
   place-items: center;
   flex: 0 0 44px;
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
   border-radius: 16px;
-  background: #faf8f5;
+  background: #ffffff;
   color: var(--kd-ink);
   cursor: pointer;
+  touch-action: manipulation;
+  pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
+}
+
+.event-detail__close svg {
+  display: block;
 }
 
 .event-detail__close:focus-visible {
@@ -213,6 +252,7 @@ onBeforeUnmount(() => {
 .event-detail__header h2 {
   margin: 0;
   min-width: 0;
+  flex: 1;
   font-size: 1.325rem;
   font-weight: 700;
   line-height: 1.05;
@@ -221,21 +261,30 @@ onBeforeUnmount(() => {
 }
 
 .event-detail__scroll {
+  min-width: 0;
+}
+
+.event-detail__body {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
 }
 
-.event-detail--sheet .event-detail__scroll {
-  flex: 1;
+.event-detail--page .event-detail__scroll,
+.event-detail--flush .event-detail__scroll {
+  height: auto;
+  overflow: visible;
+}
+
+.event-detail--sheet:not(.event-detail--flush) .event-detail__scroll {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-bottom: calc(32px + env(safe-area-inset-bottom));
   overscroll-behavior: contain;
-  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--kd-ink) 25%, transparent) transparent;
 }
@@ -362,8 +411,11 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 10px;
   overflow-x: auto;
+  overflow-y: visible;
   scroll-snap-type: x mandatory;
-  padding-bottom: 4px;
+  padding-bottom: 8px;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
   scrollbar-width: none;
 }
 
@@ -410,17 +462,22 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 2;
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
   border-radius: 16px;
-  background: #faf8f5;
+  background: #ffffff;
   color: var(--kd-ink);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.event-detail__viewer-close svg {
+  display: block;
 }
 
 .event-detail__viewer-close:focus-visible {
