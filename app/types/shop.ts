@@ -181,6 +181,16 @@ export interface ShopBusynessInsert {
   level: BusynessLevel
 }
 
+export interface ShopCheckinStatsRow {
+  shop_id: string
+  checkins_30d: number
+  last_checkin_at: string
+}
+
+export interface ShopCheckinTotalsRow {
+  checkins_30d: number
+}
+
 export interface ShopClaimRow {
   id: string
   shop_id: string

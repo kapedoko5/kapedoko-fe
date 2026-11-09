@@ -112,8 +112,10 @@
             </p>
             <p v-if="rejectIssue" class="admin-error" role="alert">{{ rejectIssue }}</p>
             <div class="admin-row-actions">
-              <button type="submit" class="admin-btn" :disabled="savingId === claim.id">
-                {{ savingId === claim.id ? 'Sending…' : 'Send rejection' }}
+              <button type="submit" class="admin-btn" :disabled="savingId === claim.id" :aria-busy="savingId === claim.id || undefined">
+                <AdminBusyLabel :busy="savingId === claim.id">
+                  {{ savingId === claim.id ? 'Sending…' : 'Send rejection' }}
+                </AdminBusyLabel>
               </button>
               <button type="button" class="admin-btn admin-btn--quiet" :disabled="savingId === claim.id" @click="cancelReject">
                 Cancel
@@ -126,10 +128,13 @@
               type="button"
               class="admin-btn"
               :disabled="savingId === claim.id"
+              :aria-busy="savingId === claim.id || undefined"
               :aria-describedby="`claim-verify-hint-${claim.id}`"
               @click="onVerify(claim)"
             >
-              {{ savingId === claim.id ? 'Verifying…' : 'Verify owner' }}
+              <AdminBusyLabel :busy="savingId === claim.id">
+                {{ savingId === claim.id ? 'Verifying…' : 'Verify owner' }}
+              </AdminBusyLabel>
             </button>
             <button
               type="button"
@@ -159,6 +164,7 @@
 
 <script lang="ts" setup>
 import { Store } from 'lucide-vue-next'
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { ShopClaimRow, ShopClaimStatus } from '~/types/shop'
 import { formatAdminDate } from '~/utils/admin-nav'
@@ -176,6 +182,8 @@ definePageMeta({
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const { shops, claims, status, error, savingId, load, moderateClaim } = admin
 const supabase = useSupabaseClient()
 const config = useRuntimeConfig()
@@ -252,12 +260,20 @@ const cancelReject = () => {
 }
 
 const onVerify = async (claim: ShopClaimRow) => {
+  const name = shopName(claim.shop_id)
+  const choice = await askAdmin({
+    title: `Verify ${name}?`,
+    message: 'They can then edit hours, contact, and the logo — not publish status.',
+    confirmLabel: 'Verify owner',
+  })
+  if (!choice.confirmed) return
   notice.value = ''
   try {
     await moderateClaim(claim, 'verified')
-    notice.value = `${shopName(claim.shop_id)} is theirs to keep current.`
-  } catch {
-    /* shown in the admin shell */
+    notice.value = `${name} is theirs to keep current.`
+    toast.success('Owner verified', notice.value)
+  } catch (err) {
+    toast.error('Could not verify this claim', err, 'Could not update this claim.')
   }
 }
 
@@ -269,10 +285,11 @@ const submitReject = async (claim: ShopClaimRow) => {
   try {
     await moderateClaim(claim, 'rejected', rejectReason.value.trim())
     notice.value = `Rejection sent for ${shopName(claim.shop_id)}.`
+    toast.success('Rejection sent', notice.value)
     cancelReject()
     activeFilter.value = 'rejected'
-  } catch {
-    /* shown in the admin shell */
+  } catch (err) {
+    toast.error('Could not reject this claim', err, 'Could not update this claim.')
   }
 }
 

@@ -7,48 +7,57 @@
       :error="error"
     >
       <p v-if="openReports.length === 0" class="admin-meta">No open reports.</p>
-      <article v-for="report in openReports" :key="report.id" class="admin-card report-card">
-        <header class="report-head">
-          <h2>{{ report.target_type === 'review' ? 'Review report' : 'Photo report' }}</h2>
-          <span class="report-stamp report-stamp--open">
-            <span class="report-stamp__mark" aria-hidden="true" />
-            Open
-          </span>
-        </header>
-        <template v-if="reportedText(report)">
-          <blockquote class="report-quote">{{ reportedText(report) }}</blockquote>
-        </template>
-        <p class="report-note">{{ report.reason || 'No note from the reporter.' }}</p>
-        <p class="report-meta">
-          <span>{{ formatAdminDate(report.created_at) }}</span>
-          <span v-if="reference(report)" :title="referenceTitle(report)">{{ reference(report) }}</span>
-        </p>
-        <div class="report-actions">
-          <button
-            type="button"
-            class="report-warn"
-            :disabled="savingId === report.id"
-            :aria-label="`Keep ${targetWord(report)} hidden`"
-            @click="onResolve(report, 'hidden')"
-          >
-            {{ savingId === report.id && pendingOutcome === 'hidden' ? 'Hiding…' : 'Keep hidden' }}
-          </button>
-          <button
-            type="button"
-            class="report-restore"
-            :disabled="savingId === report.id"
-            :aria-label="`Restore ${targetWord(report)}`"
-            @click="onResolve(report, 'dismissed')"
-          >
-            {{ savingId === report.id && pendingOutcome === 'dismissed' ? 'Restoring…' : 'Restore' }}
-          </button>
-        </div>
-      </article>
+      <div v-else class="report-list">
+        <article v-for="report in openReports" :key="report.id" class="admin-card report-card">
+          <header class="report-head">
+            <h2>{{ report.target_type === 'review' ? 'Review report' : 'Photo report' }}</h2>
+            <span class="report-stamp report-stamp--open">
+              <span class="report-stamp__mark" aria-hidden="true" />
+              Open
+            </span>
+          </header>
+          <template v-if="reportedText(report)">
+            <blockquote class="report-quote">{{ reportedText(report) }}</blockquote>
+          </template>
+          <p class="report-note">{{ report.reason || 'No note from the reporter.' }}</p>
+          <p class="report-meta">
+            <span>{{ formatAdminDate(report.created_at) }}</span>
+            <span v-if="reference(report)" :title="referenceTitle(report)">{{ reference(report) }}</span>
+          </p>
+          <div class="report-actions">
+            <button
+              type="button"
+              class="report-warn"
+              :disabled="savingId === report.id"
+              :aria-busy="savingId === report.id && pendingOutcome === 'hidden' || undefined"
+              :aria-label="`Keep ${targetWord(report)} hidden`"
+              @click="onResolve(report, 'hidden')"
+            >
+              <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'hidden'">
+                {{ savingId === report.id && pendingOutcome === 'hidden' ? 'Hiding…' : 'Keep hidden' }}
+              </AdminBusyLabel>
+            </button>
+            <button
+              type="button"
+              class="report-restore"
+              :disabled="savingId === report.id"
+              :aria-busy="savingId === report.id && pendingOutcome === 'dismissed' || undefined"
+              :aria-label="`Restore ${targetWord(report)}`"
+              @click="onResolve(report, 'dismissed')"
+            >
+              <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'dismissed'">
+                {{ savingId === report.id && pendingOutcome === 'dismissed' ? 'Restoring…' : 'Restore' }}
+              </AdminBusyLabel>
+            </button>
+          </div>
+        </article>
+      </div>
     </AdminShell>
   </IonPage>
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import { formatAdminDate } from '~/utils/admin-nav'
 import { reportedReviewCopy } from '~/utils/moderation'
@@ -59,6 +68,8 @@ definePageMeta({
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const { reports, status, error, savingId, load, resolveReport } = admin
 const openReports = computed(() => reports.value.filter((report) => report.status === 'open'))
 const reportedText = (report: ContentReportRow) => reportedReviewCopy(report)
@@ -75,15 +86,29 @@ const reference = (report: ContentReportRow) => {
 const referenceTitle = (report: ContentReportRow) => report.review_id || report.shop_id || report.id
 
 const onResolve = async (report: ContentReportRow, outcome: 'hidden' | 'dismissed') => {
-  if (outcome === 'hidden') {
-    const word = targetWord(report)
-    if (!window.confirm(`Keep this ${word} hidden? It stays off the cafe until you restore the report.`)) return
-  }
+  const word = targetWord(report)
+  const choice = outcome === 'hidden'
+    ? await askAdmin({
+      title: `Keep this ${word} hidden?`,
+      message: 'It stays off the cafe until you restore the report.',
+      confirmLabel: 'Keep hidden',
+      variant: 'destructive',
+    })
+    : await askAdmin({
+      title: `Restore this ${word}?`,
+      message: 'It can show on the cafe again.',
+      confirmLabel: 'Restore',
+    })
+  if (!choice.confirmed) return
   pendingOutcome.value = outcome
   try {
     await resolveReport(report.id, outcome)
-  } catch {
-    /* shown in the admin shell */
+    toast.success(
+      outcome === 'hidden' ? 'Kept hidden' : 'Restored',
+      outcome === 'hidden' ? `The ${word} stays off the cafe.` : `The ${word} can show on the cafe again.`,
+    )
+  } catch (err) {
+    toast.error('Could not update this report', err, 'Could not update this report.')
   } finally {
     pendingOutcome.value = null
   }
@@ -95,6 +120,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.report-list {
+  display: grid;
+  gap: 12px;
+}
+
 .report-card {
   caret-color: var(--kd-primary);
 }

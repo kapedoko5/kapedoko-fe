@@ -238,16 +238,78 @@ async function handleMultipartUpload(
   return uploadToR2(config, auth.id, purpose, file.type, validation.ext, body)
 }
 
+const ADMIN_ASSET_KEY = /^(shop-logos|ad-banners|audit-photos)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
+const ADMIN_ASSET_KEY_LIMIT = 80
+
+function uniqueDeletableObjectKeys(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : typeof value === 'string' ? [value] : []
+  const seen = new Set<string>()
+  const keys: string[] = []
+  for (const item of raw) {
+    if (typeof item !== 'string') continue
+    const key = item.trim().replace(/^\/+/, '')
+    if (!key || !ADMIN_ASSET_KEY.test(key) || seen.has(key)) continue
+    seen.add(key)
+    keys.push(key)
+    if (keys.length >= ADMIN_ASSET_KEY_LIMIT) break
+  }
+  return keys
+}
+
+async function deleteFromR2(config: R2Config, objectKey: string): Promise<boolean> {
+  const endpoint = r2Endpoint(config, objectKey)
+  const signed = await r2Client(config).sign(
+    new Request(endpoint, { method: 'DELETE' }),
+    { aws: { signQuery: true } },
+  )
+  const res = await fetch(signed.url, { method: 'DELETE' })
+  return res.ok || res.status === 404
+}
+
+async function handleDeleteObjects(
+  auth: AuthUser,
+  config: R2Config | null,
+  objectKeys: unknown,
+): Promise<Response> {
+  if (!(await isAdmin(auth))) {
+    return json(403, { error: 'Admin only' })
+  }
+  const keys = uniqueDeletableObjectKeys(objectKeys)
+  if (keys.length === 0) {
+    return json(200, { ok: true, deleted: [] })
+  }
+  if (!config) {
+    return json(200, { ok: true, skipped: true, deleted: [] })
+  }
+  const deleted: string[] = []
+  for (const key of keys) {
+    try {
+      if (await deleteFromR2(config, key)) deleted.push(key)
+    } catch (err) {
+      console.error('R2 delete failed', key, err)
+    }
+  }
+  return json(200, { ok: true, deleted })
+}
+
 async function handlePresignRequest(
   req: Request,
   auth: AuthUser,
-  config: R2Config,
+  config: R2Config | null,
 ): Promise<Response> {
-  let payload: { contentType?: string; size?: number; purpose?: string }
+  let payload: { action?: string; objectKeys?: unknown; contentType?: string; size?: number; purpose?: string }
   try {
     payload = await req.json()
   } catch {
     return json(400, { error: 'Expected JSON with contentType and size.' })
+  }
+
+  if (payload.action === 'delete-objects') {
+    return handleDeleteObjects(auth, config, payload.objectKeys)
+  }
+
+  if (!config) {
+    return json(503, { error: 'Logo upload isn’t available yet.' })
   }
 
   const purpose = parsePurpose(payload.purpose)
@@ -296,12 +358,11 @@ Deno.serve(async (req): Promise<Response> => {
   if (auth instanceof Response) return auth
 
   const config = readR2Config()
-  if (!config) {
-    return json(503, { error: 'Logo upload isn’t available yet.' })
-  }
-
   const contentType = req.headers.get('content-type') ?? ''
   if (contentType.includes('multipart/form-data')) {
+    if (!config) {
+      return json(503, { error: 'Logo upload isn’t available yet.' })
+    }
     return handleMultipartUpload(req, auth, config)
   }
 

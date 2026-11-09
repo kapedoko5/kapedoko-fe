@@ -95,6 +95,7 @@
                     v-model="draft.busyness"
                     :options="BUSYNESS_OPTIONS"
                     ariaLabel="How packed is it right now?"
+                    :disabled="busy"
                   />
                 </div>
 
@@ -196,7 +197,7 @@
           <p v-if="issue" class="review__error" role="alert">{{ issue }}</p>
 
           <div class="review__dock">
-            <button type="submit" class="review__cta" :disabled="busy">
+            <button type="submit" class="review__cta" :disabled="busy" :aria-busy="busy">
               {{ primaryLabel }}
             </button>
           </div>
@@ -230,6 +231,9 @@ import {
   chapterIssue,
   chapterLabel,
   emptyReviewDraft,
+  firstReviewChapter,
+  readCheckInAt,
+  shouldSkipReviewBusyness,
   NOISE_OPTIONS,
   normalizeDraft,
   POWER_ACCESS_OPTIONS,
@@ -274,7 +278,10 @@ function resolveShopId(): string {
 }
 const cafe = ref<Cafe | null>(null)
 const draft = reactive<CafeReviewDraft>(emptyReviewDraft())
-const chapter = ref<ReviewChapter>(1)
+const lastCheckInAt = ref<string | null>(null)
+const skipBusyness = computed(() => shouldSkipReviewBusyness(route.query.from, lastCheckInAt.value))
+const startChapter = computed(() => firstReviewChapter(route.query.from, lastCheckInAt.value))
+const chapter = ref<ReviewChapter>(startChapter.value)
 const chapterDir = ref<'forward' | 'back'>('forward')
 const status = ref<'loading' | 'ready' | 'missing' | 'error'>('loading')
 const submitted = ref(false)
@@ -282,16 +289,17 @@ const editing = ref(false)
 const issue = ref<string | null>(null)
 const notice = ref('')
 const allowLeave = ref(false)
+const locking = ref(false)
 const commentCountId = 'review-comment-count'
 
 const commentLength = computed(() => draft.comment.length)
-const busy = computed(() => submitting.value || reporting.value)
+const busy = computed(() => submitting.value || reporting.value || locking.value)
 const stepLabel = computed(() => chapterLabel(chapter.value))
 const chapterMotion = computed(() => (chapterDir.value === 'back' ? 'review-back' : 'review-next'))
 const backLabel = computed(() => (submitted.value ? 'Back to this cafe' : 'Go back'))
 const primaryLabel = computed(() => {
   if (submitting.value) return 'Saving…'
-  if (reporting.value) return 'Logging…'
+  if (reporting.value || locking.value) return 'Logging…'
   if (chapter.value === REVIEW_CHAPTERS) return editing.value ? 'Update your review' : 'Submit your review'
   return 'Continue'
 })
@@ -404,7 +412,7 @@ const goBack = async () => {
     await goToCafe()
     return
   }
-  if (chapter.value > 1) {
+  if (chapter.value > startChapter.value) {
     setChapter((chapter.value - 1) as ReviewChapter)
     return
   }
@@ -417,6 +425,7 @@ const goBack = async () => {
 }
 
 const onPrimary = async () => {
+  if (busy.value) return
   issue.value = null
   notice.value = ''
   const currentIssue = chapterIssue(chapter.value, draft)
@@ -425,28 +434,31 @@ const onPrimary = async () => {
     return
   }
 
-  if (chapter.value === 1 && draft.busyness) {
-    try {
-      const result = await reportBusyness(shopId.value, draft.busyness)
-      if (result === 'cooldown') {
-        notice.value = 'We already logged how busy this cafe is. You can check in again later.'
+  locking.value = true
+  try {
+    if (chapter.value === 1 && draft.busyness && !skipBusyness.value) {
+      try {
+        const result = await reportBusyness(shopId.value, draft.busyness)
+        if (result === 'cooldown') {
+          notice.value = 'We already logged how busy this cafe is. You can check in again later.'
+        }
+      } catch (err) {
+        issue.value = err instanceof Error ? err.message : 'Could not log how busy it is. Try again.'
+        return
       }
-    } catch (err) {
-      issue.value = err instanceof Error ? err.message : 'Could not log how busy it is. Try again.'
+    }
+
+    if (chapter.value < REVIEW_CHAPTERS) {
+      setChapter((chapter.value + 1) as ReviewChapter)
       return
     }
-  }
 
-  if (chapter.value < REVIEW_CHAPTERS) {
-    setChapter((chapter.value + 1) as ReviewChapter)
-    return
-  }
-
-  try {
     await saveReview(shopId.value, draft)
     submitted.value = true
   } catch (err) {
     issue.value = err instanceof Error ? err.message : 'Could not save this review. Try again.'
+  } finally {
+    locking.value = false
   }
 }
 
@@ -455,7 +467,7 @@ onBeforeRouteLeave((_to, _from, next) => {
     next()
     return
   }
-  if (chapter.value > 1) {
+  if (chapter.value > startChapter.value) {
     setChapter((chapter.value - 1) as ReviewChapter)
     next(false)
     return
@@ -465,6 +477,15 @@ onBeforeRouteLeave((_to, _from, next) => {
 
 let loadSeq = 0
 let emptyIdTimer: ReturnType<typeof window.setTimeout> | null = null
+
+const applyCheckInSkip = async () => {
+  const userId = await currentUserId()
+  const id = shopId.value
+  lastCheckInAt.value = userId && id ? readCheckInAt(userId, id) : null
+  if (!submitted.value && chapter.value < startChapter.value) {
+    chapter.value = startChapter.value
+  }
+}
 
 const bootstrap = async (id: string) => {
   if (emptyIdTimer) {
@@ -488,7 +509,10 @@ const bootstrap = async (id: string) => {
     }, 600)
     return
   }
-  if (cafe.value?.id === id && status.value === 'ready') return
+  if (cafe.value?.id === id && status.value === 'ready') {
+    await applyCheckInSkip()
+    return
+  }
 
   const seq = ++loadSeq
   if (!cafe.value) status.value = 'loading'
@@ -501,13 +525,15 @@ const bootstrap = async (id: string) => {
       return
     }
     cafe.value = nextCafe
-    status.value = 'ready'
     const own = await loadOwnReview(id)
     if (seq !== loadSeq) return
     if (own) {
       editing.value = true
       Object.assign(draft, reviewRowToDraft(own))
     }
+    await applyCheckInSkip()
+    if (seq !== loadSeq) return
+    status.value = 'ready'
   } catch {
     if (seq !== loadSeq) return
     status.value = cafe.value?.id === id ? 'ready' : 'error'
@@ -529,6 +555,7 @@ const ensureSignedIn = async () => {
     await goToLogin(route.fullPath)
     return
   }
+  await applyCheckInSkip()
   allowed.value = true
 }
 
@@ -547,12 +574,23 @@ watch(
   },
 )
 
+watch(
+  startChapter,
+  (next) => {
+    if (!submitted.value && chapter.value < next) chapter.value = next
+  },
+  { immediate: true },
+)
+
 onIonViewWillEnter(() => {
-  if (submitted.value) {
+  const restart = submitted.value
+  if (restart) {
     submitted.value = false
-    chapter.value = 1
     chapterDir.value = 'forward'
   }
+  void applyCheckInSkip().then(() => {
+    if (restart) chapter.value = startChapter.value
+  })
   void ensureSignedIn()
   void bootstrap(resolveShopId())
 })

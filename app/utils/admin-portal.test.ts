@@ -1,5 +1,25 @@
 import { describe, expect, test } from 'bun:test'
-import { adminCafeErrors, adminCafeHasErrors, isValidLatitude, isValidLongitude, shopStatusWord } from './admin-shop'
+import {
+  adminCafeErrors,
+  adminCafeHasErrors,
+  cafeDeskActionLabel,
+  cafeDeskActions,
+  cafeDeskConfirmAction,
+  cafeDeskConfirmMessage,
+  cafeDeskConfirmTitle,
+  cafeDeskDoneCopy,
+  deleteCafeAction,
+  deleteCafeBusyLabel,
+  deleteCafeDoneCopy,
+  deleteCafeMessage,
+  deleteCafeTitle,
+  isValidLatitude,
+  isValidLongitude,
+  missingDeleteAdminShopCopy,
+  parseDeletedAdminShop,
+  shopStatusWord,
+  uniqueDeletableAdminObjectKeys,
+} from './admin-shop'
 import { bannerAspectError, bannerFileError, campaignWindowError, featuredAdCopy, isAdCampaignActive, sortActiveAds } from './admin-ads'
 import { edgeFunctionErrorMessage, roleChangeError, suspendError } from './admin-users'
 import { placementKindFromTier, placementLifecycle, placementWindowError } from './admin-placements'
@@ -40,6 +60,53 @@ describe('admin cafe validation', () => {
     expect(shopStatusWord('pending')).toBe('Pending')
     expect(shopStatusWord('hidden')).toBe('Hidden')
     expect(shopStatusWord('rejected')).toBe('Rejected')
+  })
+
+  test('lists contextual desk actions for each listing status', () => {
+    expect(cafeDeskActions('approved')).toEqual(['edit', 'unpublish', 'delete'])
+    expect(cafeDeskActions('hidden')).toEqual(['edit', 'publish', 'delete'])
+    expect(cafeDeskActions('pending')).toEqual(['edit', 'approve', 'reject', 'delete'])
+    expect(cafeDeskActions('rejected')).toEqual(['edit', 'delete'])
+    expect(cafeDeskActionLabel('unpublish')).toBe('Unpublish')
+    expect(cafeDeskConfirmTitle('publish', 'Yardstick Coffee')).toBe('Publish Yardstick Coffee?')
+    expect(cafeDeskConfirmMessage('unpublish')).toMatch(/leaves Home and Map/)
+    expect(cafeDeskConfirmAction('reject')).toBe('Reject cafe')
+    expect(cafeDeskDoneCopy('approve', 'Yardstick Coffee')).toBe('Yardstick Coffee is on Home and Map.')
+  })
+
+  test('warns that deleting a cafe cannot be undone', () => {
+    expect(deleteCafeTitle('Yardstick Coffee')).toBe('Delete Yardstick Coffee?')
+    expect(deleteCafeMessage()).toMatch(/cannot be undone/)
+    expect(deleteCafeAction()).toBe('Delete cafe')
+    expect(deleteCafeBusyLabel()).toBe('Deleting…')
+    expect(deleteCafeDoneCopy('Yardstick Coffee')).toBe('Yardstick Coffee was deleted.')
+  })
+
+  test('keeps only unused cafe storage keys from a delete payload', () => {
+    expect(uniqueDeletableAdminObjectKeys([
+      'shop-logos/admin/mark.webp',
+      '/ad-banners/admin/banner.jpg',
+      'audit-photos/auditor/visit.png',
+      'shop-logos/admin/mark.webp',
+      '../secret',
+      'https://evil.example/x',
+      '  ',
+    ])).toEqual([
+      'shop-logos/admin/mark.webp',
+      'ad-banners/admin/banner.jpg',
+      'audit-photos/auditor/visit.png',
+    ])
+    expect(parseDeletedAdminShop({
+      id: 'shop-1',
+      name: 'Yardstick Coffee',
+      object_keys: ['shop-logos/admin/mark.webp', 'nope'],
+    })).toEqual({
+      id: 'shop-1',
+      name: 'Yardstick Coffee',
+      objectKeys: ['shop-logos/admin/mark.webp'],
+    })
+    expect(missingDeleteAdminShopCopy('Could not find the function public.delete_admin_shop')).toMatch(/20261026_delete_admin_shop/)
+    expect(missingDeleteAdminShopCopy('Cafe was not found')).toBeNull()
   })
 
   test('rejects missing pin and short names without requiring Metro Manila', () => {

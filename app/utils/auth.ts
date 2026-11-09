@@ -55,6 +55,25 @@ export function safeRedirectPath(path: unknown, fallback = '/app'): string {
   return isSafeAppPath(trimmed) ? trimmed : fallback
 }
 
+export const LOGIN_LEDE_DEFAULT = 'Sign in to check in, leave reviews, and keep saves under your name.'
+export const LOGIN_LEDE_CHECK_IN = 'Sign in to check in. Other KapéBeans will see how packed this cafe is.'
+export const REGISTER_LEDE_DEFAULT = 'Your name is what other KapéBeans see on a review.'
+export const REGISTER_LEDE_CHECK_IN = 'Your name is what other KapéBeans see. After you create an account, we will bring you back to finish the check-in.'
+
+export function isCheckInRedirect(path: unknown): boolean {
+  if (typeof path !== 'string') return false
+  const pathname = path.split(/[?#]/, 1)[0] ?? ''
+  return /\/app\/cafes\/[^/]+\/check-in\/?$/.test(pathname)
+}
+
+export function loginLedeForRedirect(path: unknown): string {
+  return isCheckInRedirect(path) ? LOGIN_LEDE_CHECK_IN : LOGIN_LEDE_DEFAULT
+}
+
+export function registerLedeForRedirect(path: unknown): string {
+  return isCheckInRedirect(path) ? REGISTER_LEDE_CHECK_IN : REGISTER_LEDE_DEFAULT
+}
+
 export function friendlyAuthError(message?: string): string {
   const text = (message ?? '').toLowerCase()
   if (text.includes('invalid login') || text.includes('invalid credentials')) {

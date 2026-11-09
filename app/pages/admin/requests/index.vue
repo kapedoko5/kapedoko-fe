@@ -104,8 +104,10 @@
               </p>
               <p v-if="rejectIssue" class="admin-error" role="alert">{{ rejectIssue }}</p>
               <div class="request-stamps">
-                <button type="submit" class="request-btn request-btn--reject" :disabled="busy">
-                  {{ savingId === shop.id ? 'Rejecting…' : 'Send rejection' }}
+                <button type="submit" class="request-btn request-btn--reject" :disabled="busy" :aria-busy="savingId === shop.id || undefined">
+                  <AdminBusyLabel :busy="savingId === shop.id">
+                    {{ savingId === shop.id ? 'Rejecting…' : 'Send rejection' }}
+                  </AdminBusyLabel>
                 </button>
                 <button type="button" class="admin-btn admin-btn--quiet" :disabled="busy" @click="cancelReject">
                   Cancel
@@ -118,9 +120,12 @@
                 type="button"
                 class="request-btn request-btn--approve"
                 :disabled="busy"
+                :aria-busy="savingId === shop.id || undefined"
                 @click="onApprove(shop)"
               >
-                {{ savingId === shop.id ? 'Approving…' : 'Approve' }}
+                <AdminBusyLabel :busy="savingId === shop.id">
+                  {{ savingId === shop.id ? 'Approving…' : 'Approve' }}
+                </AdminBusyLabel>
               </button>
               <button
                 type="button"
@@ -144,8 +149,10 @@
         <template v-if="bulkIntent === 'approve'">
           <p id="request-dock-copy">{{ queue.length === 1 ? 'This cafe goes live on Home and Map.' : `${queue.length} cafes go live on Home and Map.` }}</p>
           <div class="request-dock__actions">
-            <button type="button" class="admin-btn" :disabled="busy" @click="confirmBulk('approved')">
-              {{ busy ? bulkProgress : bulkApproveCopy(queue.length) }}
+            <button type="button" class="admin-btn" :disabled="busy" :aria-busy="busy || undefined" @click="confirmBulk('approved')">
+              <AdminBusyLabel :busy="busy">
+                {{ busy ? bulkProgress : bulkApproveCopy(queue.length) }}
+              </AdminBusyLabel>
             </button>
             <button type="button" class="admin-btn admin-btn--quiet" :disabled="busy" @click="cancelBulk">
               Cancel
@@ -170,8 +177,10 @@
             </p>
             <p v-if="rejectIssue" class="admin-error" role="alert">{{ rejectIssue }}</p>
             <div class="request-dock__actions">
-              <button type="submit" class="request-btn request-btn--reject" :disabled="busy">
-                {{ busy ? bulkProgress : bulkRejectCopy(queue.length) }}
+              <button type="submit" class="request-btn request-btn--reject" :disabled="busy" :aria-busy="busy || undefined">
+                <AdminBusyLabel :busy="busy">
+                  {{ busy ? bulkProgress : bulkRejectCopy(queue.length) }}
+                </AdminBusyLabel>
               </button>
               <button type="button" class="admin-btn admin-btn--quiet" :disabled="busy" @click="cancelBulk">
                 Cancel
@@ -208,6 +217,7 @@
 
 <script lang="ts" setup>
 import { Store } from 'lucide-vue-next'
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { ShopRow, ShopStatus } from '~/types/shop'
 import { formatAdminDate } from '~/utils/admin-nav'
@@ -230,6 +240,9 @@ definePageMeta({
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
+const { show: showBusy, hide: hideBusy } = useAdminBusy()
 const { shops, claims, status, error, savingId, load, moderate, moderateMany } = admin
 const config = useRuntimeConfig()
 const publicBase = String(config.public.r2PublicBaseUrl || '')
@@ -325,13 +338,20 @@ const startBulk = async (intent: 'approve' | 'reject') => {
 }
 
 const onApprove = async (shop: ShopRow) => {
+  const choice = await askAdmin({
+    title: `Approve ${shop.name}?`,
+    message: 'It goes live on Home and Map.',
+    confirmLabel: 'Approve',
+  })
+  if (!choice.confirmed) return
   notice.value = ''
   cancelReject()
   try {
     await moderate(shop, 'approved')
     notice.value = `${shop.name} is on Home and Map.`
-  } catch {
-    /* shown in the admin shell */
+    toast.success('Approved', notice.value)
+  } catch (err) {
+    toast.error('Could not approve this cafe', err, 'Could not update this cafe.')
   }
 }
 
@@ -343,10 +363,11 @@ const submitReject = async (shop: ShopRow) => {
   try {
     await moderate(shop, 'rejected', rejectReason.value.trim())
     notice.value = `${shop.name} stays off Home and Map.`
+    toast.success('Rejected', notice.value)
     cancelReject()
     activeFilter.value = 'rejected'
-  } catch {
-    /* shown in the admin shell */
+  } catch (err) {
+    toast.error('Could not reject this cafe', err, 'Could not update this cafe.')
   }
 }
 
@@ -360,6 +381,8 @@ const confirmBulk = async (next: 'approved' | 'rejected') => {
   bulkDone.value = 0
   bulkTotal.value = batch.length
   notice.value = ''
+  const verb = next === 'approved' ? 'Approving' : 'Rejecting'
+  showBusy(`${verb} cafes…`)
   try {
     const done = await moderateMany(
       batch,
@@ -368,6 +391,7 @@ const confirmBulk = async (next: 'approved' | 'rejected') => {
       (count, total) => {
         bulkDone.value = count
         bulkTotal.value = total
+        showBusy(`${verb} ${count} of ${total}…`)
       },
     )
     cancelBulk()
@@ -382,8 +406,11 @@ const confirmBulk = async (next: 'approved' | 'rejected') => {
         : `${done.length} cafes stay off Home and Map.`
       activeFilter.value = 'rejected'
     }
-  } catch {
-    /* shown in the admin shell */
+    toast.success(next === 'approved' ? 'Approved' : 'Rejected', notice.value)
+  } catch (err) {
+    toast.error('Could not update these cafes', err, 'Could not update these cafes.')
+  } finally {
+    hideBusy()
   }
 }
 

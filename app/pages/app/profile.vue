@@ -11,7 +11,7 @@
           />
           <h1>{{ signedIn ? 'Your account' : 'Profile' }}</h1>
           <p v-if="!signedIn">
-            Sign in to keep saved cafes, reviews, and the cafes you submit.
+            Sign in to check in, leave reviews, and keep saves under your name.
           </p>
           <p v-else class="profile__email">{{ email }}</p>
         </header>

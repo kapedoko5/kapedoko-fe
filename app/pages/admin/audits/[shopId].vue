@@ -101,10 +101,14 @@
               v-if="isAdmin && !visit.voidReason"
               type="button"
               class="admin-btn admin-btn--danger"
+              :disabled="Boolean(voidingId)"
+              :aria-busy="voidingId === visit.id || undefined"
               :aria-label="`Void visit on ${visit.when}`"
               @click="onVoid(visit.id)"
             >
-              Void
+              <AdminBusyLabel :busy="voidingId === visit.id">
+                {{ voidingId === visit.id ? 'Voiding…' : 'Void' }}
+              </AdminBusyLabel>
             </button>
           </div>
         </article>
@@ -125,6 +129,7 @@
 <script lang="ts" setup>
 import { onIonViewWillEnter, useIonRouter } from '@ionic/vue'
 import { Hourglass, Wallet, Wifi } from 'lucide-vue-next'
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import { isShopId, resolveLiveShopId } from '~/utils/approved-shops'
 import { voidReasonError } from '~/utils/audit-form'
@@ -143,6 +148,8 @@ definePageMeta({
 const route = useRoute()
 const ionRouter = useIonRouter()
 const { navRole, status, error, isAdmin, load } = useStaffSession()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const api = useCafeAudits()
 
 function resolveShopId(): string {
@@ -163,6 +170,7 @@ const results = ref<CafeAuditResultRow[]>([])
 const voids = ref<Array<{ audit_id: string; reason: string }>>([])
 const reports = ref<Array<{ id: string; amenity_key: string; result: string; observed_at: string }>>([])
 const loadError = ref('')
+const voidingId = ref('')
 const historyStatus = ref<'loading' | 'ready' | 'missing' | 'error'>('loading')
 
 const pageStatus = computed(() => {
@@ -269,17 +277,28 @@ onBeforeUnmount(() => {
 })
 
 const onVoid = async (id: string) => {
-  const reason = window.prompt('Why is this audit voided?') || ''
-  const issue = voidReasonError(reason)
-  if (issue) {
-    loadError.value = issue
-    return
-  }
+  if (voidingId.value) return
+  const choice = await askAdmin({
+    title: 'Void this visit?',
+    message: shopName.value
+      ? `This cancels the visit record for ${shopName.value}. The cafe stays listed.`
+      : 'This cancels that visit record. The cafe stays listed.',
+    confirmLabel: 'Void visit',
+    variant: 'destructive',
+    promptLabel: 'Why is this audit voided?',
+    validatePrompt: voidReasonError,
+  })
+  if (!choice.confirmed) return
+  voidingId.value = id
   try {
-    await api.voidAudit(id, reason)
-    voids.value = [...voids.value, { audit_id: id, reason }]
+    await api.voidAudit(id, choice.prompt)
+    voids.value = [...voids.value, { audit_id: id, reason: choice.prompt }]
+    toast.success('Visit voided', shopName.value ? `${shopName.value} keeps its other visits.` : 'That visit is voided.')
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : 'Could not void that audit.'
+    toast.error('Could not void that audit', err, 'Could not void that audit.')
+  } finally {
+    voidingId.value = ''
   }
 }
 </script>

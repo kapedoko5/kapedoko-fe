@@ -8,10 +8,15 @@ import {
 } from '~/utils/approved-shops'
 import {
   draftToReviewInsert,
+  isBusynessCooldown,
   isValidBusynessLevel,
+  readCheckInAt,
+  writeCheckInAt,
   type CafeReviewDraft,
 } from '~/utils/cafe-review'
 import type { BusynessLevel } from '~/types/shop'
+
+const busynessInflight = new Set<string>()
 
 export function useCafeReview() {
   const supabase = useSupabaseClient()
@@ -85,27 +90,39 @@ export function useCafeReview() {
     if (!isValidBusynessLevel(level)) {
       throw new Error('Pick how packed the cafe is right now.')
     }
+    if (busynessInflight.has(shopId)) return 'cooldown'
 
-    const userId = await currentUserId()
-    if (!userId) throw new Error('Sign in to review this cafe.')
-
+    busynessInflight.add(shopId)
     reporting.value = true
     try {
+      const userId = await currentUserId()
+      if (!userId) throw new Error('Sign in to review this cafe.')
+      if (isBusynessCooldown(readCheckInAt(userId, shopId))) return 'cooldown'
+
       const { error: insertError } = await supabase.from('shop_busyness_reports').insert({
         shop_id: shopId,
         user_id: userId,
         level,
       })
 
-      if (!insertError) return 'saved'
-      if (isCooldownError(insertError.message)) return 'cooldown'
+      if (!insertError) {
+        writeCheckInAt(userId, shopId)
+        return 'saved'
+      }
+      if (isCooldownError(insertError.message)) {
+        writeCheckInAt(userId, shopId)
+        return 'cooldown'
+      }
       throw new Error(friendlyReviewError(insertError.message))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not log how busy it is. Try again.'
-      if (isCooldownError(message)) return 'cooldown'
+      if (isCooldownError(message)) {
+        return 'cooldown'
+      }
       error.value = message
       throw err instanceof Error ? err : new Error(message)
     } finally {
+      busynessInflight.delete(shopId)
       reporting.value = false
     }
   }

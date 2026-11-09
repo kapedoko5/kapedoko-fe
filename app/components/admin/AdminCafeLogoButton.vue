@@ -18,14 +18,16 @@
       height="40"
       @error="onError"
     />
-    <span class="cafe-logo__hint" aria-hidden="true">
-      <Pencil :size="14" :stroke-width="2.4" />
+    <span class="cafe-logo__hint" :class="{ 'is-busy': saving }" aria-hidden="true">
+      <AdminSpinner v-if="saving" :size="16" />
+      <Pencil v-else :size="14" :stroke-width="2.4" />
     </span>
   </button>
 </template>
 
 <script lang="ts" setup>
 import { Pencil } from 'lucide-vue-next'
+import AdminSpinner from '~/components/admin/AdminSpinner.vue'
 import type { ShopRow } from '~/types/shop'
 import { shopCafeLogoSrc } from '~/utils/admin-logos'
 import { isKapedokoMark } from '~/utils/logo'
@@ -95,7 +97,8 @@ const onError = () => {
 
 .cafe-logo:hover .cafe-logo__hint,
 .cafe-logo:focus-visible .cafe-logo__hint,
-.cafe-logo.is-open .cafe-logo__hint {
+.cafe-logo.is-open .cafe-logo__hint,
+.cafe-logo.is-busy .cafe-logo__hint {
   opacity: 1;
 }
 

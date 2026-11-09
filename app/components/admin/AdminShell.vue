@@ -52,7 +52,13 @@
           >
             Menu
           </button>
-          <div class="admin-shell__heading">
+          <div class="admin-shell__heading" :class="{ 'has-back': Boolean(backNav) }">
+            <AdminBackButton
+              v-if="backNav"
+              :to="backNav.to"
+              :label="backNav.label"
+              @navigate="go"
+            />
             <h1>{{ title }}</h1>
             <p v-if="lede">{{ lede }}</p>
           </div>
@@ -60,8 +66,13 @@
             <slot name="actions" />
           </div>
         </header>
-        <div class="admin-shell__body">
-          <p v-if="!status || status === 'idle' || status === 'loading'" class="admin-shell__state">Loading…</p>
+        <div
+          class="admin-shell__body"
+          :aria-busy="!status || status === 'idle' || status === 'loading' ? 'true' : undefined"
+        >
+          <p v-if="!status || status === 'idle' || status === 'loading'" class="admin-shell__state" role="status">
+            <AdminBusyLabel busy>Loading…</AdminBusyLabel>
+          </p>
           <p v-else-if="status === 'forbidden'" class="admin-shell__state">This portal is for KapeDoko staff.</p>
           <p v-else-if="status === 'error'" class="admin-shell__state admin-shell__state--error">{{ error }}</p>
           <template v-else>
@@ -71,12 +82,20 @@
         </div>
       </div>
     </div>
+    <AdminToastStack v-if="isFeedbackHost" />
+    <AdminBusyOverlay v-if="isFeedbackHost" />
+    <AdminConfirmHost v-if="isFeedbackHost" />
   </IonContent>
 </template>
 
 <script lang="ts" setup>
 import { IonContent, useIonRouter } from '@ionic/vue'
-import { adminNavIdFromPath, staffNav } from '~/utils/admin-nav'
+import AdminBackButton from '~/components/admin/AdminBackButton.vue'
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
+import AdminBusyOverlay from '~/components/admin/AdminBusyOverlay.vue'
+import AdminConfirmHost from '~/components/admin/AdminConfirmHost.vue'
+import AdminToastStack from '~/components/admin/AdminToastStack.vue'
+import { adminBackNav, adminNavIdFromPath, staffNav } from '~/utils/admin-nav'
 import { isForeignSurface, isSameAppPath, resolveAppPath } from '~/utils/app-tabs'
 
 const props = withDefaults(
@@ -89,6 +108,13 @@ const props = withDefaults(
     claimCount?: number
     navRole?: 'admin' | 'auditor'
     layout?: 'cafe'
+    /**
+     * Override the resolved parent path. Nested cafe/audit routes already
+     * resolve on their own; pass this only when a page needs a different parent.
+     */
+    backTo?: string
+    /** Override the visible destination name next to the chevron. */
+    backLabel?: string
   }>(),
   {
     pendingCount: 0,
@@ -102,6 +128,14 @@ const ionRouter = useIonRouter()
 const navOpen = ref(false)
 const desktop = ref(true)
 const shellEl = ref<HTMLElement | null>(null)
+const feedbackOwnerId = useId()
+const feedbackHostId = useState<string | null>('kd-admin-feedback-host', () => null)
+let feedbackReleased = false
+const claimFeedbackHost = () => {
+  if (feedbackReleased || feedbackHostId.value) return
+  feedbackHostId.value = feedbackOwnerId
+}
+const isFeedbackHost = computed(() => feedbackHostId.value === feedbackOwnerId)
 const ownedPath = route.path
 const pendingPath = useState<string | null>('kd-admin-nav-path', () => null)
 const items = computed(() => staffNav(props.navRole))
@@ -119,6 +153,14 @@ const hideOwnedPage = () => {
 const browserPath = () => (
   import.meta.client ? `${window.location.pathname}${window.location.hash}` : ''
 )
+
+const backNav = computed(() => {
+  const label = props.backLabel?.trim()
+  if (props.backTo) return { to: props.backTo, label: label || 'Back' }
+  const auto = adminBackNav(resolveAppPath(route.path, browserPath()), route.query)
+  if (!auto) return null
+  return label ? { ...auto, label } : auto
+})
 
 const settleAdminPages = () => {
   const pages = [...document.querySelectorAll('ion-router-outlet .ion-page')]
@@ -159,12 +201,17 @@ const go = async (href: string) => {
 }
 
 onMounted(() => {
+  claimFeedbackHost()
   onResize()
   window.addEventListener('resize', onResize)
   window.addEventListener('keydown', onKeydown)
 })
 
+watch(feedbackHostId, claimFeedbackHost)
+
 onBeforeUnmount(() => {
+  feedbackReleased = true
+  if (feedbackHostId.value === feedbackOwnerId) feedbackHostId.value = null
   window.removeEventListener('resize', onResize)
   window.removeEventListener('keydown', onKeydown)
 })
@@ -364,6 +411,21 @@ watch(() => route.path, (path) => {
   min-width: 0;
 }
 
+.admin-shell__heading.has-back {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.admin-shell__heading.has-back :deep(.admin-back) {
+  margin: -8px 0 -4px -10px;
+}
+
+.admin-shell__heading.has-back h1 {
+  overflow-wrap: anywhere;
+}
+
 .admin-shell__heading h1 {
   margin: 0;
   font-size: 1.325rem;
@@ -516,6 +578,7 @@ watch(() => route.path, (path) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 44px;
   padding: 0 16px;
   border: 0;
@@ -919,7 +982,8 @@ watch(() => route.path, (path) => {
 .admin-shell__link:focus-visible,
 .admin-shell__menu:focus-visible,
 .admin-shell__close:focus-visible,
-.admin-shell__back:focus-visible {
+.admin-shell__back:focus-visible,
+.admin-shell :deep(.admin-back:focus-visible) {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;
 }

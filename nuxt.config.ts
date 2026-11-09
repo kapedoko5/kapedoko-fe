@@ -3,7 +3,7 @@ const isStaging = (process.env.ENVIRONMENT || "staging") === "staging"
 
 function env(name: string) {
   const key = isStaging ? `STAGING_${name}` : name
-  return process.env[key] || ""
+  return process.env[key] || process.env[name] || ""
 }
 
 export default defineNuxtConfig({

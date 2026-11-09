@@ -21,12 +21,14 @@
 import { onIonViewWillEnter } from '@ionic/vue'
 import AdminCafeForm from '~/components/admin/AdminCafeForm.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
+import { adminActionErrorMessage } from '~/utils/admin-feedback'
 
 definePageMeta({
   middleware: ['auth', 'admin'],
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
 const saving = ref(false)
 const formError = ref('')
 const formRef = ref<{ reset: () => void } | null>(null)
@@ -43,14 +45,16 @@ const onSave = async (payload: Parameters<typeof admin.createShop>[0]) => {
   saving.value = true
   formError.value = ''
   try {
-    await admin.createShop(payload)
+    const created = await admin.createShop(payload)
+    toast.success('Cafe saved', `${created.name} landed unpublished.`)
     saving.value = false
     resetAfterSave.value = true
     resetCreateForm()
     await nextTick()
     await navigateTo('/admin/cafes')
   } catch (err) {
-    formError.value = err instanceof Error ? err.message : 'Could not save this cafe.'
+    formError.value = adminActionErrorMessage(err, 'Could not save this cafe.')
+    toast.error('Could not save this cafe', formError.value)
   } finally {
     saving.value = false
   }

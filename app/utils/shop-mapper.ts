@@ -4,6 +4,7 @@ import type {
   MarkerTier,
   PowerAccess,
   ShopBusynessNowRow,
+  ShopCheckinStatsRow,
   ShopReviewStatsRow,
   ShopRow,
   WifiSpeed,
@@ -194,6 +195,7 @@ export function mapShopToCafe(
     plugInsight: useResolutions ? amenityInsight('outlets', work.outletsStatus) : plugInsightFromStats(stats),
     matchaInsight: matchaInsightFromStats(stats),
     busyness: null,
+    checkIns30d: 0,
     reviews: [],
     lat: Number(shop.latitude),
     lng: Number(shop.longitude),
@@ -216,5 +218,13 @@ export function withCafeBusyness(cafe: Cafe, row?: ShopBusynessNowRow | null): C
       label: busynessLabel(row.level),
       count: row.report_count,
     },
+  }
+}
+
+export function withCafeCheckIns(cafe: Cafe, row?: ShopCheckinStatsRow | null): Cafe {
+  const count = row?.checkins_30d
+  return {
+    ...cafe,
+    checkIns30d: typeof count === 'number' && Number.isFinite(count) && count > 0 ? count : 0,
   }
 }

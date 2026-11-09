@@ -121,7 +121,9 @@
                         :aria-label="removeAuditAriaLabel(row.name)"
                         @click="onRemoveAudit(row)"
                       >
-                        {{ removingId === row.auditId ? 'Removing…' : 'Remove audit' }}
+                        <AdminBusyLabel :busy="removingId === row.auditId">
+                          {{ removingId === row.auditId ? 'Removing…' : 'Remove audit' }}
+                        </AdminBusyLabel>
                       </button>
                     </div>
                   </td>
@@ -173,7 +175,9 @@
                   :aria-label="removeAuditAriaLabel(row.name)"
                   @click="onRemoveAudit(row)"
                 >
-                  {{ removingId === row.auditId ? 'Removing…' : 'Remove audit' }}
+                  <AdminBusyLabel :busy="removingId === row.auditId">
+                    {{ removingId === row.auditId ? 'Removing…' : 'Remove audit' }}
+                  </AdminBusyLabel>
                 </button>
               </div>
             </article>
@@ -186,12 +190,12 @@
 
 <script lang="ts" setup>
 import { Check } from 'lucide-vue-next'
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { AuditDeskCafe, AuditDeskQueueCafe } from '~/composables/useCafeAudits'
 import { formatAdminDate } from '~/utils/admin-nav'
 import {
   removeAuditAriaLabel,
-  removeAuditConfirmCopy,
   removeAuditReasonPromptCopy,
   voidReasonError,
 } from '~/utils/audit-form'
@@ -211,6 +215,8 @@ definePageMeta({
 })
 
 const { navRole, isAdmin, status, error, load } = useStaffSession()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const audits = useCafeAudits()
 const queueCafes = ref<AuditDeskQueueCafe[]>([])
 const audited = ref<AuditDeskCafe[]>([])
@@ -282,21 +288,24 @@ const loadDesk = async () => {
 
 const onRemoveAudit = async (row: AuditDeskCafe) => {
   if (removingId.value) return
-  if (!window.confirm(removeAuditConfirmCopy(row.name))) return
-  const reason = window.prompt(removeAuditReasonPromptCopy())
-  if (reason === null) return
-  const issue = voidReasonError(reason)
-  if (issue) {
-    loadError.value = issue
-    return
-  }
+  const choice = await askAdmin({
+    title: `Remove the latest audit for ${row.name}?`,
+    message: 'This cancels that visit record. It does not delete the cafe.',
+    confirmLabel: 'Remove audit',
+    variant: 'destructive',
+    promptLabel: removeAuditReasonPromptCopy(),
+    validatePrompt: voidReasonError,
+  })
+  if (!choice.confirmed) return
   removingId.value = row.auditId
   loadError.value = ''
   try {
-    await audits.voidAudit(row.auditId, reason)
+    await audits.voidAudit(row.auditId, choice.prompt)
     await loadDesk()
+    toast.success('Audit removed', `${row.name} no longer uses that visit.`)
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : 'Could not remove that audit.'
+    toast.error('Could not remove that audit', err, 'Could not remove that audit.')
   } finally {
     removingId.value = null
   }

@@ -45,13 +45,15 @@
                       :id="`role-${user.id}`"
                       :value="user.role"
                       :disabled="savingId === user.id || user.id === me"
-                      @change="onRole(user, ($event.target as HTMLSelectElement).value)"
+                      :aria-busy="savingId === user.id && savingKind === 'role' || undefined"
+                      @change="onRole(user, ($event.target as HTMLSelectElement).value, $event)"
                     >
                       <option value="user">User</option>
                       <option value="cafe-owner">Cafe owner</option>
                       <option value="auditor">Auditor</option>
                       <option value="admin">Admin</option>
                     </select>
+                    <AdminSpinner v-if="savingId === user.id && savingKind === 'role'" :size="16" />
                   </div>
                 </td>
                 <td>
@@ -68,10 +70,13 @@
                       type="button"
                       :class="user.banned ? 'user-restore' : 'user-warn'"
                       :disabled="savingId === user.id || user.id === me"
+                      :aria-busy="savingId === user.id && savingKind === 'account' || undefined"
                       :aria-label="accountAction(user)"
                       @click="toggleBan(user)"
                     >
-                      {{ accountLabel(user) }}
+                      <AdminBusyLabel :busy="savingId === user.id && savingKind === 'account'">
+                        {{ accountLabel(user) }}
+                      </AdminBusyLabel>
                     </button>
                   </div>
                 </td>
@@ -97,13 +102,15 @@
                 :id="`role-card-${user.id}`"
                 :value="user.role"
                 :disabled="savingId === user.id || user.id === me"
-                @change="onRole(user, ($event.target as HTMLSelectElement).value)"
+                :aria-busy="savingId === user.id && savingKind === 'role' || undefined"
+                @change="onRole(user, ($event.target as HTMLSelectElement).value, $event)"
               >
                 <option value="user">User</option>
                 <option value="cafe-owner">Cafe owner</option>
                 <option value="auditor">Auditor</option>
                 <option value="admin">Admin</option>
               </select>
+              <AdminSpinner v-if="savingId === user.id && savingKind === 'role'" :size="16" />
             </div>
             <p class="user-activity">{{ user.shopCount }} cafes · {{ user.reviewCount }} reviews</p>
             <div class="user-actions">
@@ -111,10 +118,13 @@
                 type="button"
                 :class="user.banned ? 'user-restore' : 'user-warn'"
                 :disabled="savingId === user.id || user.id === me"
+                :aria-busy="savingId === user.id && savingKind === 'account' || undefined"
                 :aria-label="accountAction(user)"
                 @click="toggleBan(user)"
               >
-                {{ accountLabel(user) }}
+                <AdminBusyLabel :busy="savingId === user.id && savingKind === 'account'">
+                  {{ accountLabel(user) }}
+                </AdminBusyLabel>
               </button>
             </div>
           </article>
@@ -125,23 +135,28 @@
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
+import AdminSpinner from '~/components/admin/AdminSpinner.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { AdminUserRow } from '~/types/admin'
 import type { ProfileRole } from '~/types/shop'
 import { formatAdminDate } from '~/utils/admin-nav'
 import { roleChangeError, suspendError } from '~/utils/admin-users'
 import { authUserId } from '~/utils/auth'
-import { isProfileRole } from '~/utils/profile-role'
+import { isProfileRole, PROFILE_ROLE_LABELS } from '~/utils/profile-role'
 
 definePageMeta({
   middleware: ['auth', 'admin'],
 })
 
 const { users, status, error, savingId, load, setRole, setBanned } = useAdminUsers()
+const toast = useAdminToast()
+const { ask: askAdmin, alert: alertAdmin } = useAdminConfirm()
 const sessionUser = useSupabaseUser()
 const me = computed(() => authUserId(sessionUser.value))
 const query = ref('')
 const actionError = ref('')
+const savingKind = ref<'role' | 'account' | ''>('')
 
 const personName = (user: AdminUserRow) => user.displayName || user.email || 'this person'
 
@@ -155,8 +170,15 @@ const accountAction = (user: AdminUserRow) => {
   return user.banned ? `Reactivate ${name}` : `Suspend ${name}`
 }
 
-const onRole = async (user: AdminUserRow, nextRaw: string) => {
-  if (!isProfileRole(nextRaw)) return
+const onRole = async (user: AdminUserRow, nextRaw: string, event: Event) => {
+  const select = event.target as HTMLSelectElement
+  const revert = () => {
+    select.value = user.role
+  }
+  if (!isProfileRole(nextRaw)) {
+    revert()
+    return
+  }
   const next = nextRaw as ProfileRole
   if (next === user.role) return
   const issue = roleChangeError({
@@ -167,28 +189,63 @@ const onRole = async (user: AdminUserRow, nextRaw: string) => {
     targetRole: user.role,
   })
   if (issue) {
-    window.alert(issue)
+    revert()
+    actionError.value = issue
+    await alertAdmin({ title: 'Role stays the same', message: issue, variant: 'warning' })
     return
   }
+  const choice = await askAdmin({
+    title: `Change ${personName(user)} to ${PROFILE_ROLE_LABELS[next]}?`,
+    message: 'This updates what they can open in KapeDoko.',
+    confirmLabel: 'Change role',
+  })
+  if (!choice.confirmed) {
+    revert()
+    return
+  }
+  savingKind.value = 'role'
   try {
     await setRole(user.id, next)
+    toast.success('Role updated', `${personName(user)} is now ${PROFILE_ROLE_LABELS[next]}.`)
   } catch (err) {
+    revert()
     actionError.value = err instanceof Error ? err.message : 'Could not change this role.'
-    window.alert(actionError.value)
+    toast.error('Could not change this role', err, 'Could not change this role.')
+  } finally {
+    savingKind.value = ''
   }
 }
 
 const toggleBan = async (user: AdminUserRow) => {
   const issue = suspendError({ actorId: me.value, targetId: user.id, banned: user.banned })
   if (issue) {
-    window.alert(issue)
+    actionError.value = issue
+    await alertAdmin({ title: 'Account stays as it is', message: issue, variant: 'warning' })
     return
   }
-  if (!user.banned && !window.confirm(`Suspend ${personName(user)}? They stay suspended until you reactivate the account.`)) return
+  const name = personName(user)
+  const choice = user.banned
+    ? await askAdmin({
+      title: `Reactivate ${name}?`,
+      message: 'They can sign in again.',
+      confirmLabel: 'Reactivate',
+    })
+    : await askAdmin({
+      title: `Suspend ${name}?`,
+      message: 'They stay suspended until you reactivate the account.',
+      confirmLabel: 'Suspend',
+      variant: 'destructive',
+    })
+  if (!choice.confirmed) return
+  savingKind.value = 'account'
   try {
     await setBanned(user.id, !user.banned)
+    toast.success(user.banned ? 'Account reactivated' : 'Account suspended', name)
   } catch (err) {
-    window.alert(err instanceof Error ? err.message : 'Could not update this account.')
+    actionError.value = err instanceof Error ? err.message : 'Could not update this account.'
+    toast.error('Could not update this account', err, 'Could not update this account.')
+  } finally {
+    savingKind.value = ''
   }
 }
 

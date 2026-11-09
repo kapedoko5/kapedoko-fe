@@ -37,6 +37,7 @@
           :cafe="cafe"
           variant="page"
           @review="onReview"
+          @checkin="onCheckIn"
         />
         <p v-if="cafe && cafe.source === 'openstreetmap'" class="cafe-page__attr">
           Place data © OpenStreetMap contributors
@@ -170,6 +171,12 @@ const onReview = async () => {
   const id = shopId.value || cafe.value?.id
   if (!id) return
   await navigateTo(`/app/cafes/${id}/review`)
+}
+
+const onCheckIn = async () => {
+  const id = shopId.value || cafe.value?.id
+  if (!id) return
+  await navigateTo(`/app/cafes/${id}/check-in`)
 }
 
 const goOwner = async () => {

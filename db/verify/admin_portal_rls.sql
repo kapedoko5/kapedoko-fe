@@ -78,6 +78,13 @@
 -- select public.withdraw_shop_claim('<verified-claim-id>');
 -- Expected: This claim is not waiting for review.
 
+-- Non-admin cannot delete a cafe.
+-- select public.delete_admin_shop('<shop-id>');
+-- Expected: Admin only.
+-- Admin delete_admin_shop removes the shop and returns unused object_keys.
+-- Direct delete from cafe_audits still fails with append-only unless
+-- app.admin_shop_delete is on inside that RPC.
+
 -- OSM identity is unique.
 -- insert two pending shops with the same source/osm_type/osm_id.
 -- Expected: unique violation on shops_osm_identity_uidx.

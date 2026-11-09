@@ -249,8 +249,9 @@ Challenges to the starting spec are in **Notes**.
 | `cafe_action` | 2, 4 | Navigate, call, or photo tap on detail | `cafe_id`, `type: 'navigate' \| 'call' \| 'photo_view'`, `confidence_bucket` | [`CafeDetailContent.vue`](../../app/components/cafe/CafeDetailContent.vue) — add `@click` on the existing `<a href>` (do not break `tel:` / Maps). Photo: `selectPhoto` | pilot |
 | `map_opened` | 1 | Map tab `onIonViewWillEnter`, once per analytics session (not every tab re-entry) | _(common only)_ | [`map.vue`](../../app/pages/app/map.vue) | pilot |
 | `location_permission` | 1 | Terminal result of `requestLocation` | `result: 'granted' \| 'denied' \| 'fallback_used'` | [`useDeviceLocation.ts`](../../app/composables/useDeviceLocation.ts) — `granted` if GPS used; `denied` if permission no; `fallback_used` if Metro Manila fallback (`usingFallback`) including `unavailable` | pilot |
-| `auth_prompt_shown` | 2 | In-app sign-in CTA actually rendered or `goToLogin` from a gated action | `trigger: 'review' \| 'submit' \| 'report' \| 'claim' \| 'favorites_sync'` | Review unsigned body; submit-cafe `ensureSignedIn`; `CafeDetailContent.reportTarget`; claim CTA; favorites guest banner. **Not** middleware hard-redirects (those skip UI) | pilot |
+| `auth_prompt_shown` | 2 | In-app sign-in CTA actually rendered or `goToLogin` from a gated action | `trigger: 'review' \| 'submit' \| 'report' \| 'claim' \| 'favorites_sync' \| 'check_in'` | Review unsigned body; submit-cafe `ensureSignedIn`; `CafeDetailContent.reportTarget`; claim CTA; favorites guest banner; check-in guest **Check in** button. **Not** middleware hard-redirects (those skip UI) | pilot |
 | `review_started` | 2 | Review form ready (`status === 'ready' && allowed`), once per `cafe_id` per session | `cafe_id` | [`review.vue`](../../app/pages/app/cafes/%5Bid%5D/review.vue) | pilot |
+| `check_in_started` | 2 | Check-in form ready (`status === 'ready'`), once per `cafe_id` per session. Guests count | `cafe_id` | [`check-in.vue`](../../app/pages/app/cafes/%5Bid%5D/check-in.vue) | pilot |
 | `promotion_viewed` | 4 | Home rail card ≥50% visible 750 ms, once per `promotion_id` per session | `promotion_id`, `cafe_id`, `promotion_kind: 'ad' \| 'promoted' \| 'partner'`, `placement: 'home_rail'` | [`index.vue`](../../app/pages/app/index.vue) `homeAds` | pilot |
 | `promotion_clicked` | 4 | Home rail click (before `openCafe`) | `promotion_id`, `cafe_id`, `promotion_kind`, `placement: 'home_rail'` | [`index.vue`](../../app/pages/app/index.vue) `@click="openCafe(ad.shopId)"` | pilot |
 | `deal_redeemed` | 4 | Counter code or QR confirm | `deal_id`, `cafe_id` | **Does not exist.** Needs a redemption flow | later |
@@ -268,6 +269,7 @@ Challenges to the starting spec are in **Notes**.
 | Idea | Why |
 |---|---|
 | `review_submitted` | Reviews already in Supabase. Funnel uses `auth_prompt_shown` → `review_started` → DB count |
+| `check_in_submitted` | Check-ins already in `shop_busyness_reports`. Funnel uses `auth_prompt_shown` `check_in` → `check_in_started` → DB count |
 | `cafe_action` `favorite` / `share` | Favorites are in DB (and work for guests). **No share UI** |
 | `amenity_audit_completed` | Staff-only at [`admin/audits/new.vue`](../../app/pages/admin/audits/new.vue). Answers none of the four consumer questions. `admin_audit_log` already records `audit.create` |
 | Autocapture `$pageview` | Duplicates Ionic cached visits; not needed if we fire `app_opened` / detail / map ourselves |
@@ -278,7 +280,7 @@ Challenges to the starting spec are in **Notes**.
 ### Spec challenges
 
 1. **`deal_viewed` / `deal_clicked`.** There is no deals product. Home renders `active_ad_campaigns` (badge “Ad”) or falls back to `markerTier` promoted/partner (badges “Sponsored” / “Partner”). Clicks only `navigateTo(/app/cafes/:id)`. Use `promotion_*` with `promotion_kind`. Keep `deal_redeemed` as phase 2.
-2. **`auth_prompt_shown` trigger `favorite`.** Card/detail hearts do not prompt. Guests write localStorage. Prompt is the Favorites **sync** banner. Use `favorites_sync`, plus `report` and `claim` which do prompt.
+2. **`auth_prompt_shown` trigger `favorite`.** Card/detail hearts do not prompt. Guests write localStorage. Prompt is the Favorites **sync** banner. Use `favorites_sync`, plus `report`, `claim`, and `check_in` which do prompt.
 3. **`onboarding_completed` vs skipped.** Both call the same `finish()` today. Split the handlers.
 4. **`cafe_action` share / photo upload.** Share does not exist. Visitor photo upload does not exist. `photo_view` is gallery select only.
 5. **Exact coordinates.** Navigate uses a Maps URL with lat/lng in the href. Track the **click**, never the URL or coordinates.

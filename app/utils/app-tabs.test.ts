@@ -40,6 +40,7 @@ describe('app tab paths', () => {
     expect(isAppTabRoute('/app/search')).toBe(false)
     expect(isAppTabRoute('/app/cafes/abc')).toBe(false)
     expect(isAppTabRoute('/app/cafes/abc/review')).toBe(false)
+    expect(isAppTabRoute('/app/cafes/abc/check-in')).toBe(false)
     expect(isAppTabRoute('/app/cafes/abc/claim')).toBe(false)
     expect(isAppTabRoute('/app/onboarding')).toBe(false)
     expect(isAppTabRoute('/login')).toBe(false)
@@ -50,6 +51,7 @@ describe('app tab paths', () => {
     expect(shouldShowAppTabs('/app/search')).toBe(false)
     expect(shouldShowAppTabs('/app/cafes/abc')).toBe(false)
     expect(shouldShowAppTabs('/app/cafes/abc/review')).toBe(false)
+    expect(shouldShowAppTabs('/app/cafes/abc/check-in')).toBe(false)
     expect(shouldShowAppTabs('/app/cafes/abc/claim')).toBe(false)
   })
 

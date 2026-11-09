@@ -15,6 +15,7 @@
       :cafe="cafe"
       variant="sheet"
       @review="emit('review')"
+      @checkin="emit('checkin')"
     />
   </IonModal>
 </template>
@@ -39,6 +40,7 @@ const emit = defineEmits<{
   present: []
   dismissed: []
   review: []
+  checkin: []
 }>()
 
 const onPresent = () => emit('present')

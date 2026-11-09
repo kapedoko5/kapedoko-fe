@@ -1,7 +1,7 @@
 <template>
   <AuthShell
     title="Create account"
-    lede="Your name is what other KapéBeans see on a review."
+    :lede="lede"
   >
     <p v-if="confirmation" class="auth-note" role="status">
       Check {{ email }} for a confirmation link. After you confirm, sign in and we will bring you back.
@@ -66,7 +66,7 @@
 
 <script setup lang="ts">
 import AuthShell from '~/components/auth/AuthShell.vue'
-import { safeRedirectPath } from '~/utils/auth'
+import { registerLedeForRedirect, safeRedirectPath } from '~/utils/auth'
 
 definePageMeta({
   middleware: 'guest',
@@ -85,6 +85,7 @@ const query = computed(() => {
   const redirect = route.query.redirect
   return typeof redirect === 'string' ? { redirect } : {}
 })
+const lede = computed(() => registerLedeForRedirect(query.value.redirect))
 
 const onSubmit = async () => {
   if (loading.value) return

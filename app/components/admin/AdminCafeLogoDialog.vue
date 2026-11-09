@@ -5,11 +5,14 @@
     class="logo-pad"
     role="region"
     :aria-labelledby="titleId"
+    :aria-busy="saving || undefined"
   >
     <div class="logo-pad__mast">
       <div class="logo-pad__copy">
         <h2 :id="titleId" class="logo-pad__title">Stamp a logo</h2>
-        <p class="logo-pad__lede">{{ currentCopy }}</p>
+        <p class="logo-pad__lede">
+          <AdminBusyLabel :busy="saving">{{ currentCopy }}</AdminBusyLabel>
+        </p>
         <p class="logo-pad__stamp" role="status">{{ stampCopy }}</p>
       </div>
       <button type="button" class="logo-pad__done" :disabled="saving" @click="emit('close')">
@@ -102,6 +105,7 @@
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import type { ShopRow } from '~/types/shop'
 import {
   searchCafeLogoSources,

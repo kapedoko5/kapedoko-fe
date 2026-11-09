@@ -235,7 +235,7 @@
         <div class="audit-save">
           <p v-if="queueNotice" class="audit-save__note" :class="{ 'is-blocked': queueNotice.startsWith('Could not') }" role="status">{{ queueNotice }}</p>
           <button type="submit" class="admin-btn audit-save__btn" :disabled="saving" :aria-busy="saving || undefined">
-            {{ saving ? 'Saving…' : 'Save audit' }}
+            <AdminBusyLabel :busy="saving">{{ saving ? 'Saving…' : 'Save audit' }}</AdminBusyLabel>
           </button>
         </div>
       </form>
@@ -245,6 +245,7 @@
 
 <script lang="ts" setup>
 import { Coffee, Hourglass, PenLine, Plug, Wallet, Wifi } from 'lucide-vue-next'
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminSearchPicker from '~/components/admin/AdminSearchPicker.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import AuditChoiceGroup from '~/components/admin/AuditChoiceGroup.vue'
@@ -267,6 +268,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const toast = useAdminToast()
 const { navRole, status, error, load } = useStaffSession()
 const audits = useCafeAudits()
 const draft = reactive(emptyAuditDraft())
@@ -388,6 +390,7 @@ onMounted(async () => {
   } catch (err) {
     pickerStatus.value = 'error'
     formError.value = err instanceof Error ? err.message : 'Could not load cafes.'
+    toast.warning('Could not load cafes', formError.value)
   }
 })
 
@@ -396,6 +399,7 @@ const onSubmit = async () => {
   if (auditFormHasErrors(current)) {
     attempted.value = true
     formError.value = openSummary(current)
+    toast.warning('Check this visit', formError.value)
     await nextTick()
     focusIssue(current)
     return
@@ -406,10 +410,12 @@ const onSubmit = async () => {
   try {
     await audits.submitDraft(draft, key)
     queueNotice.value = 'Saved.'
+    toast.success('Audit saved', 'The visit is on the cafe history.')
     await navigateTo('/admin/audits')
   } catch (err) {
     queueNotice.value = 'Could not reach the server. Your answers are still on this screen — tap Save again.'
     formError.value = err instanceof Error ? err.message : 'Could not save that audit.'
+    toast.error('Could not save that audit', formError.value)
   } finally {
     saving.value = false
   }

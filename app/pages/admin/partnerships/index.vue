@@ -42,7 +42,11 @@
         </label>
         <div class="admin-span admin-row-actions">
           <p v-if="formError" class="admin-error">{{ formError }}</p>
-          <button class="admin-btn" type="submit" :disabled="Boolean(savingId)">Save placement</button>
+          <button class="admin-btn" type="submit" :disabled="Boolean(savingId)" :aria-busy="savingId === draft.shopId || undefined">
+            <AdminBusyLabel :busy="savingId === draft.shopId">
+              {{ savingId === draft.shopId ? 'Saving…' : 'Save placement' }}
+            </AdminBusyLabel>
+          </button>
         </div>
       </form>
 
@@ -82,9 +86,12 @@
                   type="button"
                   class="admin-btn admin-btn--ghost"
                   :disabled="savingId === row.id"
-                  @click="onEnd(row.id)"
+                  :aria-busy="savingId === row.id || undefined"
+                  @click="onEnd(row)"
                 >
-                  End now
+                  <AdminBusyLabel :busy="savingId === row.id">
+                    {{ savingId === row.id ? 'Ending…' : 'End now' }}
+                  </AdminBusyLabel>
                 </button>
               </td>
             </tr>
@@ -102,9 +109,12 @@
             type="button"
             class="admin-btn admin-btn--ghost"
             :disabled="savingId === row.id"
-            @click="onEnd(row.id)"
+            :aria-busy="savingId === row.id || undefined"
+            @click="onEnd(row)"
           >
-            End now
+            <AdminBusyLabel :busy="savingId === row.id">
+              {{ savingId === row.id ? 'Ending…' : 'End now' }}
+            </AdminBusyLabel>
           </button>
         </article>
       </div>
@@ -113,10 +123,12 @@
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminSearchPicker from '~/components/admin/AdminSearchPicker.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import type { PlacementLifecycle } from '~/types/admin'
 import { formatAdminDate, toLocalInput } from '~/utils/admin-nav'
+import { adminActionErrorMessage } from '~/utils/admin-feedback'
 import { cafePickerOptions } from '~/utils/admin-picker'
 import { placementLifecycle, placementWindowError } from '~/utils/admin-placements'
 
@@ -125,6 +137,8 @@ definePageMeta({
 })
 
 const admin = useAdminData()
+const toast = useAdminToast()
+const { ask: askAdmin } = useAdminConfirm()
 const { shops, placements, status, error, savingId, load, savePlacement, endPlacement } = admin
 const now = new Date()
 const later = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
@@ -158,11 +172,21 @@ const visible = computed(() =>
   lifecycle.value === 'all' ? rows.value : rows.value.filter((row) => row.life === lifecycle.value),
 )
 
-const onEnd = async (id: string) => {
+const onEnd = async (row: { id: string; shop_id: string; kind: string }) => {
+  const name = shopName(row.shop_id)
+  const choice = await askAdmin({
+    title: `End the ${row.kind} pin for ${name}?`,
+    message: 'The map returns to the standard pin.',
+    confirmLabel: 'End placement',
+    variant: 'destructive',
+  })
+  if (!choice.confirmed) return
   try {
-    await endPlacement(id)
+    await endPlacement(row.id)
+    toast.success('Placement ended', `${name} is back on the standard pin.`)
   } catch (err) {
-    formError.value = err instanceof Error ? err.message : 'Could not end this placement.'
+    formError.value = adminActionErrorMessage(err, 'Could not end this placement.')
+    toast.error('Could not end this placement', formError.value)
   }
 }
 
@@ -171,19 +195,23 @@ const onCreate = async () => {
   const shop = approved.value.find((item) => item.id === draft.shopId)
   if (!shop) {
     formError.value = 'Choose an approved cafe.'
+    toast.warning('Choose a cafe', formError.value)
     return
   }
   if (draft.kind !== 'standard') {
     const windowIssue = placementWindowError(draft.startsAt, draft.endsAt)
     if (windowIssue) {
       formError.value = windowIssue
+      toast.warning('Check the window', windowIssue)
       return
     }
   }
   try {
     await savePlacement(shop, draft.kind, draft.startsAt, draft.endsAt)
+    toast.success('Placement saved', `${shop.name} is on the ${draft.kind} pin.`)
   } catch (err) {
-    formError.value = err instanceof Error ? err.message : 'Could not save this placement.'
+    formError.value = adminActionErrorMessage(err, 'Could not save this placement.')
+    toast.error('Could not save this placement', formError.value)
   }
 }
 

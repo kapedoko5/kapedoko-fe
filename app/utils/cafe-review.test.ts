@@ -3,20 +3,31 @@ import type { ShopReviewPublicRow, ShopReviewStatsRow } from '../types/shop'
 import {
   BUSYNESS_COOLDOWN_MS,
   chapterIssue,
+  checkInAtStorageKey,
+  checkInPath,
+  cooldownRemainingMs,
+  cooldownWaitCopy,
   draftToReviewInsert,
+  readCheckInAt,
+  writeCheckInAt,
   emptyReviewDraft,
+  firstReviewChapter,
   isBusynessCooldown,
   isChapterComplete,
   mapPublicReview,
+  monthCheckInCopy,
+  busynessMeterFill,
   normalizeDraft,
+  parseBusynessLevelQuery,
   plugInsightFromStats,
   REVIEW_COMMENT_MAX,
   reviewQuote,
   reviewRowToDraft,
+  shouldSkipReviewBusyness,
   wifiInsightFromStats,
   type CafeReviewDraft,
 } from './cafe-review'
-import { amenitiesFromStats, mapShopToCafe, withCafeBusyness, withCafeReviews } from './shop-mapper'
+import { amenitiesFromStats, mapShopToCafe, withCafeBusyness, withCafeCheckIns, withCafeReviews } from './shop-mapper'
 import { isShopId, resolveLiveShopId, shopIdFromRoute } from './approved-shops'
 import type { ShopRow } from '../types/shop'
 
@@ -118,6 +129,48 @@ describe('review upsert payload', () => {
   })
 })
 
+describe('check-in helpers', () => {
+  test('reads a valid crowd level from the login return query', () => {
+    expect(parseBusynessLevelQuery('comfortable')).toBe('comfortable')
+    expect(parseBusynessLevelQuery(['busy'])).toBe('busy')
+    expect(parseBusynessLevelQuery('packed')).toBeNull()
+    expect(parseBusynessLevelQuery(undefined)).toBeNull()
+  })
+
+  test('skips review busyness after a check-in', () => {
+    const now = new Date('2026-09-09T04:00:00.000Z')
+    const recent = new Date(now.getTime() - 10 * 60 * 1000).toISOString()
+    const earlier = new Date(now.getTime() - BUSYNESS_COOLDOWN_MS - 1000).toISOString()
+    expect(shouldSkipReviewBusyness('check-in')).toBe(true)
+    expect(firstReviewChapter('check-in')).toBe(2)
+    expect(shouldSkipReviewBusyness(undefined, recent, now)).toBe(true)
+    expect(firstReviewChapter(undefined, recent, now)).toBe(2)
+    expect(shouldSkipReviewBusyness('map')).toBe(false)
+    expect(shouldSkipReviewBusyness(undefined, earlier, now)).toBe(false)
+    expect(firstReviewChapter(undefined)).toBe(1)
+  })
+
+  test('keeps the chosen crowd level on the check-in return path', () => {
+    const id = '2f1c8e6a-4b9d-4c3a-9f10-7a6b5c4d3e2f'
+    expect(checkInPath(id)).toBe(`/app/cafes/${id}/check-in`)
+    expect(checkInPath(id, 'quiet')).toBe(`/app/cafes/${id}/check-in?level=quiet`)
+  })
+
+  test('names the 30-day KapéBean count', () => {
+    expect(monthCheckInCopy(0)).toBe('')
+    expect(monthCheckInCopy(1)).toBe('1 KapéBean this month')
+    expect(monthCheckInCopy(12)).toBe('12 KapéBeans this month')
+  })
+
+  test('fills one to four beans for how packed the cafe is', () => {
+    expect(busynessMeterFill('quiet')).toBe(1)
+    expect(busynessMeterFill('comfortable')).toBe(2)
+    expect(busynessMeterFill('busy')).toBe(3)
+    expect(busynessMeterFill('full')).toBe(4)
+    expect(busynessMeterFill(null)).toBe(0)
+  })
+})
+
 describe('busyness cooldown', () => {
   test('blocks a second check-in inside the 30 minute window', () => {
     const now = new Date('2026-09-09T04:00:00.000Z')
@@ -131,6 +184,32 @@ describe('busyness cooldown', () => {
     const earlier = new Date(now.getTime() - BUSYNESS_COOLDOWN_MS - 1000).toISOString()
     expect(isBusynessCooldown(earlier, now)).toBe(false)
     expect(isBusynessCooldown(null, now)).toBe(false)
+  })
+
+  test('counts remaining minutes for wait copy', () => {
+    expect(cooldownWaitCopy(0)).toBe('You can check in again now.')
+    expect(cooldownWaitCopy(1)).toBe('You can check in again in 1 minute.')
+    expect(cooldownWaitCopy(60_000)).toBe('You can check in again in 1 minute.')
+    expect(cooldownWaitCopy(60_001)).toBe('You can check in again in 2 minutes.')
+    expect(cooldownWaitCopy(29 * 60_000)).toBe('You can check in again in 29 minutes.')
+  })
+
+  test('keys last check-in per user and cafe', () => {
+    expect(checkInAtStorageKey('user-1', 'shop-1')).toBe('kapedoko-checkin-at:user-1:shop-1')
+  })
+
+  test('remembers last check-in in memory', () => {
+    const at = new Date('2026-09-09T04:00:00.000Z')
+    writeCheckInAt('user-1', 'shop-memory', at)
+    expect(readCheckInAt('user-1', 'shop-memory')).toBe(at.toISOString())
+    expect(readCheckInAt('user-1', 'shop-other')).toBeNull()
+  })
+
+  test('remaining ms is zero without a last check-in', () => {
+    const now = new Date('2026-09-09T04:00:00.000Z')
+    const recent = new Date(now.getTime() - 10 * 60 * 1000)
+    expect(cooldownRemainingMs(null, now)).toBe(0)
+    expect(cooldownRemainingMs(recent, now)).toBe(20 * 60 * 1000)
   })
 })
 
@@ -246,6 +325,12 @@ describe('aggregate insights', () => {
       label: 'Busy right now',
       count: 3,
     })
+    expect(cafe.checkIns30d).toBe(0)
+    expect(withCafeCheckIns(cafe, {
+      shop_id: 'shop-1',
+      checkins_30d: 12,
+      last_checkin_at: '2026-10-26T00:00:00.000Z',
+    }).checkIns30d).toBe(12)
   })
 })
 
@@ -257,6 +342,8 @@ describe('review route shop id', () => {
     expect(shopIdFromRoute(`/app/cafes/${id}/claim`)).toBe(id)
     expect(shopIdFromRoute(`/#/app/cafes/${id}/claim`)).toBe(id)
     expect(shopIdFromRoute(`/app/cafes/${id}/edit`)).toBe(id)
+    expect(shopIdFromRoute(`/app/cafes/${id}/check-in`)).toBe(id)
+    expect(shopIdFromRoute(`/#/app/cafes/${id}/check-in?level=busy`)).toBe(id)
     expect(shopIdFromRoute(`/admin/cafes/${id}`)).toBe(id)
     expect(shopIdFromRoute(`/#/admin/cafes/${id}`)).toBe(id)
     expect(shopIdFromRoute(`/admin/audits/${id}`)).toBe(id)

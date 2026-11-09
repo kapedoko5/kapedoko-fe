@@ -13,8 +13,9 @@
         class="choice__option"
         :class="{ 'is-on': option.value === modelValue }"
         role="radio"
+        :disabled="disabled"
         :aria-checked="option.value === modelValue ? 'true' : 'false'"
-        @click="emit('update:modelValue', option.value)"
+        @click="onPick(option.value)"
       >
         <span v-if="$slots.icon" class="choice__icon" aria-hidden="true">
           <slot name="icon" :option="option" :selected="option.value === modelValue" />
@@ -31,7 +32,7 @@
 <script lang="ts" setup generic="T extends string">
 import type { ReviewChoice } from '~/utils/cafe-review'
 
-defineProps<{
+const props = defineProps<{
   options: ReviewChoice<T>[]
   modelValue: T | null
   legend?: string
@@ -42,6 +43,11 @@ defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: T]
 }>()
+
+const onPick = (value: T) => {
+  if (props.disabled) return
+  emit('update:modelValue', value)
+}
 </script>
 
 <style scoped>

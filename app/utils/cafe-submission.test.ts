@@ -320,6 +320,7 @@ describe('cafe search suggestions', () => {
     popular: false,
     rating: 0,
     ratingLabel: 'New',
+    checkIns30d: 0,
     reviews: [],
     lat,
     lng,

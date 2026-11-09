@@ -52,14 +52,15 @@
     </div>
     <div class="admin-span admin-row-actions">
       <p v-if="issues.form" class="admin-error" role="alert">{{ issues.form }}</p>
-      <button type="submit" class="admin-btn" :disabled="saving">
-        {{ saving ? 'Saving…' : submitLabel }}
+      <button type="submit" class="admin-btn" :disabled="saving" :aria-busy="saving || undefined">
+        <AdminBusyLabel :busy="saving">{{ saving ? 'Saving…' : submitLabel }}</AdminBusyLabel>
       </button>
     </div>
   </form>
 </template>
 
 <script lang="ts" setup>
+import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import CafeIdentityStep from '~/components/submit/CafeIdentityStep.vue'
 import CafeDetailsStep from '~/components/submit/CafeDetailsStep.vue'
 import CafeLocationPicker from '~/components/submit/CafeLocationPicker.client.vue'

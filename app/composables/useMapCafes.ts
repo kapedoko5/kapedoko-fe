@@ -53,6 +53,7 @@ export function useMapCafes() {
             plugInsight: cafe.plugInsight ?? prev.plugInsight,
             matchaInsight: cafe.matchaInsight ?? prev.matchaInsight,
             busyness: cafe.busyness ?? prev.busyness,
+            checkIns30d: cafe.checkIns30d || prev.checkIns30d,
           }
         : cafe
       if (
@@ -65,6 +66,7 @@ export function useMapCafes() {
         && prev.image === merged.image
         && prev.reviews === merged.reviews
         && prev.busyness === merged.busyness
+        && prev.checkIns30d === merged.checkIns30d
         && prev.wifiInsight === merged.wifiInsight
       ) {
         continue
