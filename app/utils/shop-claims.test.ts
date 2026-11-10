@@ -31,11 +31,12 @@ describe('cafe claims', () => {
   })
 
   test('hides the owner invite when someone else already manages the cafe', () => {
-    expect(showCafeOwnerInvite({ myClaimStatus: null, hasVerifiedOwner: true })).toBe(false)
-    expect(showCafeOwnerInvite({ myClaimStatus: 'rejected', hasVerifiedOwner: true })).toBe(false)
-    expect(showCafeOwnerInvite({ myClaimStatus: 'verified', hasVerifiedOwner: true })).toBe(true)
-    expect(showCafeOwnerInvite({ myClaimStatus: 'pending', hasVerifiedOwner: false })).toBe(true)
-    expect(showCafeOwnerInvite({ myClaimStatus: null, hasVerifiedOwner: false })).toBe(true)
+    expect(showCafeOwnerInvite({ myClaimStatus: null, hasVerifiedOwner: true, ownerKnown: true })).toBe(false)
+    expect(showCafeOwnerInvite({ myClaimStatus: 'rejected', hasVerifiedOwner: true, ownerKnown: true })).toBe(false)
+    expect(showCafeOwnerInvite({ myClaimStatus: 'verified', hasVerifiedOwner: true, ownerKnown: true })).toBe(true)
+    expect(showCafeOwnerInvite({ myClaimStatus: 'pending', hasVerifiedOwner: false, ownerKnown: true })).toBe(true)
+    expect(showCafeOwnerInvite({ myClaimStatus: null, hasVerifiedOwner: false, ownerKnown: true })).toBe(true)
+    expect(showCafeOwnerInvite({ myClaimStatus: null, hasVerifiedOwner: false, ownerKnown: false })).toBe(false)
   })
 })
 

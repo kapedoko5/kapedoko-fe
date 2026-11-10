@@ -97,7 +97,6 @@ const { saving, submitClaim, loadClaimForShop, claimForShop } = ownership
 
 const cafe = ref<Cafe | null>(null)
 const pageStatus = ref<'loading' | 'ready' | 'missing' | 'error'>('loading')
-const hasVerifiedOwner = ref(false)
 const note = ref('')
 const email = ref('')
 const phone = ref('')
@@ -120,7 +119,8 @@ const signedIn = computed(() => Boolean(user.value))
 const existing = computed(() => (shopId.value ? claimForShop(shopId.value) : null))
 const alreadyOwned = computed(() => !showCafeOwnerInvite({
   myClaimStatus: existing.value?.status ?? null,
-  hasVerifiedOwner: hasVerifiedOwner.value,
+  hasVerifiedOwner: shopId.value ? ownership.shopHasVerifiedOwner(shopId.value) : false,
+  ownerKnown: shopId.value ? ownership.shopOwnerFlagKnown(shopId.value) : false,
 }))
 
 const goBack = async () => {
@@ -194,10 +194,8 @@ const load = async (force = false) => {
       pageStatus.value = 'missing'
       return
     }
-    pageStatus.value = 'ready'
-    const { data: owned } = await supabase.rpc('shop_has_verified_owner', { p_shop_id: id })
+    await ownership.loadShopOwnerFlag(id)
     if (seq !== loadSeq) return
-    hasVerifiedOwner.value = owned === true
     if (user.value) {
       try {
         await loadClaimForShop(id)
@@ -205,6 +203,8 @@ const load = async (force = false) => {
         // Keep the claim form up even if the existing-claim lookup fails.
       }
     }
+    if (seq !== loadSeq) return
+    pageStatus.value = 'ready'
   } catch {
     if (seq !== loadSeq) return
     pageStatus.value = cafe.value?.id === id ? 'ready' : 'error'

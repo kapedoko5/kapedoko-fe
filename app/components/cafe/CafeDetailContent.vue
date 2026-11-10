@@ -352,7 +352,7 @@
       </section>
 
       <section
-        v-if="ownerHref"
+        v-if="showOwnerCard"
         class="cafe-detail__owner"
         :aria-labelledby="ownerHeadingId"
       >
@@ -397,6 +397,7 @@ import {
 } from '~/utils/analytics'
 import { fetchOwnShopReview, isShopId } from '~/utils/approved-shops'
 import { BUSYNESS_METER_SEATS, busynessMeterFill, monthCheckInCopy } from '~/utils/cafe-review'
+import { showCafeOwnerInvite } from '~/utils/shop-claims'
 
 const props = withDefaults(
   defineProps<{
@@ -481,6 +482,14 @@ const ownerLabel = computed(() => {
   return 'Claim this cafe'
 })
 const ownerQuiet = computed(() => ownerClaim.value?.status === 'pending')
+const showOwnerCard = computed(() => (
+  Boolean(ownerHref.value)
+  && showCafeOwnerInvite({
+    myClaimStatus: ownerClaim.value?.status ?? null,
+    hasVerifiedOwner: shopId.value ? ownership.shopHasVerifiedOwner(shopId.value) : false,
+    ownerKnown: shopId.value ? ownership.shopOwnerFlagKnown(shopId.value) : false,
+  })
+))
 
 const goOwner = async () => {
   if (!ownerHref.value) return
@@ -494,7 +503,9 @@ watch(
   () => [props.cafe.id, user.value?.id ?? ''] as const,
   () => {
     void refreshOwnReview()
-    if (shopId.value && user.value) void ownership.loadClaimForShop(shopId.value)
+    if (!shopId.value) return
+    void ownership.loadShopOwnerFlag(shopId.value)
+    if (user.value) void ownership.loadClaimForShop(shopId.value)
   },
   { immediate: true },
 )

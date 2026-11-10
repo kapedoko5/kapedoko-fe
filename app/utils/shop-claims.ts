@@ -80,8 +80,10 @@ export function profileClaimsEmptyCopy(isAdmin: boolean): string {
 export function showCafeOwnerInvite(input: {
   myClaimStatus: 'pending' | 'verified' | 'rejected' | null
   hasVerifiedOwner: boolean
+  ownerKnown?: boolean
 }): boolean {
   if (input.myClaimStatus === 'verified' || input.myClaimStatus === 'pending') return true
+  if (input.ownerKnown === false) return false
   if (input.hasVerifiedOwner) return false
   return true
 }
