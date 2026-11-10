@@ -1,7 +1,7 @@
 <template>
   <IonPage>
     <IonContent class="search-content">
-      <div class="search">
+      <div class="search" :class="{ 'has-detail': paneDocked }">
         <header class="search-chrome">
           <div class="search-chrome__bar">
             <button
@@ -77,6 +77,7 @@
                 v-for="(cafe, index) in pagedCafes"
                 :key="cafe.id"
                 :cafe="cafe"
+                :selected="cafe.id === detailCafe?.id"
                 :distance-label="distanceLabel(cafe)"
                 :style="{ '--enter': String(index % 12) }"
                 surface="search"
@@ -93,6 +94,21 @@
           </section>
         </Transition>
       </div>
+      <AppDetailPane
+        :open="paneOpen"
+        :label="detailCafe?.name || 'Cafe details'"
+        @close="closeDetail"
+        @after-leave="afterLeave"
+      >
+        <CafeDetailContent
+          v-if="detailCafe"
+          :key="detailCafe.id"
+          :cafe="detailCafe"
+          variant="sheet"
+          @review="onReview"
+          @checkin="onCheckIn"
+        />
+      </AppDetailPane>
     </IonContent>
   </IonPage>
 </template>
@@ -100,7 +116,9 @@
 <script lang="ts" setup>
 import { onIonViewWillEnter } from '@ionic/vue'
 import { BatteryCharging, ChevronLeft, CircleAlert, Coffee, Flame, Hourglass, Navigation, Plug, RefreshCw, Search, Wifi, Zap } from 'lucide-vue-next'
+import AppDetailPane from '~/components/AppDetailPane.vue'
 import CafeCard from '~/components/cafe/CafeCard.vue'
+import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
 import { CAFE_FILTERS, type CafeFilterIcon, type CafeFilterId } from '~/utils/cafe-filters'
 import { amenityFilterHint } from '~/utils/amenity-status'
@@ -109,11 +127,20 @@ import {
   classifySearchQuery,
   confidenceBucketFromCafe,
   modalConfidenceBucket,
-  rememberDetailSource,
 } from '~/utils/analytics'
 import { distanceMeters, formatDistance } from '~/utils/geo'
 
 useAppTabBar('hide')
+const {
+  cafe: detailCafe,
+  paneOpen,
+  paneDocked,
+  openCafe: openCafePane,
+  close: closeDetail,
+  afterLeave,
+  onReview,
+  onCheckIn,
+} = useListDetailPane('search')
 
 const { status: locationStatus, location, usingFallback, requestLocation } = useDeviceLocation()
 const { radiusMeters } = useNearbyRadius()
@@ -216,8 +243,8 @@ const distanceLabel = (cafe: Cafe) => {
 }
 
 const openCafe = async (id: string) => {
-  rememberDetailSource('search')
-  await navigateTo(`/app/cafes/${id}`)
+  const fallback = pagedCafes.value.find((item) => item.id === id) || null
+  await openCafePane(id, fallback)
 }
 
 const trackPending = ref<CafeFilterId | null>(null)
@@ -472,11 +499,11 @@ onMounted(() => {
 }
 
 .search-results {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   flex: 1 1 auto;
-  gap: 0;
-  padding: 0;
+  gap: 12px;
+  padding: 0 20px 12px;
   background: #f2f2f2;
 }
 
@@ -488,7 +515,7 @@ onMounted(() => {
 .search-skeleton {
   display: block;
   height: 128px;
-  margin: 0 20px 12px;
+  margin: 0;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 12%, transparent);
   border-radius: 16px;
   background: linear-gradient(
@@ -515,7 +542,7 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   margin: 0;
-  padding: 4px 20px 12px;
+  padding: 4px 0 12px;
   color: var(--kd-ink);
   font-size: 0.75rem;
   font-weight: 400;
@@ -594,13 +621,6 @@ onMounted(() => {
 @keyframes bag-shimmer {
   from { background-position: 100% 0; }
   to { background-position: -100% 0; }
-}
-
-@media (min-width: 540px) {
-  .search {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

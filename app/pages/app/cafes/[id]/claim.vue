@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
 }
 
 .owner-page {
-  max-width: 480px;
+  width: min(100%, var(--kd-readable-max));
   margin-inline: auto;
   min-height: 100%;
   padding: 0 16px 32px;

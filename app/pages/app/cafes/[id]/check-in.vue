@@ -399,8 +399,8 @@ onBeforeUnmount(() => {
 .checkin {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 100%;
+  width: min(100%, var(--kd-readable-max));
+  margin-inline: auto;
   min-height: 100%;
   overflow-x: clip;
   background: #f2f2f2;
@@ -671,12 +671,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (min-width: 540px) {
-  .checkin {
-    max-width: 480px;
-    margin-inline: auto;
-  }
-
+@media (min-width: 600px) {
   .checkin__question {
     flex: none;
   }

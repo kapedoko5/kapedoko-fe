@@ -510,7 +510,9 @@ const onWithdraw = async (claimId: string) => {
 
 .profile {
   min-height: 100%;
-  padding: max(2.75rem, calc(env(safe-area-inset-top) + 16px)) 20px calc(72px + env(safe-area-inset-bottom));
+  width: min(100%, var(--kd-readable-max));
+  margin-inline: auto;
+  padding: max(2.75rem, calc(env(safe-area-inset-top) + 16px)) 20px var(--kd-tabbar-inset);
   background: #f2f2f2;
   color: var(--kd-ink);
   font-family: 'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -993,13 +995,6 @@ const onWithdraw = async (claimId: string) => {
 .profile-map-leave-to {
   opacity: 0;
   transform: translateY(8px);
-}
-
-@media (min-width: 540px) {
-  .profile {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

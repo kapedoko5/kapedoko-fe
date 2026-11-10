@@ -198,7 +198,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .bag {
   position: relative;
-  margin: 0 20px 12px;
+  margin: 0;
   padding: 16px 40px 12px 16px;
   background-color: #faf8f5;
   color: #1c1917;

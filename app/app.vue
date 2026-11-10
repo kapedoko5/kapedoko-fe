@@ -2,27 +2,33 @@
   <IonApp>
     <NuxtRouteAnnouncer />
     <IonRouterOutlet />
-    <Teleport to="body">
-      <AppTabBar v-if="showAppTabs && !tabsLocked" />
-    </Teleport>
-    <LoadingScreen v-if="isLoading" />
+    <ClientOnly>
+      <Teleport to="body">
+        <AppTabBar v-if="showAppTabs" />
+      </Teleport>
+    </ClientOnly>
+    <LoadingScreen v-if="isLoading && !skipSplash" />
     <AnalyticsConsentNotice />
   </IonApp>
 </template>
 
 <script setup lang="ts">
+import { Capacitor } from '@capacitor/core'
 import { IonApp, IonRouterOutlet } from '@ionic/vue'
 import AnalyticsConsentNotice from '~/components/analytics/AnalyticsConsentNotice.vue'
 import LoadingScreen from '~/components/LoadingScreen.vue'
 import AppTabBar from '~/components/navigation/AppTabBar.vue'
+import { isLandingPath } from '~/utils/app-tabs'
 import { hasFinishedOnboarding, shouldShowOnboarding } from '~/utils/onboarding'
 
 const supabase = useSupabaseClient()
 const route = useRoute()
+useViewportLayout()
 const { locked: tabsLocked } = useAppTabsLock()
 const { visible: tabBarVisible } = useAppTabBarVisibility()
-const isLoading = ref(true)
+const isLoading = useState('kd-splash-loading', () => true)
 
+const skipSplash = computed(() => isLandingPath(route.path) && !Capacitor.isNativePlatform())
 const showAppTabs = computed(() => !isLoading.value && tabBarVisible.value && !tabsLocked.value)
 
 useFavorites()
@@ -38,6 +44,11 @@ const SPLASH_LIMIT_MS = 3000
 let hideSplash: ReturnType<typeof window.setTimeout> | undefined
 
 onMounted(() => {
+  if (skipSplash.value) {
+    isLoading.value = false
+    return
+  }
+
   hideSplash = window.setTimeout(() => {
     isLoading.value = false
   }, SPLASH_LIMIT_MS)

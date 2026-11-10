@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import {
   activeAppTab,
+  isAppShellPath,
   isAppTabRoute,
   isForeignSurface,
+  isLandingPath,
   isOnboardingPath,
+  tabBarModeForPath,
   isSameAppPath,
   isVisibleIonPageClass,
   normalizeAppPath,
@@ -11,6 +14,7 @@ import {
   resolveAppPath,
   isActiveForeignSurface,
   resolveTabBarVisible,
+  shouldShowAppNav,
   shouldShowAppTabs,
 } from './app-tabs'
 
@@ -30,6 +34,15 @@ describe('app tab paths', () => {
     expect(activeAppTab('/app/map')).toBe('map')
     expect(activeAppTab('/app/cafes/abc')).toBe('home')
     expect(normalizeAppPath('/app/profile/')).toBe('/app/profile')
+  })
+
+  test('hides the shell tab bar on the marketing landing', () => {
+    expect(isLandingPath('/')).toBe(true)
+    expect(isLandingPath('/app')).toBe(false)
+    expect(tabBarModeForPath('/')).toBe('hide')
+    expect(shouldShowAppTabs('/')).toBe(false)
+    expect(shouldShowAppNav('/', 'compact')).toBe(false)
+    expect(shouldShowAppNav('/', 'expanded')).toBe(false)
   })
 
   test('shows the shell tab bar only on home, saved, and profile', () => {
@@ -53,6 +66,24 @@ describe('app tab paths', () => {
     expect(shouldShowAppTabs('/app/cafes/abc/review')).toBe(false)
     expect(shouldShowAppTabs('/app/cafes/abc/check-in')).toBe(false)
     expect(shouldShowAppTabs('/app/cafes/abc/claim')).toBe(false)
+  })
+
+  test('shows a floating bottom bar on wide layouts for map, search, and cafe pages', () => {
+    expect(shouldShowAppNav('/app/map', 'compact')).toBe(false)
+    expect(shouldShowAppNav('/app/search', 'compact')).toBe(false)
+    expect(shouldShowAppNav('/app/cafes/abc', 'compact')).toBe(false)
+    expect(shouldShowAppNav('/app/map', 'medium')).toBe(true)
+    expect(shouldShowAppNav('/app/search', 'expanded')).toBe(true)
+    expect(shouldShowAppNav('/app/cafes/abc/review', 'medium')).toBe(true)
+    expect(shouldShowAppNav('/app/onboarding', 'expanded')).toBe(false)
+    expect(shouldShowAppNav('/admin', 'expanded')).toBe(false)
+    expect(shouldShowAppNav('/login', 'medium')).toBe(false)
+    expect(shouldShowAppNav('/app/profile', 'expanded', '/admin')).toBe(false)
+    expect(shouldShowAppNav('/', 'expanded', '/app')).toBe(true)
+    expect(shouldShowAppNav('/', 'medium', '/app/map')).toBe(true)
+    expect(shouldShowAppNav('/', 'expanded', '/app/onboarding')).toBe(false)
+    expect(isAppShellPath('/app/map')).toBe(true)
+    expect(isAppShellPath('/app/onboarding')).toBe(false)
   })
 
   test('reads Ionic hash paths from the browser location', () => {

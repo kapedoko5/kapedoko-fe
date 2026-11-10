@@ -1,0 +1,61 @@
+[
+ {
+  "shape": "Stage then proof sheet",
+  "theme": "brand",
+  "axes": "cool-grey/geometric-sans/orange",
+  "hero": "Stage",
+  "nav": "edge-aligned",
+  "footer": "colophon",
+  "imagery": "the product built",
+  "photos": [],
+  "entry": "the bag reprints Hours, WiFi, Outlets",
+  "fingerprint": "Hanging|Asymmetric spans|Negative space|Solid|Margin-aligned|None",
+  "sections": [
+   "Hero Stage",
+   "Proof sheet",
+   "Statement",
+   "Band",
+   "Footer"
+  ],
+  "signature": "filter stamps reprint the bag",
+  "waived": [
+   "22",
+   "26b",
+   "42",
+   "59"
+  ],
+  "prompt": "can you improve it more /hallmark /impeccable",
+  "date": "2026-11-09",
+  "mode": "build"
+ },
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "page",
+  "shape": "Stage then Switcher",
+  "theme": "brand",
+  "axes": "cool-grey/geometric-sans/orange",
+  "hero": "Stage",
+  "nav": "edge-aligned",
+  "footer": "colophon",
+  "imagery": "the product built",
+  "photos": [],
+  "entry": "the bag reprints Hours, WiFi, Outlets",
+  "fingerprint": "Hanging|Asymmetric spans|Negative space|Solid|Margin-aligned|None",
+  "sections": [
+   "Hero Stage",
+   "Switcher",
+   "Statement",
+   "Band",
+   "Footer"
+  ],
+  "signature": "filter stamps reprint the bag",
+  "waived": [
+   "22",
+   "26b",
+   "42"
+  ],
+  "prompt": "Improve this landing page more /hallmark",
+  "date": "2026-11-09"
+ }
+]

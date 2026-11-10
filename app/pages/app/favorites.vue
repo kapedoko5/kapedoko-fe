@@ -1,7 +1,7 @@
 <template>
   <IonPage>
     <IonContent class="favorites-content">
-      <div class="favorites">
+      <div class="favorites" :class="{ 'has-detail': paneDocked }">
         <header class="favorites-hero">
           <button
             type="button"
@@ -59,6 +59,7 @@
                 v-for="(cafe, index) in savedCafes"
                 :key="cafe.id"
                 :cafe="cafe"
+                :selected="cafe.id === detailCafe?.id"
                 :style="{ '--enter': String(index % 12) }"
                 surface="favorites"
                 @select="openCafe"
@@ -66,18 +67,45 @@
           </section>
         </Transition>
       </div>
+      <AppDetailPane
+        :open="paneOpen"
+        :label="detailCafe?.name || 'Cafe details'"
+        @close="closeDetail"
+        @after-leave="afterLeave"
+      >
+        <CafeDetailContent
+          v-if="detailCafe"
+          :key="detailCafe.id"
+          :cafe="detailCafe"
+          variant="sheet"
+          @review="onReview"
+          @checkin="onCheckIn"
+        />
+      </AppDetailPane>
     </IonContent>
   </IonPage>
 </template>
 
 <script lang="ts" setup>
 import { ArrowLeft, Heart } from 'lucide-vue-next'
+import AppDetailPane from '~/components/AppDetailPane.vue'
 import CafeCard from '~/components/cafe/CafeCard.vue'
+import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
-import { ANALYTICS_EVENTS, rememberDetailSource } from '~/utils/analytics'
+import { ANALYTICS_EVENTS } from '~/utils/analytics'
 import { fetchApprovedCafesByIds } from '~/utils/approved-shops'
 
 useAppTabBar('show')
+const {
+  cafe: detailCafe,
+  paneOpen,
+  paneDocked,
+  openCafe: openCafePane,
+  close: closeDetail,
+  afterLeave,
+  onReview,
+  onCheckIn,
+} = useListDetailPane('favorites')
 
 const favorites = useFavorites()
 const user = useSupabaseUser()
@@ -139,8 +167,8 @@ watch(() => [favorites.ids.value.join(','), favorites.status.value], () => {
 })
 
 const openCafe = async (id: string) => {
-  rememberDetailSource('favorites')
-  await navigateTo(`/app/cafes/${id}`)
+  const fallback = savedCafes.value.find((item) => item.id === id) || null
+  await openCafePane(id, fallback)
 }
 
 const goLogin = () => {
@@ -184,7 +212,7 @@ const goBack = async () => {
   min-height: 100%;
   background-color: #f2f2f2;
   color: var(--kd-ink);
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  padding-bottom: var(--kd-tabbar-inset);
 }
 
 .favorites-hero {
@@ -280,9 +308,10 @@ const goBack = async () => {
 }
 
 .favorites-list {
-  display: flex;
-  flex-direction: column;
-  padding: 4px 0 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 4px 20px 12px;
 }
 
 .favorites-empty {
@@ -362,13 +391,6 @@ const goBack = async () => {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-@media (min-width: 540px) {
-  .favorites {
-    max-width: 480px;
-    margin-inline: auto;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

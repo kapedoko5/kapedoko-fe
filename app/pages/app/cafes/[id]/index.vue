@@ -314,8 +314,8 @@ onBeforeUnmount(() => {
 }
 
 .cafe-page {
-  width: 100%;
-  max-width: 100%;
+  width: min(100%, var(--kd-readable-max));
+  margin-inline: auto;
   min-height: 100%;
   overflow-x: clip;
   background: #f2f2f2;
@@ -535,13 +535,6 @@ onBeforeUnmount(() => {
   }
   50% {
     opacity: 1;
-  }
-}
-
-@media (min-width: 540px) {
-  .cafe-page {
-    max-width: 480px;
-    margin-inline: auto;
   }
 }
 
