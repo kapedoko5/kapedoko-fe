@@ -26,10 +26,12 @@
 </template>
 
 <script lang="ts" setup>
+import { onIonViewWillEnter, useIonRouter } from '@ionic/vue'
 import OwnerCafeEditor from '~/components/owner-portal/OwnerCafeEditor.vue'
 import OwnerShell from '~/components/owner-portal/OwnerShell.vue'
 import type { ShopRow } from '~/types/shop'
-import { isShopId } from '~/utils/approved-shops'
+import { isShopId, resolveLiveShopId } from '~/utils/approved-shops'
+import { settleOwnerIonPages } from '~/utils/owner-nav'
 import { ownerLiveCopy } from '~/utils/owner-portal'
 
 definePageMeta({
@@ -37,6 +39,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const ionRouter = useIonRouter()
 const supabase = useSupabaseClient()
 const toast = useOwnerToast()
 const desk = useOwnerPortal()
@@ -44,6 +47,7 @@ const {
   waitingClaims,
   saving,
   isOwner,
+  shopById,
   updateOwnedShop,
   loadDesk,
   error,
@@ -59,23 +63,58 @@ const shellStatus = computed(() => {
   return pageStatus.value
 })
 
-const shopId = computed(() => {
+const shopId = computed(() => resolveShopId())
+
+function resolveShopId(): string {
   const param = route.params.id
-  return typeof param === 'string' ? param : Array.isArray(param) ? String(param[0] || '') : ''
-})
+  const href = import.meta.client
+    ? `${window.location.pathname}${window.location.hash}${window.location.search}`
+    : ''
+  return resolveLiveShopId(route.fullPath, route.path, param, {
+    ionPath: String(ionRouter.routeInfo?.pathname || ''),
+    href,
+  })
+}
+
+let emptyIdTimer: ReturnType<typeof window.setTimeout> | null = null
 
 const load = async () => {
+  if (emptyIdTimer) {
+    window.clearTimeout(emptyIdTimer)
+    emptyIdTimer = null
+  }
   formError.value = ''
-  const id = shopId.value
+  const id = resolveShopId()
   if (!isShopId(id)) {
-    shop.value = null
-    pageStatus.value = 'error'
-    formError.value = 'Cafe not found.'
+    if (id) {
+      shop.value = null
+      pageStatus.value = 'error'
+      formError.value = 'Cafe not found.'
+      return
+    }
+    pageStatus.value = shop.value ? pageStatus.value : 'loading'
+    emptyIdTimer = window.setTimeout(() => {
+      const retry = resolveShopId()
+      if (isShopId(retry)) {
+        void load()
+        return
+      }
+      if (!shop.value) {
+        pageStatus.value = 'error'
+        formError.value = 'Cafe not found.'
+      }
+    }, 600)
     return
   }
-  pageStatus.value = shop.value ? pageStatus.value : 'loading'
+  pageStatus.value = shop.value?.id === id ? pageStatus.value : 'loading'
   try {
     await loadDesk()
+    const owned = shopById(id)
+    if (owned) {
+      shop.value = owned
+      pageStatus.value = 'ready'
+      return
+    }
     const { data, error: shopError } = await supabase.from('shops').select('*').eq('id', id).maybeSingle()
     if (shopError) throw shopError
     shop.value = (data ?? null) as ShopRow | null
@@ -103,9 +142,22 @@ const onSave = async (payload: Parameters<typeof updateOwnedShop>[1]) => {
   }
 }
 
-watch(shopId, () => {
+watch(
+  () => [route.fullPath, route.path, route.params.id],
+  () => {
+    void load()
+  },
+  { immediate: true },
+)
+
+onIonViewWillEnter(() => {
+  if (import.meta.client) requestAnimationFrame(settleOwnerIonPages)
   void load()
-}, { immediate: true })
+})
+
+onBeforeUnmount(() => {
+  if (emptyIdTimer) window.clearTimeout(emptyIdTimer)
+})
 </script>
 
 <style scoped>

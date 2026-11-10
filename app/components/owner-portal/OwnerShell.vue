@@ -98,7 +98,7 @@ import OwnerBusyOverlay from '~/components/owner-portal/OwnerBusyOverlay.vue'
 import OwnerConfirmHost from '~/components/owner-portal/OwnerConfirmHost.vue'
 import OwnerToastStack from '~/components/owner-portal/OwnerToastStack.vue'
 import { isSameAppPath, resolveAppPath } from '~/utils/app-tabs'
-import { OWNER_NAV, ownerBackNav, ownerNavIdFromPath } from '~/utils/owner-nav'
+import { OWNER_NAV, ownerBackNav, ownerNavIdFromPath, settleOwnerIonPages } from '~/utils/owner-nav'
 import { ownerForbiddenCopy } from '~/utils/owner-portal'
 
 const props = withDefaults(
@@ -159,20 +159,7 @@ const backNav = computed(() => {
   return label ? { ...auto, label } : auto
 })
 
-const settleOwnerPages = () => {
-  const pages = [...document.querySelectorAll('ion-router-outlet .ion-page')]
-  if (pages.length < 2) return
-  pages.forEach((page, index) => {
-    const top = index === pages.length - 1
-    page.classList.toggle('ion-page-hidden', !top)
-    if (top) {
-      page.classList.remove('ion-page-invisible')
-      page.removeAttribute('aria-hidden')
-    } else {
-      page.setAttribute('aria-hidden', 'true')
-    }
-  })
-}
+const settleOwnerPages = () => settleOwnerIonPages()
 
 const onResize = () => {
   desktop.value = window.innerWidth >= 1024

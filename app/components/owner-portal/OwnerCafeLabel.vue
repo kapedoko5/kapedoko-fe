@@ -39,6 +39,7 @@
       class="owner-bag__edit"
       :to="editTo"
       :aria-label="`Edit listing for ${shop.name}`"
+      @click="onEdit"
     >
       Edit listing
     </NuxtLink>
@@ -49,7 +50,7 @@
 import { Clock, Phone } from 'lucide-vue-next'
 import type { ShopRow } from '~/types/shop'
 import { cafeDisplayLogo, isKapedokoMark } from '~/utils/logo'
-import { ownerCafeEditPath } from '~/utils/owner-nav'
+import { ownerCafeEditPath, settleOwnerIonPages } from '~/utils/owner-nav'
 import { ownerCafeIsClosed, ownerHoursLine, ownerLiveCopy } from '~/utils/owner-portal'
 import { shopImageUrl } from '~/utils/shop-mapper'
 
@@ -76,6 +77,15 @@ const hoursLine = computed(() => ownerHoursLine(props.shop.hours))
 const liveCopy = computed(() => ownerLiveCopy(props.shop))
 const phone = computed(() => props.shop.contact_number?.trim() || '')
 const editTo = computed(() => ownerCafeEditPath(props.shop.id))
+
+const onEdit = (event: MouseEvent) => {
+  if (event.defaultPrevented) return
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  event.preventDefault()
+  void navigateTo(editTo.value).then(() => {
+    if (import.meta.client) requestAnimationFrame(settleOwnerIonPages)
+  })
+}
 </script>
 
 <style scoped>

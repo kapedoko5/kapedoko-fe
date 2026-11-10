@@ -28,6 +28,7 @@
         v-if="claim.status === 'verified'"
         class="owner-btn"
         :to="ownerCafeEditPath(claim.shop_id)"
+        @click="onEdit"
       >
         Edit listing
       </NuxtLink>
@@ -50,10 +51,10 @@
 <script lang="ts" setup>
 import OwnerBusyLabel from '~/components/owner-portal/OwnerBusyLabel.vue'
 import type { ShopClaimRow } from '~/types/shop'
-import { formatOwnerDate, ownerCafeEditPath } from '~/utils/owner-nav'
+import { formatOwnerDate, ownerCafeEditPath, settleOwnerIonPages } from '~/utils/owner-nav'
 import { canWithdrawClaim, claimStatusCopy, claimStatusWord } from '~/utils/shop-claims'
 
-defineProps<{
+const props = defineProps<{
   claim: ShopClaimRow
   shopName: string
   withdrawing?: boolean
@@ -63,6 +64,15 @@ defineProps<{
 const emit = defineEmits<{
   withdraw: [claimId: string]
 }>()
+
+const onEdit = (event: MouseEvent) => {
+  if (event.defaultPrevented) return
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  event.preventDefault()
+  void navigateTo(ownerCafeEditPath(props.claim.shop_id)).then(() => {
+    if (import.meta.client) requestAnimationFrame(settleOwnerIonPages)
+  })
+}
 </script>
 
 <style scoped>

@@ -49,6 +49,23 @@ export function ownerCafeEditPath(shopId: string): string {
   return isShopId(shopId) ? `/owner/cafes/${shopId}` : '/owner/cafes'
 }
 
+/** Keep the top Ionic page visible after owner-desk navigations. */
+export function settleOwnerIonPages() {
+  if (typeof document === 'undefined') return
+  const pages = [...document.querySelectorAll('ion-router-outlet .ion-page')]
+  if (pages.length < 2) return
+  pages.forEach((page, index) => {
+    const top = index === pages.length - 1
+    page.classList.toggle('ion-page-hidden', !top)
+    if (top) {
+      page.classList.remove('ion-page-invisible')
+      page.removeAttribute('aria-hidden')
+    } else {
+      page.setAttribute('aria-hidden', 'true')
+    }
+  })
+}
+
 export function padOwnerDatePart(value: number): string {
   return String(value).padStart(2, '0')
 }

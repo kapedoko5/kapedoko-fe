@@ -42,7 +42,7 @@
         <p v-if="cafe && cafe.source === 'openstreetmap'" class="cafe-page__attr">
           Place data © OpenStreetMap contributors
         </p>
-        <section v-if="cafe && status === 'ready' && ownerHref" class="cafe-page__owner" :aria-labelledby="ownerHeadingId">
+        <section v-if="showOwnerCard" class="cafe-page__owner" :aria-labelledby="ownerHeadingId">
           <div class="cafe-page__mast">
             <div class="cafe-page__stamp" aria-hidden="true">
               <Store :size="18" :stroke-width="2.25" />
@@ -82,6 +82,7 @@ import {
   detailViewKey,
   takeDetailSource,
 } from '~/utils/analytics'
+import { showCafeOwnerInvite } from '~/utils/shop-claims'
 
 useAppTabBar('hide')
 
@@ -96,6 +97,7 @@ const ownership = useShopOwnership()
 const { upsertCafe } = useApprovedShops()
 const cafe = ref<Cafe | null>(null)
 const status = ref<'loading' | 'ready' | 'missing' | 'error'>('loading')
+const hasVerifiedOwner = ref(false)
 
 const shopId = computed(() => resolveShopId())
 const heading = computed(() => cafe.value?.name || 'Cafe details')
@@ -126,6 +128,15 @@ const ownerLabel = computed(() => {
   return 'Claim this cafe'
 })
 const ownerQuiet = computed(() => ownerClaim.value?.status === 'pending')
+const showOwnerCard = computed(() => (
+  Boolean(cafe.value)
+  && status.value === 'ready'
+  && Boolean(ownerHref.value)
+  && showCafeOwnerInvite({
+    myClaimStatus: ownerClaim.value?.status ?? null,
+    hasVerifiedOwner: hasVerifiedOwner.value,
+  })
+))
 
 function resolveShopId(): string {
   const param = route.params.id
@@ -141,6 +152,15 @@ function resolveShopId(): string {
 }
 
 const publicBase = () => String(config.public.r2PublicBaseUrl || '')
+
+const loadOwnerInvite = async (id: string) => {
+  const { data, error } = await supabase.rpc('shop_has_verified_owner', { p_shop_id: id })
+  if (error) {
+    hasVerifiedOwner.value = false
+    return
+  }
+  hasVerifiedOwner.value = data === true
+}
 
 const loadCafe = async (id: string): Promise<Cafe | null> => {
   const next = await fetchApprovedCafeById(supabase, publicBase(), id)
@@ -244,6 +264,7 @@ const bootstrap = async (id: string, force = false) => {
     }
     cafe.value = nextCafe
     status.value = 'ready'
+    void loadOwnerInvite(id)
     if (user.value) void ownership.loadClaimForShop(id)
     trackCafeDetail(nextCafe)
   } catch {

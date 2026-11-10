@@ -60,6 +60,7 @@
 </template>
 
 <script lang="ts" setup>
+import { settleOwnerIonPages } from '~/utils/owner-nav'
 import { canAccessOwnerDesk, ownerLoginDeniedCopy, ownerStaffRedirect } from '~/utils/owner-portal'
 import { parseProfileRole } from '~/utils/profile-role'
 
@@ -70,18 +71,7 @@ definePageMeta({
 useAppTabBar('hide')
 
 onMounted(() => {
-  if (!import.meta.client) return
-  const pages = [...document.querySelectorAll('ion-router-outlet .ion-page')]
-  pages.forEach((page, index) => {
-    const top = index === pages.length - 1
-    page.classList.toggle('ion-page-hidden', !top)
-    if (top) {
-      page.classList.remove('ion-page-invisible')
-      page.removeAttribute('aria-hidden')
-    } else {
-      page.setAttribute('aria-hidden', 'true')
-    }
-  })
+  settleOwnerIonPages()
 })
 
 const { signIn, loadProfile, currentUserId } = useAuth()
