@@ -28,16 +28,18 @@ In the production Supabase project (Authentication):
 2. **Emails → Confirm signup** — do not use `{{ .ConfirmationURL }}` (that PKCE link only works in the same browser that signed up). Use:
 
 ```html
-<a href="{{ .SiteURL }}/confirm?token_hash={{ .TokenHash }}&type=signup">Confirm email</a>
+<a href="{{ .SiteURL }}/confirm/{{ .TokenHash }}?type=signup">Confirm email</a>
 ```
+
+Put the hash in the path so click tracking cannot drop `token_hash`. Site URL must stay `https://www.kapedoko.com`, not `.../confirm`.
 
 3. **Emails → Reset password**:
 
 ```html
-<a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery">Choose a new password</a>
+<a href="{{ .SiteURL }}/reset-password/{{ .TokenHash }}?type=recovery">Choose a new password</a>
 ```
 
-Brevo may still wrap those hrefs as `r.mail.kapedoko.com`. After the 302, `/confirm` and `/reset-password` verify `token_hash`. Old emails stay PKCE; only new mail after the template change gets the fix.
+Brevo may still wrap those hrefs as `r.mail.kapedoko.com`. After the 302, `/confirm/<token>` and `/reset-password/<token>` verify the hash. Old emails stay PKCE; only new mail after the template change gets the fix.
 
 4. **Google Sign-In (website)** — create a Web application OAuth client in Google Cloud. Authorized JavaScript origins: `https://www.kapedoko.com`, `https://kapedoko.com`, `http://localhost:3000`. Authorized redirect URI: the callback on the Supabase Google provider page (`https://<project-ref>.supabase.co/auth/v1/callback`). Scopes: `openid`, `userinfo.email`, `userinfo.profile`. Paste the Client ID and secret into Authentication → Providers → Google and enable it. Optional: automatic linking so an existing email/password user can later use the same Gmail.
 
