@@ -50,7 +50,7 @@ import {
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const route = useRoute()
-const { resendConfirmation } = useAuth()
+const { resendConfirmation, loadProfile } = useAuth()
 const status = ref<'checking' | 'confirmed' | 'expired' | 'missing'>('checking')
 const error = ref('This link expired or was already used.')
 const resendEmail = ref('')
@@ -94,6 +94,11 @@ const finishWithSession = async (sessionUser?: unknown) => {
   if (sentToReset.value || finishing.value) return
   clearAuthCallbackSnapshot(callbackStorage())
   const next = sessionUser ?? user.value
+  try {
+    await loadProfile(next)
+  } catch {
+    // Name fill is best-effort; keep the session.
+  }
   if (isGoogleAuthUser(next)) {
     finishing.value = true
     await leave()

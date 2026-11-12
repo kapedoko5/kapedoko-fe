@@ -290,6 +290,7 @@ import { onIonViewDidEnter, onIonViewWillEnter } from '@ionic/vue'
 import { LocateOff, Map as MapIcon, MapPinned } from 'lucide-vue-next'
 import NearbyRadiusMap from '~/components/map/NearbyRadiusMap.client.vue'
 import type { ShopRow } from '~/types/shop'
+import { displayNameFromAuthUser } from '~/utils/auth'
 import { NEARBY_RADIUS_PRESETS_KM } from '~/utils/nearby-radius'
 import { canWithdrawClaim, claimStatusCopy, profileClaimsEmptyCopy } from '~/utils/shop-claims'
 import { profileSubmittedEmptyCopy, splitProfileShops } from '~/utils/profile-shops'
@@ -430,7 +431,7 @@ const loadAccount = async () => {
   }
   try {
     const profile = await loadProfile()
-    displayName.value = profile?.display_name || ''
+    displayName.value = profile?.display_name || displayNameFromAuthUser(user.value)
     isAdmin.value = profile?.role === 'admin'
     isAuditor.value = profile?.role === 'auditor' || profile?.role === 'admin'
   } catch (err) {
