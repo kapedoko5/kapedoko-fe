@@ -31,7 +31,12 @@
 
 <script setup lang="ts">
 import AuthShell from '~/components/auth/AuthShell.vue'
-import { parseConfirmLink, shouldVerifyConfirmIntent } from '~/utils/auth-confirm'
+import {
+  clearAuthCallbackSnapshot,
+  parseConfirmLocation,
+  readAuthCallbackSnapshot,
+  shouldVerifyConfirmIntent,
+} from '~/utils/auth-confirm'
 import {
   consumeAuthRedirect,
   friendlyAuthError,
@@ -60,7 +65,7 @@ const title = computed(() => {
 const lede = computed(() => {
   if (status.value === 'confirmed') return 'You can use this address on KapeDoko now.'
   if (status.value === 'checking') return 'This only takes a moment.'
-  return 'Open the confirmation link from your email if you still need to finish this.'
+  return 'Use the Confirm email button in the mail we sent.'
 })
 
 const leave = async () => {
@@ -83,6 +88,7 @@ const sendToReset = async () => {
 
 const finishWithSession = async (sessionUser?: unknown) => {
   if (sentToReset.value || finishing.value) return
+  clearAuthCallbackSnapshot(callbackStorage())
   const next = sessionUser ?? user.value
   if (isGoogleAuthUser(next)) {
     finishing.value = true
@@ -112,8 +118,10 @@ watch(user, (next) => {
 })
 
 let stopAuthWatch: (() => void) | undefined
+let capturedHref = ''
 
 onMounted(() => {
+  capturedHref = window.location.href
   resendEmail.value = peekAuthEmail()
   const { data } = supabase.auth.onAuthStateChange((event) => {
     if (event === 'PASSWORD_RECOVERY') void sendToReset()
@@ -126,10 +134,22 @@ onBeforeUnmount(() => {
   stopAuthWatch?.()
 })
 
+function callbackStorage() {
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
+}
+
 async function confirmFromLink() {
-  const intent = parseConfirmLink({
+  const intent = parseConfirmLocation({
     query: route.query as Record<string, unknown>,
     hash: import.meta.client ? window.location.hash : route.hash,
+    pathname: import.meta.client ? window.location.pathname : route.path,
+    token: route.params.token,
+    href: capturedHref || (import.meta.client ? window.location.href : ''),
+    snapshot: readAuthCallbackSnapshot(callbackStorage()),
   })
 
   if (intent.kind === 'error') {
@@ -150,7 +170,7 @@ async function confirmFromLink() {
       return
     }
     status.value = 'missing'
-    error.value = 'Open the confirmation link we sent to your email.'
+    error.value = 'This page opened without a confirmation token. Use the Confirm email button in the mail, or send another link.'
     return
   }
 

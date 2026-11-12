@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { confirmCallbackPath, parseConfirmLink, shouldVerifyConfirmIntent } from './auth-confirm'
+import {
+  AUTH_CALLBACK_SNAPSHOT_KEY,
+  confirmCallbackPath,
+  parseConfirmLink,
+  parseConfirmLocation,
+  readAuthCallbackSnapshot,
+  shouldVerifyConfirmIntent,
+  snapshotAuthCallback,
+} from './auth-confirm'
 
 describe('confirm link parser', () => {
   test('reads a token hash from the query', () => {
@@ -58,6 +66,74 @@ describe('confirm link parser', () => {
     expect(parseConfirmLink({ query: { redirect: '/app' } })).toEqual({ kind: 'empty' })
   })
 
+  test('reads a token from the live search string when the router query is empty', () => {
+    expect(
+      parseConfirmLink({
+        query: {},
+        search: '?token_hash=from-search&type=signup',
+      }),
+    ).toEqual({
+      kind: 'otp',
+      tokenHash: 'from-search',
+      type: 'signup',
+    })
+  })
+
+  test('reads a token from the confirm or reset path', () => {
+    expect(parseConfirmLink({ pathname: '/confirm/path-token' })).toEqual({
+      kind: 'otp',
+      tokenHash: 'path-token',
+      type: 'signup',
+    })
+    expect(parseConfirmLink({ pathname: '/reset-password/reset-token' })).toEqual({
+      kind: 'otp',
+      tokenHash: 'reset-token',
+      type: 'recovery',
+    })
+  })
+
+  test('uses a captured href after the router drops the query', () => {
+    expect(
+      parseConfirmLocation({
+        query: {},
+        href: 'https://www.kapedoko.com/confirm?token_hash=kept&type=signup',
+      }),
+    ).toEqual({
+      kind: 'otp',
+      tokenHash: 'kept',
+      type: 'signup',
+    })
+  })
+
+  test('snapshots an auth callback so a later strip can still verify', () => {
+    const store: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = {
+      getItem(key) {
+        return data[key] ?? null
+      },
+      setItem(key, value) {
+        data[key] = String(value)
+      },
+      removeItem(key) {
+        delete data[key]
+      },
+    }
+    const data: Record<string, string> = {}
+    snapshotAuthCallback('https://www.kapedoko.com/confirm?token_hash=snap&type=signup', store)
+    expect(store.getItem(AUTH_CALLBACK_SNAPSHOT_KEY)).toBeTruthy()
+    const snap = readAuthCallbackSnapshot(store)
+    expect(
+      parseConfirmLocation({
+        query: {},
+        href: 'https://www.kapedoko.com/confirm',
+        snapshot: snap,
+      }),
+    ).toEqual({
+      kind: 'otp',
+      tokenHash: 'snap',
+      type: 'signup',
+    })
+  })
+
   test('verifies a present token even when a session already exists', () => {
     expect(shouldVerifyConfirmIntent({ kind: 'otp', tokenHash: 'abc', type: 'signup' })).toBe(true)
     expect(shouldVerifyConfirmIntent({ kind: 'code', code: 'pkce-code' })).toBe(true)
@@ -86,7 +162,9 @@ describe('confirm callback routing', () => {
 
   test('leaves confirm and reset pages in place', () => {
     expect(confirmCallbackPath('/confirm', { code: 'pkce-code' })).toBeNull()
+    expect(confirmCallbackPath('/confirm/path-token', {})).toBeNull()
     expect(confirmCallbackPath('/reset-password/', { type: 'recovery', code: 'pkce-code' })).toBeNull()
+    expect(confirmCallbackPath('/reset-password/reset-token', {})).toBeNull()
     expect(confirmCallbackPath('/', {})).toBeNull()
     expect(confirmCallbackPath('/login', { redirect: '/app' })).toBeNull()
   })
