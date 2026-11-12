@@ -7,7 +7,7 @@ export const APP_TAB_PATHS: Record<AppTabId, string> = {
   profile: '/app/profile',
 }
 
-const FOREIGN_PREFIXES = ['/admin', '/login', '/register', '/privacy', '/confirm', '/forgot-password'] as const
+const FOREIGN_PREFIXES = ['/admin', '/login', '/register', '/privacy', '/confirm', '/forgot-password', '/reset-password'] as const
 
 export function normalizeAppPath(path: string): string {
   const trimmed = path.split(/[?#]/, 1)[0] ?? ''

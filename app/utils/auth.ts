@@ -55,6 +55,24 @@ export function safeRedirectPath(path: unknown, fallback = '/app'): string {
   return isSafeAppPath(trimmed) ? trimmed : fallback
 }
 
+/** HTTPS callback for auth emails. Localhost keeps its own protocol and port. */
+export function authEmailRedirectTo(
+  origin: string,
+  path: '/confirm' | '/reset-password' = '/confirm',
+): string | undefined {
+  try {
+    const url = new URL(origin)
+    if (url.protocol === 'capacitor:' || url.protocol === 'ionic:') return undefined
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      return `${url.protocol}//${url.host}${path}`
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
+    return `https://${url.host}${path}`
+  } catch {
+    return undefined
+  }
+}
+
 export const LOGIN_LEDE_DEFAULT = 'Sign in to check in, leave reviews, and keep saves under your name.'
 export const LOGIN_LEDE_CHECK_IN = 'Sign in to check in. Other KapéBeans will see how packed this cafe is.'
 export const REGISTER_LEDE_DEFAULT = 'Your name is what other KapéBeans see on a review.'
@@ -94,7 +112,11 @@ export function friendlyAuthError(message?: string): string {
   if (text.includes('failed to fetch') || text.includes('network')) {
     return 'Could not reach KapeDoko. Check your connection and try again.'
   }
-  if (text.includes('expired') || text.includes('invalid') && text.includes('token')) {
+  if (
+    text.includes('expired')
+    || text.includes('code verifier')
+    || (text.includes('invalid') && text.includes('token'))
+  ) {
     return 'This link expired. Request a new one.'
   }
   return 'Could not finish that. Check the details and try again.'
