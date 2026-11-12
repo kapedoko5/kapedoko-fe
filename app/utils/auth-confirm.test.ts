@@ -7,6 +7,7 @@ import {
   readAuthCallbackSnapshot,
   shouldVerifyConfirmIntent,
   snapshotAuthCallback,
+  withTimeout,
 } from './auth-confirm'
 
 describe('confirm link parser', () => {
@@ -132,6 +133,11 @@ describe('confirm link parser', () => {
       tokenHash: 'snap',
       type: 'signup',
     })
+  })
+
+  test('caps a hung auth exchange', async () => {
+    await expect(withTimeout(new Promise(() => {}), 20, 'too slow')).rejects.toThrow(/too slow/)
+    await expect(withTimeout(Promise.resolve('ok'), 50)).resolves.toBe('ok')
   })
 
   test('verifies a present token even when a session already exists', () => {
