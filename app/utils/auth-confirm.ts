@@ -80,6 +80,10 @@ export function parseConfirmLink(input: {
   return { kind: 'empty' }
 }
 
+export function shouldVerifyConfirmIntent(intent: ConfirmLinkIntent): boolean {
+  return intent.kind === 'otp' || intent.kind === 'code' || intent.kind === 'session'
+}
+
 function normalizePathname(pathname: string): string {
   if (pathname.length > 1 && pathname.endsWith('/')) return pathname.slice(0, -1)
   return pathname || '/'

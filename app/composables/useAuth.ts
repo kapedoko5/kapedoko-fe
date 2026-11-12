@@ -52,6 +52,32 @@ export function useAuth() {
     return { needsConfirmation: !data.session }
   }
 
+  const resendConfirmation = async (email: string) => {
+    const emailIssue = emailError(email)
+    if (emailIssue) throw new Error(emailIssue)
+    const origin = import.meta.client ? window.location.origin : ''
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        emailRedirectTo: authEmailRedirectTo(origin, '/confirm'),
+      },
+    })
+    if (error) throw new Error(friendlyAuthError(error.message))
+  }
+
+  const signInWithGoogle = async () => {
+    const origin = import.meta.client ? window.location.origin : ''
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: authEmailRedirectTo(origin, '/confirm'),
+        skipBrowserRedirect: false,
+      },
+    })
+    if (error) throw new Error(friendlyAuthError(error.message))
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw new Error(friendlyAuthError(error.message))
@@ -113,6 +139,8 @@ export function useAuth() {
     currentUserId,
     signIn,
     signUp,
+    signInWithGoogle,
+    resendConfirmation,
     signOut,
     resetPassword,
     updatePassword,

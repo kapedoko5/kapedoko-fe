@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { confirmCallbackPath, parseConfirmLink } from './auth-confirm'
+import { confirmCallbackPath, parseConfirmLink, shouldVerifyConfirmIntent } from './auth-confirm'
 
 describe('confirm link parser', () => {
   test('reads a token hash from the query', () => {
@@ -56,6 +56,14 @@ describe('confirm link parser', () => {
   test('treats a bare confirm visit as empty', () => {
     expect(parseConfirmLink({ query: {} })).toEqual({ kind: 'empty' })
     expect(parseConfirmLink({ query: { redirect: '/app' } })).toEqual({ kind: 'empty' })
+  })
+
+  test('verifies a present token even when a session already exists', () => {
+    expect(shouldVerifyConfirmIntent({ kind: 'otp', tokenHash: 'abc', type: 'signup' })).toBe(true)
+    expect(shouldVerifyConfirmIntent({ kind: 'code', code: 'pkce-code' })).toBe(true)
+    expect(shouldVerifyConfirmIntent({ kind: 'session', accessToken: 'tok', refreshToken: 'ref' })).toBe(true)
+    expect(shouldVerifyConfirmIntent({ kind: 'empty' })).toBe(false)
+    expect(shouldVerifyConfirmIntent({ kind: 'error', message: 'This link expired. Request a new one.' })).toBe(false)
   })
 })
 

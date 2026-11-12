@@ -8,7 +8,7 @@
           </button>
           <div class="privacy__title">
             <h1>Privacy policy</h1>
-            <p class="privacy__date">13 October 2026</p>
+            <p class="privacy__date">12 November 2026</p>
           </div>
         </header>
 
@@ -51,7 +51,11 @@
           <h3>Account</h3>
           <ul>
             <li>Your email address.</li>
-            <li>Your password, stored by our sign-in host as a credential. We do not read it back as plain text.</li>
+            <li>Your password, stored by our sign-in host as a credential, if you create an email account. We do not read it back as plain text.</li>
+            <li>
+              On the website you can also sign in with Google. Google then sends us the email
+              address and the public name on that Google account.
+            </li>
             <li>The name you choose to show on reviews, if you set one.</li>
             <li>Your role on the account, such as a regular account, café owner, or admin.</li>
             <li>A sign-in session so you stay signed in.</li>
@@ -212,6 +216,12 @@
               hosts accounts, reviews, saves, submissions, claims, and reports. People using the
               app see public café listings and public reviews. Admins can read what they need to
               approve a café, verify a claim, or handle a report.
+            </li>
+            <li>
+              <strong>Google</strong>
+              is an optional sign-in host on the website. If you continue with Google, that
+              company receives the sign-in request and sends us your email address and public name.
+              The phone app does not offer Google Sign-In.
             </li>
             <li>
               <strong>PostHog, in the European Union,</strong>

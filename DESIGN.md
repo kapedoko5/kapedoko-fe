@@ -134,7 +134,7 @@ components:
 
 KapeDoko reads like specialty coffee packaging laid on a cool off-white shelf: dark ink for reading, teal for brand chrome, and orange for actions and highlights. The product name stays **kapé DOKO** / **KapeDoko**. Home is a stack of bag labels — shop name with an optional logo slot, a small Closed line when closed, origin, then Hours / WiFi / Outlets as icon-plus-words — not photo cards, not a route plate, not a dashboard of chips and stars.
 
-Density is quiet and vertical. Shelf, header, filters, and the bottom menu sit on flat cool field `#F2F2F2`. Each bag-label face (and partner cards) uses a flat warm white `#FAF8F5` inside the hairline border — no stipple or shipping-tooth texture. Depth comes from that bordered flat face and ink rules, not lift shadows or textured panels. Map, Saved, and Profile keep their own layouts but inherit this palette and type. Web `/` is the same shelf at persuade scale: the offer in the display clamp, a demo bag whose filter stamps reprint Hours / WiFi / Outlets, then a stacked proof sheet and a close panel. Native shells skip `/` and open `/app`.
+Density is quiet and vertical. Shelf, header, filters, and the bottom menu sit on flat cool field `#F2F2F2`. Each bag-label face (and partner cards) uses a flat warm white `#FAF8F5` inside the hairline border — no stipple or shipping-tooth texture. Depth comes from that bordered flat face and ink rules, not lift shadows or textured panels. Map, Saved, and Profile keep their own layouts but inherit this palette and type. Web `/` is the same shelf at persuade scale: the offer “Filter your next brew.” in the display clamp, a demo bag whose filter stamps reprint Hours / WiFi / Outlets, a work-path bag, then a close panel. Native shells skip `/` and open `/app`.
 
 Rejected by this system: warm enamel as the full-page field, Satoshi or condensed all-caps UI faces, floating elevated cards, icon-only bottom navigation without words, and a "Review WiFi and outlets" control on the bag label. Do not use orange as small body text on stock (≈2.8:1) — put ink on orange fills instead. Web `/` refuses a photo hero and a SaaS icon-card grid; work-readiness is printed in words.
 
@@ -144,7 +144,7 @@ Rejected by this system: warm enamel as the full-page field, Satoshi or condense
 - Kumbh Sans only — variable Google Font, regular and bold, sentence case
 - Bag labels: 16px corners, logo slot left of name, Closed in brick under the name, facts as icon plus words
 - Menu is Lucide icon plus word; an orange mark slides to the active tab; active label is teal
-- Web `/` offer at `clamp(2rem, 7vw, 4.15rem)`; demo bag reprints Hours / WiFi / Outlets; native shells skip this page
+- Web `/` offer “Filter your next brew.” at `clamp(2rem, 7vw, 4.15rem)`; demo bag reprints Hours / WiFi / Outlets; native shells skip this page
 
 ## Colors
 
@@ -198,7 +198,7 @@ Phone-first vertical shelf. Horizontal gutter is 20px. Labels stack with 12px be
 
 Home chrome puts a time-of-day greeting (and optional first name) on the left and the kapé DOKO wordmark on the right. Search sits under that row as a full-width underline field. When any cafe has `markerTier === 'partner'`, a partner placement sits between search and filters; otherwise that slot is hidden. Filters are a single horizontal scroll of printed tags. Compact lists one column of bag labels; wider sizes keep the same labels in a grid. Infinite scroll appends more labels without changing density.
 
-Web `/` is a marketing shelf on the same field, not a second identity. Compact stacks sticky wordmark + Open the app, then the offer, then the demo bag (filters above the label). Expanded (`≥ 840px`) puts the offer beside the demo bag, widens the gutter to 40px, and splits proof rows into a miniature-plus-copy grid. Medium (`≥ 600px`) reveals the How it works text link in the sticky bar. Native Capacitor shells never show this page; they replace-navigate to `/app`.
+Web `/` is a marketing shelf on the same field, not a second identity. Compact stacks sticky wordmark + Open the app, then the offer, then the demo bag (filters above the label). Expanded (`≥ 840px`) puts the offer beside the demo bag and widens the gutter to 40px. The work-path bag stays one column. Medium (`≥ 600px`) reveals the How it works text link in the sticky bar. Native Capacitor shells never show this page; they replace-navigate to `/app`.
 
 ### Named Rules
 **The Shelf Rule.** Home is greeting + wordmark → search → optional partner placement → filters → bag labels. Do not introduce photo grids or map-first chrome. Compact stays one column; medium and expanded may sit labels side by side as the same bag, never as a different card type.
@@ -270,7 +270,7 @@ Shelf field `#F2F2F2`, 12% ink hairline, min-height 64px, 20px gutter. Wordmark 
 Landing-only proof of the bag label: matte stock, 16px corners, 34% ink border, 20px padding, no logo slot and no save spine. Name + origin, then Hours / WiFi / Outlets as icon-plus-words. Filter stamps above reprint those three lines with the same ~520ms vertical clip as Home. Caption under the bag stays quiet label type and states the sample is not a listed shop.
 
 ### Proof Sheet
-Stacked print rows on one matte-stock face (16px corners, ~28% ink border, 12% hairlines between rows). Each row shows a miniature of an operate control (underline search, filter stamps, Closed in brick, bean pin, teal event pin, save spine, Add a cafe) beside a sentence of work-readiness copy. Miniatures are aria-hidden; they are not a second chip or button scale. Owner claim stays a quiet print link in the note under the sheet.
+One matte-stock work-path bag (16px corners, 34% ink border) under a stake heading and the unconfirmed-reviews rule. Visitor sentences print Hours-style as icon-plus-words: search, stamps, Closed, and the pin. Owner claim sits with the Philippines place copy, not on the bag.
 
 ## Do's and Don'ts
 

@@ -55,6 +55,71 @@ export function safeRedirectPath(path: unknown, fallback = '/app'): string {
   return isSafeAppPath(trimmed) ? trimmed : fallback
 }
 
+export const AUTH_REDIRECT_STORAGE_KEY = 'kapedoko-auth-redirect'
+export const AUTH_EMAIL_STORAGE_KEY = 'kapedoko-auth-email'
+
+export type AuthMemory = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+function defaultAuthMemory(): AuthMemory | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
+}
+
+export function rememberAuthRedirect(path: unknown, storage: AuthMemory | null = defaultAuthMemory()): void {
+  if (!storage) return
+  const next = typeof path === 'string' ? path.trim() : ''
+  if (!isSafeAppPath(next)) {
+    storage.removeItem(AUTH_REDIRECT_STORAGE_KEY)
+    return
+  }
+  storage.setItem(AUTH_REDIRECT_STORAGE_KEY, next)
+}
+
+export function consumeAuthRedirect(
+  queryRedirect: unknown,
+  storage: AuthMemory | null = defaultAuthMemory(),
+): string {
+  const fromQuery = typeof queryRedirect === 'string' ? queryRedirect.trim() : ''
+  const fromStore = storage?.getItem(AUTH_REDIRECT_STORAGE_KEY) ?? ''
+  storage?.removeItem(AUTH_REDIRECT_STORAGE_KEY)
+  if (isSafeAppPath(fromQuery)) return fromQuery
+  return safeRedirectPath(fromStore)
+}
+
+export function rememberAuthEmail(email: string, storage: AuthMemory | null = defaultAuthMemory()): void {
+  if (!storage) return
+  const next = email.trim()
+  if (emailError(next)) {
+    storage.removeItem(AUTH_EMAIL_STORAGE_KEY)
+    return
+  }
+  storage.setItem(AUTH_EMAIL_STORAGE_KEY, next)
+}
+
+export function peekAuthEmail(storage: AuthMemory | null = defaultAuthMemory()): string {
+  const stored = storage?.getItem(AUTH_EMAIL_STORAGE_KEY) ?? ''
+  return emailError(stored) ? '' : stored
+}
+
+export function authProvider(user: unknown): string {
+  if (!user || typeof user !== 'object') return ''
+  const record = user as { app_metadata?: { provider?: unknown } | null }
+  const provider = record.app_metadata?.provider
+  return typeof provider === 'string' ? provider.toLowerCase() : ''
+}
+
+export function isGoogleAuthUser(user: unknown): boolean {
+  return authProvider(user) === 'google'
+}
+
+export function shouldOfferGoogleAuth(isNative: boolean): boolean {
+  return !isNative
+}
+
 /** HTTPS callback for auth emails. Localhost keeps its own protocol and port. */
 export function authEmailRedirectTo(
   origin: string,
@@ -108,6 +173,9 @@ export function friendlyAuthError(message?: string): string {
   }
   if (text.includes('rate') || text.includes('too many')) {
     return 'Wait a moment, then try again.'
+  }
+  if (text.includes('provider is not enabled') || text.includes('unsupported provider')) {
+    return 'Could not continue with Google. Try email instead.'
   }
   if (text.includes('failed to fetch') || text.includes('network')) {
     return 'Could not reach KapeDoko. Check your connection and try again.'
