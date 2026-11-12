@@ -23,6 +23,13 @@
           <h2>This cafe is not on the map yet</h2>
           <p>Only listed cafes can be claimed.</p>
         </div>
+        <div v-else-if="alreadyOwned" class="owner-page__state">
+          <h2>This cafe already has an owner</h2>
+          <p>Hours, contact, and the logo stay with the person who manages this listing.</p>
+          <button type="button" class="owner-page__cta" @click="goCafe">
+            Back to {{ cafe?.name || 'this cafe' }}
+          </button>
+        </div>
         <div v-else-if="!signedIn" class="owner-page__state">
           <h2>Sign in to claim {{ cafe?.name || 'this cafe' }}</h2>
           <p>We’ll ask how you’re connected, then an admin verifies the listing before you can edit it.</p>
@@ -71,7 +78,7 @@ import { ChevronLeft } from 'lucide-vue-next'
 import ClaimFields from '~/components/owner/ClaimFields.vue'
 import type { Cafe } from '~/types/cafe'
 import { fetchApprovedCafeById, isShopId, resolveLiveShopId } from '~/utils/approved-shops'
-import { claimFormError, claimStatusCopy, normalizeClaimNote } from '~/utils/shop-claims'
+import { claimFormError, claimStatusCopy, normalizeClaimNote, showCafeOwnerInvite } from '~/utils/shop-claims'
 import { normalizePhone } from '~/utils/phone'
 
 definePageMeta({
@@ -110,6 +117,11 @@ function resolveShopId(): string {
 const shopId = computed(() => resolveShopId())
 const signedIn = computed(() => Boolean(user.value))
 const existing = computed(() => (shopId.value ? claimForShop(shopId.value) : null))
+const alreadyOwned = computed(() => !showCafeOwnerInvite({
+  myClaimStatus: existing.value?.status ?? null,
+  hasVerifiedOwner: shopId.value ? ownership.shopHasVerifiedOwner(shopId.value) : false,
+  ownerKnown: shopId.value ? ownership.shopOwnerFlagKnown(shopId.value) : false,
+}))
 
 const goBack = async () => {
   if (ionRouter.canGoBack()) {
@@ -182,7 +194,8 @@ const load = async (force = false) => {
       pageStatus.value = 'missing'
       return
     }
-    pageStatus.value = 'ready'
+    await ownership.loadShopOwnerFlag(id)
+    if (seq !== loadSeq) return
     if (user.value) {
       try {
         await loadClaimForShop(id)
@@ -190,6 +203,8 @@ const load = async (force = false) => {
         // Keep the claim form up even if the existing-claim lookup fails.
       }
     }
+    if (seq !== loadSeq) return
+    pageStatus.value = 'ready'
   } catch {
     if (seq !== loadSeq) return
     pageStatus.value = cafe.value?.id === id ? 'ready' : 'error'

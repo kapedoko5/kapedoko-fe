@@ -43,6 +43,7 @@ export function useShopOwnership() {
   const claims = useState<ShopClaimRow[]>('kd-shop-claims', () => [])
   const ownedShops = useState<ShopRow[]>('kd-owned-shops', () => [])
   const claimShopNames = useState<Record<string, string>>('kd-claim-shop-names', () => ({}))
+  const verifiedOwnerByShop = useState<Record<string, boolean>>('kd-shop-verified-owner', () => ({}))
   const status = useState<'idle' | 'loading' | 'ready' | 'error'>('kd-owner-status', () => 'idle')
   const error = useState('kd-owner-error', () => '')
   const saving = useState('kd-owner-saving', () => false)
@@ -140,6 +141,20 @@ export function useShopOwnership() {
 
   const isOwner = (shopId: string): boolean =>
     claims.value.some((claim) => claim.shop_id === shopId && claim.status === 'verified')
+
+  const shopHasVerifiedOwner = (shopId: string): boolean =>
+    verifiedOwnerByShop.value[shopId] === true
+
+  const shopOwnerFlagKnown = (shopId: string): boolean =>
+    Object.prototype.hasOwnProperty.call(verifiedOwnerByShop.value, shopId)
+
+  const loadShopOwnerFlag = async (shopId: string): Promise<boolean> => {
+    if (!shopId) return false
+    const { data, error } = await supabase.rpc('shop_has_verified_owner', { p_shop_id: shopId })
+    const owned = error ? true : data === true
+    verifiedOwnerByShop.value = { ...verifiedOwnerByShop.value, [shopId]: owned }
+    return owned
+  }
 
   const shopNameForClaim = (shopId: string): string =>
     claimShopNames.value[shopId]
@@ -280,6 +295,9 @@ export function useShopOwnership() {
     load,
     claimForShop,
     isOwner,
+    shopHasVerifiedOwner,
+    shopOwnerFlagKnown,
+    loadShopOwnerFlag,
     shopNameForClaim,
     loadClaimForShop,
     submitClaim,

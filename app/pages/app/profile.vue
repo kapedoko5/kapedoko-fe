@@ -207,6 +207,11 @@
               {{ isAdmin ? 'Admin portal' : 'Cafe audits' }}
             </NuxtLink>
           </section>
+          <section v-else-if="showOwnerDesk" class="profile__block" aria-label="Owner desk">
+            <NuxtLink class="profile__primary" to="/owner">
+              Owner desk
+            </NuxtLink>
+          </section>
 
           <section class="profile__block" aria-labelledby="owned-title">
             <h2 id="owned-title">Cafes you manage</h2>
@@ -289,8 +294,10 @@
 import { onIonViewDidEnter, onIonViewWillEnter } from '@ionic/vue'
 import { LocateOff, Map as MapIcon, MapPinned } from 'lucide-vue-next'
 import NearbyRadiusMap from '~/components/map/NearbyRadiusMap.client.vue'
-import type { ShopRow } from '~/types/shop'
+import type { ProfileRole, ShopRow } from '~/types/shop'
 import { NEARBY_RADIUS_PRESETS_KM } from '~/utils/nearby-radius'
+import { canAccessOwnerDesk } from '~/utils/owner-portal'
+import { parseProfileRole } from '~/utils/profile-role'
 import { canWithdrawClaim, claimStatusCopy, profileClaimsEmptyCopy } from '~/utils/shop-claims'
 import { profileSubmittedEmptyCopy, splitProfileShops } from '~/utils/profile-shops'
 
@@ -382,7 +389,12 @@ const shopsStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 const shopsError = ref('')
 const isAdmin = ref(false)
 const isAuditor = ref(false)
+const profileRole = ref<ProfileRole | null>(null)
 const ownedCafes = computed(() => ownedShops.value)
+const showOwnerDesk = computed(() => canAccessOwnerDesk({
+  role: profileRole.value,
+  claimCount: ownerClaims.value.length,
+}))
 const openClaims = computed(() => ownerClaims.value.filter((claim) => claim.status !== 'verified'))
 const submittedShops = computed(() => splitProfileShops(shops.value).submitted)
 const withdrawingId = ref<string | null>(null)
@@ -426,13 +438,15 @@ const loadAccount = async () => {
   if (!user.value) {
     isAdmin.value = false
     isAuditor.value = false
+    profileRole.value = null
     return
   }
   try {
     const profile = await loadProfile()
     displayName.value = profile?.display_name || ''
-    isAdmin.value = profile?.role === 'admin'
-    isAuditor.value = profile?.role === 'auditor' || profile?.role === 'admin'
+    profileRole.value = profile?.role ? parseProfileRole(profile.role) : 'user'
+    isAdmin.value = profileRole.value === 'admin'
+    isAuditor.value = profileRole.value === 'auditor' || profileRole.value === 'admin'
   } catch (err) {
     nameError.value = err instanceof Error ? err.message : 'Could not load your profile.'
   }
