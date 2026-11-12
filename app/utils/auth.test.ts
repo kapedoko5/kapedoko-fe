@@ -1,19 +1,43 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  AUTH_EMAIL_STORAGE_KEY,
+  AUTH_REDIRECT_STORAGE_KEY,
+  authEmailRedirectTo,
+  authProvider,
   authUserId,
+  consumeAuthRedirect,
   displayNameError,
   emailError,
   friendlyAuthError,
   isCheckInRedirect,
+  isGoogleAuthUser,
   isSafeAppPath,
   LOGIN_LEDE_CHECK_IN,
   LOGIN_LEDE_DEFAULT,
   loginLedeForRedirect,
   passwordError,
+  peekAuthEmail,
   REGISTER_LEDE_CHECK_IN,
   registerLedeForRedirect,
+  rememberAuthEmail,
+  rememberAuthRedirect,
   safeRedirectPath,
+  shouldOfferGoogleAuth,
+  type AuthMemory,
 } from './auth'
+
+function memory(initial: Record<string, string> = {}): AuthMemory {
+  const data = { ...initial }
+  return {
+    getItem: (key) => (key in data ? data[key] : null),
+    setItem: (key, value) => {
+      data[key] = String(value)
+    },
+    removeItem: (key) => {
+      delete data[key]
+    },
+  }
+}
 
 describe('auth helpers', () => {
   test('reads a user id from either claim', () => {
@@ -58,11 +82,53 @@ describe('auth helpers', () => {
     expect(registerLedeForRedirect('/app/cafes/abc/check-in')).toBe(REGISTER_LEDE_CHECK_IN)
   })
 
+  test('builds https callback urls for auth emails', () => {
+    expect(authEmailRedirectTo('http://kapedoko.com', '/confirm')).toBe('https://kapedoko.com/confirm')
+    expect(authEmailRedirectTo('https://www.kapedoko.com', '/reset-password')).toBe(
+      'https://www.kapedoko.com/reset-password',
+    )
+    expect(authEmailRedirectTo('http://localhost:3000', '/confirm')).toBe('http://localhost:3000/confirm')
+    expect(authEmailRedirectTo('capacitor://localhost', '/confirm')).toBeUndefined()
+    expect(authEmailRedirectTo('not a url', '/confirm')).toBeUndefined()
+  })
+
   test('maps auth failures to recovery copy', () => {
     expect(friendlyAuthError('Invalid login credentials')).toMatch(/not right/)
     expect(friendlyAuthError('Email not confirmed')).toMatch(/Confirm your email/)
     expect(friendlyAuthError('User already registered')).toMatch(/already exists/)
     expect(friendlyAuthError('Failed to fetch')).toMatch(/connection/)
+    expect(friendlyAuthError('PKCE code verifier not found in storage')).toMatch(/expired/)
+    expect(friendlyAuthError('Unsupported provider: provider is not enabled')).toMatch(/Google/)
     expect(friendlyAuthError('something unexpected')).not.toMatch(/something unexpected/)
+  })
+
+  test('stores a safe return path until it is consumed', () => {
+    const store = memory()
+    rememberAuthRedirect('/login', store)
+    expect(store.getItem(AUTH_REDIRECT_STORAGE_KEY)).toBeNull()
+    rememberAuthRedirect('/app/cafes/abc/check-in', store)
+    expect(store.getItem(AUTH_REDIRECT_STORAGE_KEY)).toBe('/app/cafes/abc/check-in')
+    expect(consumeAuthRedirect('/app/favorites', store)).toBe('/app/favorites')
+    expect(store.getItem(AUTH_REDIRECT_STORAGE_KEY)).toBeNull()
+    rememberAuthRedirect('/app/cafes/abc/check-in', store)
+    expect(consumeAuthRedirect('/login', store)).toBe('/app/cafes/abc/check-in')
+    expect(consumeAuthRedirect(undefined, store)).toBe('/app')
+  })
+
+  test('keeps the signup email for a later resend', () => {
+    const store = memory()
+    rememberAuthEmail('not-an-email', store)
+    expect(peekAuthEmail(store)).toBe('')
+    rememberAuthEmail('you@example.com', store)
+    expect(store.getItem(AUTH_EMAIL_STORAGE_KEY)).toBe('you@example.com')
+    expect(peekAuthEmail(store)).toBe('you@example.com')
+  })
+
+  test('offers Google only on the website', () => {
+    expect(shouldOfferGoogleAuth(false)).toBe(true)
+    expect(shouldOfferGoogleAuth(true)).toBe(false)
+    expect(authProvider({ app_metadata: { provider: 'google' } })).toBe('google')
+    expect(isGoogleAuthUser({ app_metadata: { provider: 'google' } })).toBe(true)
+    expect(isGoogleAuthUser({ app_metadata: { provider: 'email' } })).toBe(false)
   })
 })

@@ -1,0 +1,91 @@
+{
+  "title": "How should the landing be structured?",
+  "question": "Fresh hand. The roll assigned a column of checks. Lock a composition, steer, or re-roll. KapeDoko’s coffee-bag world stays.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Column of checks",
+      "kicker": "THE ROLL",
+      "thesis": "The fold is three stacked words — Hours, WiFi, Outlets — at display scale. The live reading is the only orange.",
+      "palette": ["#F2F2F2", "#FAF8F5", "#1c1917", "#1F6F6B", "#D9793B"],
+      "materials": ["shelf field", "ink display type", "one orange live reading", "stamps as a quiet row"],
+      "viewport": "Sticky wordmark and Open the app. Filter your next brew. then three huge stacked lines: Hours Open now, WiFi Yes, Outlets Yes. Stamps sit under the column and reprint the values. Open the app is directly under the last line.",
+      "risk": "A wall of type with no bag can feel like a manifesto, not a cafe tool, if the stamps disappear.",
+      "raised": [
+        {
+          "from": "nixie-laboratory-counter",
+          "raise": "Each fact is a digit bank. Only the live reading glows orange; a stamp press cross-fades the value in place, like a tube changing depth."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/landing-column.webp",
+      "wireframe": {
+        "cols": 12,
+        "rows": 16,
+        "regions": [
+          { "label": "wordmark", "x": 0, "y": 0, "w": 3, "h": 1 },
+          { "label": "Open the app", "x": 9, "y": 0, "w": 3, "h": 1, "accent": true },
+          { "label": "Filter your next brew.", "x": 0, "y": 2, "w": 10, "h": 2 },
+          { "label": "Hours Open now", "x": 0, "y": 5, "w": 12, "h": 2, "accent": true },
+          { "label": "WiFi Yes", "x": 0, "y": 7, "w": 12, "h": 2, "accent": true },
+          { "label": "Outlets Yes", "x": 0, "y": 9, "w": 12, "h": 2, "accent": true },
+          { "label": "stamps", "x": 0, "y": 12, "w": 8, "h": 2 },
+          { "label": "Open the app", "x": 0, "y": 14, "w": 4, "h": 2, "accent": true }
+        ]
+      }
+    },
+    {
+      "id": "two-seat",
+      "label": "Two-seat table",
+      "thesis": "The fold is a cafe table: your stamps on one side, the shop’s bag on the other.",
+      "palette": ["#F2F2F2", "#FAF8F5", "#1c1917", "#1F6F6B", "#D9793B"],
+      "materials": ["shelf as tabletop", "stamp place-setting", "one bag place-setting"],
+      "viewport": "Filter your next brew. across the table. Left: Near You / Popular / WiFi / Plugs as place-setting stamps. Right: A work cafe bag that reprints. Open the app sits centered on the table edge. Compact stacks your stamps above the bag.",
+      "risk": "A table metaphor can turn cute if plates or cutlery appear; keep it to stamps and one bag.",
+      "comp": ".impeccable/mocks/decision/landing-two-seat.webp",
+      "wireframe": {
+        "cols": 12,
+        "rows": 16,
+        "regions": [
+          { "label": "wordmark", "x": 0, "y": 0, "w": 3, "h": 1 },
+          { "label": "Open the app", "x": 9, "y": 0, "w": 3, "h": 1, "accent": true },
+          { "label": "Filter your next brew.", "x": 2, "y": 2, "w": 8, "h": 2 },
+          { "label": "your stamps", "x": 0, "y": 5, "w": 5, "h": 8 },
+          { "label": "work cafe bag", "x": 6, "y": 5, "w": 6, "h": 8, "accent": true },
+          { "label": "Open the app", "x": 4, "y": 14, "w": 4, "h": 2, "accent": true }
+        ]
+      }
+    },
+    {
+      "id": "queue-card",
+      "label": "Queue card",
+      "thesis": "You take a stamp like a queue ticket; the bag is the order now being called.",
+      "palette": ["#F2F2F2", "#FAF8F5", "#1c1917", "#1F6F6B", "#D9793B"],
+      "materials": ["tear-off stamp tickets", "now-serving bag", "shelf field"],
+      "viewport": "A short stub reads Now serving. The bag below is A work cafe with Hours, WiFi, Outlets. Tear-off stamps along the stub reprint the bag. Filter your next brew. is the ticket title. Open the app is Collect this shop.",
+      "risk": "Queue chrome can feel like a cafe-game if Now serving gets cute or the CTA is renamed too far from Open the app.",
+      "comp": ".impeccable/mocks/decision/landing-queue.webp",
+      "wireframe": {
+        "cols": 12,
+        "rows": 16,
+        "regions": [
+          { "label": "wordmark", "x": 0, "y": 0, "w": 3, "h": 1 },
+          { "label": "Open the app", "x": 9, "y": 0, "w": 3, "h": 1, "accent": true },
+          { "label": "Now serving stub", "x": 1, "y": 2, "w": 10, "h": 2, "accent": true },
+          { "label": "Filter your next brew.", "x": 1, "y": 4, "w": 10, "h": 2 },
+          { "label": "tear-off stamps", "x": 1, "y": 6, "w": 10, "h": 2 },
+          { "label": "work cafe bag", "x": 1, "y": 8, "w": 10, "h": 5 },
+          { "label": "Open the app", "x": 1, "y": 14, "w": 5, "h": 2, "accent": true }
+        ]
+      }
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "steer": true,
+  "canon": false,
+  "buildPath": {
+    "value": "code",
+    "toggle": false
+  }
+}

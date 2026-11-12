@@ -1,5 +1,6 @@
 import type { ProfileRow } from '~/types/shop'
 import {
+  authEmailRedirectTo,
   authUserId,
   displayNameError,
   emailError,
@@ -44,11 +45,37 @@ export function useAuth() {
       password,
       options: {
         data: { display_name: name.trim() },
-        emailRedirectTo: origin ? `${origin}/confirm` : undefined,
+        emailRedirectTo: authEmailRedirectTo(origin, '/confirm'),
       },
     })
     if (error) throw new Error(friendlyAuthError(error.message))
     return { needsConfirmation: !data.session }
+  }
+
+  const resendConfirmation = async (email: string) => {
+    const emailIssue = emailError(email)
+    if (emailIssue) throw new Error(emailIssue)
+    const origin = import.meta.client ? window.location.origin : ''
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        emailRedirectTo: authEmailRedirectTo(origin, '/confirm'),
+      },
+    })
+    if (error) throw new Error(friendlyAuthError(error.message))
+  }
+
+  const signInWithGoogle = async () => {
+    const origin = import.meta.client ? window.location.origin : ''
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: authEmailRedirectTo(origin, '/confirm'),
+        skipBrowserRedirect: false,
+      },
+    })
+    if (error) throw new Error(friendlyAuthError(error.message))
   }
 
   const signOut = async () => {
@@ -61,7 +88,7 @@ export function useAuth() {
     if (emailIssue) throw new Error(emailIssue)
     const origin = import.meta.client ? window.location.origin : ''
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: origin ? `${origin}/reset-password` : undefined,
+      redirectTo: authEmailRedirectTo(origin, '/reset-password'),
     })
     if (error) {
       const text = error.message.toLowerCase()
@@ -112,6 +139,8 @@ export function useAuth() {
     currentUserId,
     signIn,
     signUp,
+    signInWithGoogle,
+    resendConfirmation,
     signOut,
     resetPassword,
     updatePassword,

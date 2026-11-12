@@ -4,7 +4,7 @@
     lede="We will email a link that brings you back to choose a new password."
   >
     <p v-if="sent" class="auth-note" role="status">
-      If an account exists for {{ email }}, a reset link is on the way.
+      If an account exists for {{ email }}, a reset link is on the way. It opens a page where you choose a new password.
     </p>
     <template v-else>
       <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
@@ -35,10 +35,6 @@
 
 <script setup lang="ts">
 import AuthShell from '~/components/auth/AuthShell.vue'
-
-definePageMeta({
-  middleware: 'guest',
-})
 
 const route = useRoute()
 const { resetPassword } = useAuth()

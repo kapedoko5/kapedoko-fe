@@ -18,11 +18,11 @@ import LandingHero from '~/components/landing/LandingHero.vue'
 import LandingProof from '~/components/landing/LandingProof.vue'
 
 useHead({
-  title: 'KapeDoko — Find a cafe you can actually work from',
+  title: 'KapeDoko — Filter your next brew',
   meta: [
     {
       name: 'description',
-      content: 'Find a Philippine cafe you can sit and work from. Check WiFi, power outlets, and hours, then open the map.',
+      content: 'Filter Philippine cafes by WiFi, power outlets, and hours, then open the map. No account needed to browse.',
     },
   ],
 })

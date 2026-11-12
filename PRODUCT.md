@@ -8,7 +8,7 @@ adaptive
 
 ## Users
 
-Primary users are people in the Philippines, especially Metro Manila, Cebu, and Davao, who need a cafe to sit and work. They open the app to find a place with WiFi, power outlets, and usable open hours—not to browse coffee as a hobby. Cafe owners claim a listed shop and keep hours, contact, and the logo accurate after an admin verifies them. Admins approve listings and ownership claims.
+Primary users are people in the Philippines, especially Metro Manila, Cebu, and Davao, who need a cafe to sit and work. They open the app to find a place with WiFi, power outlets, and usable open hours—not to browse coffee as a hobby. The web landing leads with that Deskless Worker job. It may acknowledge search-by-name and nearby shops or events for people who already know a shop or are deciding with others. It must not claim vibe, pet, parking, or bean-grade filters. Cafe owners claim a listed shop and keep hours, contact, and the logo accurate after an admin verifies them. Admins approve listings and ownership claims.
 
 ## Product Purpose
 
@@ -20,7 +20,7 @@ KapeDoko is a Philippines-specific cafe guide whose job is work-readiness, not g
 
 ## Operating Context
 
-Used on a phone, often while already out or about to leave: search a shop by name or area, filter by Near You / Popular / WiFi / Plugs, scan a list of cards (photo, rating, open/closed, address, amenity icons), and use maps for the exact location. Cafe submissions can be pinned anywhere in the Philippines. Pins outside the country are blocked. First-run onboarding teaches the WiFi and plug icons, then maps. A bottom bar opens Home, saved cafes, Map, and Profile. Accounts use Supabase email and password, including registration, password reset, and sign-out. Guests can browse and save cafes on the device; signing in syncs those saves to the account. The same UI ships as a web app and as Capacitor iOS/Android shells.
+Used on a phone, often while already out or about to leave: search a shop by name or area, filter by Near You / Popular / WiFi / Plugs, scan a list of cards (photo, rating, open/closed, address, amenity icons), and use maps for the exact location. Cafe submissions can be pinned anywhere in the Philippines. Pins outside the country are blocked. First-run onboarding teaches the WiFi and plug icons, then maps. A bottom bar opens Home, saved cafes, Map, and Profile. Accounts use Supabase email and password on every platform, and Google Sign-In on the website, including registration, password reset, and sign-out. Native Capacitor shells stay email and password. Guests can browse and save cafes on the device; signing in syncs those saves to the account. The same UI ships as a web app and as Capacitor iOS/Android shells.
 
 ## Capabilities and Constraints
 
