@@ -65,7 +65,6 @@ import {
   detailViewKey,
   takeDetailSource,
 } from '~/utils/analytics'
-
 useAppTabBar('hide')
 
 const route = useRoute()
