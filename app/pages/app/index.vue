@@ -261,6 +261,7 @@ import { fetchPlacementCafes } from '~/utils/approved-shops'
 import { EVENT_NEARBY_RADIUS_M, eventsWithinMeters } from '~/utils/events'
 import type { KapeEvent } from '~/types/event'
 import { amenityFilterHint } from '~/utils/amenity-status'
+import { displayNameFromAuthUser } from '~/utils/auth'
 import { distanceMeters, formatDistance } from '~/utils/geo'
 
 useAppTabBar('show')
@@ -602,12 +603,17 @@ onIonViewWillEnter(() => {
   if (status.value === 'error') void refresh()
 })
 
+watch(user, (next) => {
+  if (next) return
+  firstName.value = ''
+})
+
 onMounted(() => {
   if (Capacitor.getPlatform() === 'android') {
     document.documentElement.classList.add('is-android')
   }
   greeting.value = greetingForHour(new Date().getHours())
-  firstName.value = firstNameFrom(user.value?.user_metadata?.display_name)
+  firstName.value = firstNameFrom(displayNameFromAuthUser(user.value) || user.value?.user_metadata?.display_name)
   void requestLocation()
   const publicBase = String(runtimeConfig.public.r2PublicBaseUrl || '')
   void fetchPlacementCafes(supabase, publicBase)

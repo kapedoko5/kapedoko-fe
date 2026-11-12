@@ -295,6 +295,7 @@ import { onIonViewDidEnter, onIonViewWillEnter } from '@ionic/vue'
 import { LocateOff, Map as MapIcon, MapPinned } from 'lucide-vue-next'
 import NearbyRadiusMap from '~/components/map/NearbyRadiusMap.client.vue'
 import type { ProfileRole, ShopRow } from '~/types/shop'
+import { displayNameFromAuthUser } from '~/utils/auth'
 import { NEARBY_RADIUS_PRESETS_KM } from '~/utils/nearby-radius'
 import { canAccessOwnerDesk } from '~/utils/owner-portal'
 import { parseProfileRole } from '~/utils/profile-role'
@@ -443,7 +444,7 @@ const loadAccount = async () => {
   }
   try {
     const profile = await loadProfile()
-    displayName.value = profile?.display_name || ''
+    displayName.value = profile?.display_name || displayNameFromAuthUser(user.value)
     profileRole.value = profile?.role ? parseProfileRole(profile.role) : 'user'
     isAdmin.value = profileRole.value === 'admin'
     isAuditor.value = profileRole.value === 'auditor' || profileRole.value === 'admin'

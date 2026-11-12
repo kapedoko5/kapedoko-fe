@@ -2,21 +2,81 @@ import type { ProfileRow } from '~/types/shop'
 import {
   authEmailRedirectTo,
   authUserId,
+  clearNativeAuthSession,
   displayNameError,
+  displayNameFromAuthUser,
   emailError,
   friendlyAuthError,
+  localSessionShouldClear,
   passwordError,
   safeRedirectPath,
 } from '~/utils/auth'
+
+const LIVE_SESSION_TTL_MS = 20_000
 
 export function useAuth() {
   const supabase = useSupabaseClient()
   const user = useSupabaseUser()
   const session = useSupabaseSession()
+  const liveCheck = useState<{ at: number; userId: string | null }>('kd-auth-live', () => ({
+    at: 0,
+    userId: null,
+  }))
+
+  const dropLocalSession = async () => {
+    liveCheck.value = { at: Date.now(), userId: null }
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch {
+      /* local sign-out can fail when Auth already has no user */
+    }
+    if (import.meta.client) {
+      try {
+        clearNativeAuthSession(window.localStorage)
+      } catch {
+        /* private mode cannot clear the native session copy */
+      }
+    }
+  }
+
+  const ensureLiveSession = async (options?: { force?: boolean }): Promise<unknown | null> => {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const sessionUser = sessionData.session?.user ?? session.value?.user ?? user.value ?? null
+    if (!sessionUser) {
+      liveCheck.value = { at: Date.now(), userId: null }
+      return null
+    }
+    const sessionId = authUserId(sessionUser)
+    if (
+      !options?.force
+      && liveCheck.value.userId
+      && liveCheck.value.userId === sessionId
+      && Date.now() - liveCheck.value.at < LIVE_SESSION_TTL_MS
+    ) {
+      return sessionUser
+    }
+    try {
+      const { data, error } = await supabase.auth.getUser()
+      if (
+        localSessionShouldClear({
+          hasLocalSession: true,
+          remoteUser: data.user,
+          error,
+        })
+      ) {
+        await dropLocalSession()
+        return null
+      }
+      const liveUser = data.user ?? sessionUser
+      liveCheck.value = { at: Date.now(), userId: authUserId(liveUser) }
+      return liveUser
+    } catch {
+      return sessionUser
+    }
+  }
 
   const currentUserId = async (): Promise<string | null> => {
-    const { data } = await supabase.auth.getSession()
-    return data.session?.user?.id ?? session.value?.user?.id ?? authUserId(user.value)
+    return authUserId(await ensureLiveSession())
   }
 
   const signIn = async (email: string, password: string) => {
@@ -79,8 +139,19 @@ export function useAuth() {
   }
 
   const signOut = async () => {
+    liveCheck.value = { at: Date.now(), userId: null }
     const { error } = await supabase.auth.signOut()
-    if (error) throw new Error(friendlyAuthError(error.message))
+    if (!error) {
+      if (import.meta.client) {
+        try {
+          clearNativeAuthSession(window.localStorage)
+        } catch {
+          /* private mode cannot clear the native session copy */
+        }
+      }
+      return
+    }
+    await dropLocalSession()
   }
 
   const resetPassword = async (email: string) => {
@@ -104,8 +175,8 @@ export function useAuth() {
     if (error) throw new Error(friendlyAuthError(error.message))
   }
 
-  const loadProfile = async (): Promise<ProfileRow | null> => {
-    const userId = await currentUserId()
+  const loadProfile = async (authUser?: unknown): Promise<ProfileRow | null> => {
+    const userId = (await currentUserId()) ?? authUserId(authUser)
     if (!userId) return null
     const { data, error } = await supabase
       .from('profiles')
@@ -113,7 +184,17 @@ export function useAuth() {
       .eq('id', userId)
       .maybeSingle()
     if (error) throw new Error('Could not load your profile.')
-    return (data as ProfileRow | null) ?? null
+    const profile = (data as ProfileRow | null) ?? null
+    if (!profile) return null
+    if (profile.display_name?.trim()) return profile
+    const fromAuth = displayNameFromAuthUser(authUser ?? user.value)
+    if (!fromAuth) return profile
+    const { error: saveError } = await supabase
+      .from('profiles')
+      .update({ display_name: fromAuth })
+      .eq('id', userId)
+    if (saveError) return profile
+    return { ...profile, display_name: fromAuth }
   }
 
   const updateDisplayName = async (name: string) => {
@@ -137,6 +218,7 @@ export function useAuth() {
     user,
     session,
     currentUserId,
+    ensureLiveSession,
     signIn,
     signUp,
     signInWithGoogle,

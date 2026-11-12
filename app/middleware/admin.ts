@@ -1,8 +1,9 @@
+import { authUserId } from '~/utils/auth'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   const supabase = useSupabaseClient()
-  const user = useSupabaseUser()
-  const { data } = await supabase.auth.getSession()
-  const userId = data.session?.user?.id ?? user.value?.id
+  const { ensureLiveSession } = useAuth()
+  const userId = authUserId(await ensureLiveSession())
   if (!userId) {
     return navigateTo({ path: '/login', query: { redirect: to.fullPath } })
   }

@@ -21,7 +21,6 @@ import AppTabBar from '~/components/navigation/AppTabBar.vue'
 import { isForeignSurface, isLandingPath } from '~/utils/app-tabs'
 import { hasFinishedOnboarding, shouldShowOnboarding } from '~/utils/onboarding'
 
-const supabase = useSupabaseClient()
 const route = useRoute()
 useViewportLayout()
 const { locked: tabsLocked } = useAppTabsLock()
@@ -58,7 +57,8 @@ onMounted(() => {
 
   void (async () => {
     try {
-      await supabase.auth.getSession()
+      const { ensureLiveSession } = useAuth()
+      await ensureLiveSession({ force: true })
     } catch {
       /* the splash still closes if the session check fails */
     }
