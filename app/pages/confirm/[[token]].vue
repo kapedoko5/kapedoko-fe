@@ -3,7 +3,9 @@
     :title="title"
     :lede="lede"
   >
-    <p v-if="status === 'checking'" class="auth-note" role="status">Confirming this email…</p>
+    <p v-if="status === 'checking'" class="auth-note" role="status">
+      {{ oauthReturn ? 'Signing you in…' : 'Confirming this email…' }}
+    </p>
     <template v-else-if="status === 'confirmed'">
       <p class="auth-note" role="status">This address is confirmed. You can keep saves under your name.</p>
       <button type="button" class="auth-submit" @click="leave">Continue</button>
@@ -36,6 +38,7 @@ import {
   parseConfirmLocation,
   readAuthCallbackSnapshot,
   shouldVerifyConfirmIntent,
+  withTimeout,
 } from '~/utils/auth-confirm'
 import {
   consumeAuthRedirect,
@@ -55,10 +58,11 @@ const resending = ref(false)
 const resent = ref(false)
 const verifying = ref(false)
 const finishing = ref(false)
+const oauthReturn = ref(false)
 
 const title = computed(() => {
   if (status.value === 'confirmed') return 'Email confirmed'
-  if (status.value === 'checking') return 'Confirming your email'
+  if (status.value === 'checking') return oauthReturn.value ? 'Signing you in' : 'Confirming your email'
   return 'Confirm your email'
 })
 
@@ -70,7 +74,7 @@ const lede = computed(() => {
 
 const leave = async () => {
   const requested = Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect
-  await navigateTo(consumeAuthRedirect(requested))
+  await navigateTo(consumeAuthRedirect(requested), { replace: true })
 }
 
 const sentToReset = ref(false)
@@ -113,7 +117,7 @@ const onResend = async () => {
 }
 
 watch(user, (next) => {
-  if (!next || sentToReset.value || verifying.value) return
+  if (!next || sentToReset.value || finishing.value) return
   void finishWithSession(next)
 })
 
@@ -163,6 +167,8 @@ async function confirmFromLink() {
     return
   }
 
+  if (intent.kind === 'code') oauthReturn.value = true
+
   if (!shouldVerifyConfirmIntent(intent)) {
     const existing = (await supabase.auth.getSession()).data.session
     if (existing || user.value) {
@@ -187,7 +193,16 @@ async function confirmFromLink() {
     }
 
     if (intent.kind === 'code') {
-      const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(intent.code)
+      const existing = (await supabase.auth.getSession()).data.session
+      if (existing) {
+        if (sentToReset.value) return
+        await finishWithSession(existing.user)
+        return
+      }
+      const { data, error: exchangeError } = await withTimeout(
+        supabase.auth.exchangeCodeForSession(intent.code),
+        8000,
+      )
       if (exchangeError) throw exchangeError
       if (sentToReset.value) return
       await finishWithSession(data.session?.user)

@@ -142,6 +142,22 @@ export function shouldVerifyConfirmIntent(intent: ConfirmLinkIntent): boolean {
   return intent.kind === 'otp' || intent.kind === 'code' || intent.kind === 'session'
 }
 
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message = 'This took too long. Try again.'): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), timeoutMs)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 export function parseConfirmLocation(input: {
   query?: Record<string, unknown> | URLSearchParams
   hash?: string

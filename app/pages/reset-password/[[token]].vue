@@ -41,6 +41,7 @@ import {
   clearAuthCallbackSnapshot,
   parseConfirmLocation,
   readAuthCallbackSnapshot,
+  withTimeout,
 } from '~/utils/auth-confirm'
 import { friendlyAuthError } from '~/utils/auth'
 
@@ -108,7 +109,15 @@ async function consumeResetLink() {
       return
     }
     if (intent.kind === 'code') {
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(intent.code)
+      const existing = (await supabase.auth.getSession()).data.session
+      if (existing) {
+        markReady()
+        return
+      }
+      const { error: exchangeError } = await withTimeout(
+        supabase.auth.exchangeCodeForSession(intent.code),
+        8000,
+      )
       if (exchangeError) throw exchangeError
       markReady()
       return
