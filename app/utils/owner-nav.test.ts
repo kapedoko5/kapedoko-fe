@@ -13,6 +13,7 @@ describe('owner nav', () => {
     expect(ownerNavIdFromPath('/owner')).toBe('desk')
     expect(ownerNavIdFromPath('/owner/cafes')).toBe('cafes')
     expect(ownerNavIdFromPath('/owner/cafes/abc')).toBe('cafes')
+    expect(ownerNavIdFromPath('/owner/ads')).toBe('ads')
     expect(ownerNavIdFromPath('/owner/claims')).toBe('claims')
     expect(ownerNavIdFromPath('/owner/claims/?x=1')).toBe('claims')
   })
@@ -29,6 +30,7 @@ describe('owner nav', () => {
   test('knows desk versus login paths', () => {
     expect(isOwnerDeskPath('/owner')).toBe(true)
     expect(isOwnerDeskPath('/owner/cafes')).toBe(true)
+    expect(isOwnerDeskPath('/owner/ads')).toBe(true)
     expect(isOwnerLoginPath('/owner/login')).toBe(true)
     expect(isOwnerLoginPath('/owner')).toBe(false)
     expect(isOwnerDeskPath('/admin')).toBe(false)

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { ContentReportRow } from '../types/shop'
-import { reportedReviewCopy, withReportedReviewText, type ReportedReviewSource } from './moderation'
+import { reportedReviewCopy, reportTargetHeading, reportTargetNote, reportTargetWord, withReportedReviewText, type ReportedReviewSource } from './moderation'
 
 const report = (overrides: Partial<ContentReportRow> = {}): ContentReportRow => ({
   id: 'report-1',
@@ -52,5 +52,12 @@ describe('reported review text', () => {
     )
     expect(row?.review_text).toBeNull()
     expect(reportedReviewCopy(row!)).toBeNull()
+  })
+
+  test('labels ownership reports without naming the owner', () => {
+    expect(reportTargetWord('shop_owner')).toBe('claim')
+    expect(reportTargetHeading('shop_owner')).toBe('Ownership report')
+    expect(reportTargetNote({ target_type: 'shop_owner', reason: null })).toMatch(/owner is a mistake/)
+    expect(reportTargetNote({ target_type: 'shop_photo', reason: null })).toBe('No note from the reporter.')
   })
 })

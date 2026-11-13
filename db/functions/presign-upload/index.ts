@@ -10,7 +10,7 @@ const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const BANNER_MAX_BYTES = 4 * 1024 * 1024
 const AUDIT_PHOTO_MAX_BYTES = 4 * 1024 * 1024
 
-type UploadPurpose = 'shop-logo' | 'ad-banner' | 'audit-photo' | 'event-image'
+type UploadPurpose = 'shop-logo' | 'shop-photo' | 'shop-poster' | 'ad-banner' | 'audit-photo' | 'event-image' | 'badge-icon'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,7 +75,20 @@ function parsePurpose(value: unknown): UploadPurpose {
   if (value === 'ad-banner') return 'ad-banner'
   if (value === 'audit-photo') return 'audit-photo'
   if (value === 'event-image') return 'event-image'
+  if (value === 'badge-icon') return 'badge-icon'
+  if (value === 'shop-photo') return 'shop-photo'
+  if (value === 'shop-poster') return 'shop-poster'
   return 'shop-logo'
+}
+
+function purposeFolder(purpose: UploadPurpose): string {
+  if (purpose === 'ad-banner') return 'ad-banners'
+  if (purpose === 'audit-photo') return 'audit-photos'
+  if (purpose === 'event-image') return 'event-images'
+  if (purpose === 'badge-icon') return 'badge-icons'
+  if (purpose === 'shop-photo') return 'shop-photos'
+  if (purpose === 'shop-poster') return 'shop-posters'
+  return 'shop-logos'
 }
 
 async function authenticate(req: Request): Promise<Response | AuthUser> {
@@ -147,19 +160,31 @@ function validateImageMeta(
   if (!ext) {
     return { error: 'Use a JPG, PNG, or WebP image.' }
   }
-  const max = purpose === 'shop-logo' ? LOGO_MAX_BYTES : BANNER_MAX_BYTES
+  const max = purpose === 'shop-logo' || purpose === 'badge-icon' ? LOGO_MAX_BYTES : BANNER_MAX_BYTES
   if (!Number.isFinite(size) || size <= 0 || size > max) {
     return {
       error: purpose === 'shop-logo'
         ? 'Keep the logo under 2 MB.'
-        : 'Keep the photo under 4 MB.',
+        : purpose === 'badge-icon'
+          ? 'Keep the icon under 2 MB.'
+          : purpose === 'shop-poster'
+            ? 'Keep the poster under 4 MB.'
+            : 'Keep the photo under 4 MB.',
     }
   }
   return { ext }
 }
 
 function r2UploadError(status: number, purpose: UploadPurpose): string {
-  const noun = purpose === 'ad-banner' ? 'Banner' : purpose === 'shop-logo' ? 'Logo' : 'Photo'
+  const noun = purpose === 'ad-banner'
+    ? 'Banner'
+    : purpose === 'shop-logo'
+      ? 'Logo'
+      : purpose === 'badge-icon'
+        ? 'Icon'
+        : purpose === 'shop-poster'
+          ? 'Poster'
+          : 'Photo'
   if (status === 403) {
     return `${noun} upload credentials are invalid. Check R2 secrets on presign-upload.`
   }
@@ -177,14 +202,7 @@ async function uploadToR2(
   ext: string,
   body: ArrayBuffer,
 ): Promise<Response> {
-  const folder = purpose === 'ad-banner'
-    ? 'ad-banners'
-    : purpose === 'audit-photo'
-      ? 'audit-photos'
-      : purpose === 'event-image'
-        ? 'event-images'
-        : 'shop-logos'
-  const objectKey = `${folder}/${userId}/${crypto.randomUUID()}.${ext}`
+  const objectKey = `${purposeFolder(purpose)}/${userId}/${crypto.randomUUID()}.${ext}`
   const endpoint = r2Endpoint(config, objectKey)
   const client = r2Client(config)
 
@@ -224,7 +242,7 @@ async function handleMultipartUpload(
   }
 
   const purpose = parsePurpose(form.get('purpose'))
-  if ((purpose === 'ad-banner' || purpose === 'event-image') && !(await isAdmin(auth))) {
+  if ((purpose === 'ad-banner' || purpose === 'event-image' || purpose === 'badge-icon') && !(await isAdmin(auth))) {
     return json(403, { error: 'Admin only' })
   }
   if (purpose === 'audit-photo' && !(await isAuditor(auth))) {
@@ -245,7 +263,7 @@ async function handleMultipartUpload(
   return uploadToR2(config, auth.id, purpose, file.type, validation.ext, body)
 }
 
-const ADMIN_ASSET_KEY = /^(shop-logos|ad-banners|audit-photos|event-images)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
+const ADMIN_ASSET_KEY = /^(shop-logos|shop-photos|shop-posters|ad-banners|audit-photos|event-images|badge-icons)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
 const ADMIN_ASSET_KEY_LIMIT = 80
 
 function uniqueDeletableObjectKeys(value: unknown): string[] {
@@ -320,7 +338,7 @@ async function handlePresignRequest(
   }
 
   const purpose = parsePurpose(payload.purpose)
-  if ((purpose === 'ad-banner' || purpose === 'event-image') && !(await isAdmin(auth))) {
+  if ((purpose === 'ad-banner' || purpose === 'event-image' || purpose === 'badge-icon') && !(await isAdmin(auth))) {
     return json(403, { error: 'Admin only' })
   }
   if (purpose === 'audit-photo' && !(await isAuditor(auth))) {
@@ -334,14 +352,7 @@ async function handlePresignRequest(
     return json(400, { error: validation.error })
   }
 
-  const folder = purpose === 'ad-banner'
-    ? 'ad-banners'
-    : purpose === 'audit-photo'
-      ? 'audit-photos'
-      : purpose === 'event-image'
-        ? 'event-images'
-        : 'shop-logos'
-  const objectKey = `${folder}/${auth.id}/${crypto.randomUUID()}.${validation.ext}`
+  const objectKey = `${purposeFolder(purpose)}/${auth.id}/${crypto.randomUUID()}.${validation.ext}`
   const endpoint = r2Endpoint(config, objectKey)
   const signed = await r2Client(config).sign(
     new Request(endpoint, {

@@ -38,6 +38,13 @@
           </svg>
         </button>
       </div>
+      <div v-if="cafe.badges?.length" class="cafe-detail__badges">
+        <CafeBadgeChip
+          v-for="badge in cafe.badges"
+          :key="badge.id"
+          :badge="badge"
+        />
+      </div>
     </header>
 
     <div class="cafe-detail__scroll">
@@ -191,6 +198,10 @@
           </span>
         </a>
       </div>
+      </div>
+
+      <div v-if="cafe.poster" class="cafe-detail__poster">
+        <img :src="cafe.poster" :alt="`${cafe.name} poster`" width="720" height="420" />
       </div>
 
       <div class="cafe-detail__gallery">
@@ -351,33 +362,19 @@
         </article>
       </section>
 
-      <section
-        v-if="showOwnerCard"
-        class="cafe-detail__owner"
-        :aria-labelledby="ownerHeadingId"
-      >
-        <div class="cafe-detail__owner-mast">
-          <div class="cafe-detail__owner-stamp" aria-hidden="true">
-            <Store :size="18" :stroke-width="2.25" />
-          </div>
-          <h3 :id="ownerHeadingId">{{ ownerTitle }}</h3>
-        </div>
-        <p class="cafe-detail__owner-hint">{{ ownerHint }}</p>
-        <a
-          class="cafe-detail__claim"
-          :class="{ 'is-quiet': ownerQuiet }"
-          :href="ownerHref"
-          @click.prevent="goOwner"
-        >
-          {{ ownerLabel }}
-        </a>
-      </section>
+      <CafeOwnerCard
+        v-if="shopId"
+        :shop-id="shopId"
+        :cafe-name="cafe.name"
+      />
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Store, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
+import CafeOwnerCard from '~/components/cafe/CafeOwnerCard.vue'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { Cafe } from '~/types/cafe'
 import { isKapedokoMark, KAPEDOKO_BEAN_PIN_SRC } from '~/utils/logo'
@@ -397,7 +394,6 @@ import {
 } from '~/utils/analytics'
 import { fetchOwnShopReview, isShopId } from '~/utils/approved-shops'
 import { BUSYNESS_METER_SEATS, busynessMeterFill, monthCheckInCopy } from '~/utils/cafe-review'
-import { showCafeOwnerInvite } from '~/utils/shop-claims'
 
 const props = withDefaults(
   defineProps<{
@@ -415,7 +411,6 @@ const emit = defineEmits<{
 }>()
 
 const favorites = useFavorites()
-const ownership = useShopOwnership()
 const { currentUserId, goToLogin, user } = useAuth()
 const { track } = useAnalytics()
 const supabase = useSupabaseClient()
@@ -455,57 +450,11 @@ const refreshOwnReview = async () => {
 }
 
 const shopId = computed(() => (isShopId(props.cafe.id) ? props.cafe.id : ''))
-const ownerClaim = computed(() => (shopId.value ? ownership.claimForShop(shopId.value) : null))
-const ownerHeadingId = useId()
-const ownerTitle = computed(() => {
-  if (ownerClaim.value?.status === 'verified') return 'You manage this cafe'
-  if (ownerClaim.value?.status === 'pending') return 'We’re reviewing your claim'
-  return 'Are you the owner of this cafe?'
-})
-const ownerHint = computed(() => {
-  if (ownerClaim.value?.status === 'verified') return 'Hours, contact, and the logo are yours to keep current.'
-  if (ownerClaim.value?.status === 'pending') return 'This listing stays on the map while we check.'
-  if (ownerClaim.value?.status === 'rejected') return 'You can send a clearer claim and we’ll look again.'
-  return 'Hours and the logo stay truer when the shop keeps them.'
-})
-const ownerHref = computed(() => {
-  if (!shopId.value) return ''
-  if (!user.value) return `/login?redirect=${encodeURIComponent(`/app/cafes/${shopId.value}/claim`)}`
-  if (ownerClaim.value?.status === 'verified') return `/app/cafes/${shopId.value}/edit`
-  return `/app/cafes/${shopId.value}/claim`
-})
-const ownerLabel = computed(() => {
-  if (!user.value) return 'Sign in to claim this cafe'
-  if (ownerClaim.value?.status === 'verified') return 'Edit listing'
-  if (ownerClaim.value?.status === 'pending') return 'View claim'
-  if (ownerClaim.value?.status === 'rejected') return 'Send a new claim'
-  return 'Claim this cafe'
-})
-const ownerQuiet = computed(() => ownerClaim.value?.status === 'pending')
-const showOwnerCard = computed(() => (
-  Boolean(ownerHref.value)
-  && showCafeOwnerInvite({
-    myClaimStatus: ownerClaim.value?.status ?? null,
-    hasVerifiedOwner: shopId.value ? ownership.shopHasVerifiedOwner(shopId.value) : false,
-    ownerKnown: shopId.value ? ownership.shopOwnerFlagKnown(shopId.value) : false,
-  })
-))
-
-const goOwner = async () => {
-  if (!ownerHref.value) return
-  if (!user.value) {
-    track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'claim' })
-  }
-  await navigateTo(ownerHref.value)
-}
 
 watch(
   () => [props.cafe.id, user.value?.id ?? ''] as const,
   () => {
     void refreshOwnReview()
-    if (!shopId.value) return
-    void ownership.loadShopOwnerFlag(shopId.value)
-    if (user.value) void ownership.loadClaimForShop(shopId.value)
   },
   { immediate: true },
 )
@@ -764,6 +713,13 @@ const selectPhoto = (index: number) => {
   align-items: center;
   justify-content: space-between;
   gap: 8px 12px;
+}
+
+.cafe-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .cafe-detail--sheet .cafe-detail__header {
@@ -1248,7 +1204,8 @@ const selectPhoto = (index: number) => {
   padding: 0 0 12px;
 }
 
-.cafe-detail--page .cafe-detail__gallery {
+.cafe-detail--page .cafe-detail__gallery,
+.cafe-detail--page .cafe-detail__poster {
   padding: 16px 20px 20px;
   background: #faf8f5;
   border-bottom: 1px solid color-mix(in srgb, var(--kd-ink) 16%, transparent);
@@ -1261,7 +1218,7 @@ const selectPhoto = (index: number) => {
 .cafe-detail--page .cafe-detail__insight,
 .cafe-detail--page .cafe-detail__review-block,
 .cafe-detail--page .cafe-detail__reviews,
-.cafe-detail--page .cafe-detail__owner,
+.cafe-detail--page :deep(.cafe-owner),
 .cafe-detail--page .cafe-detail__scroll > .cafe-detail__prompt,
 .cafe-detail--page .cafe-detail__map {
   margin-right: 20px;
@@ -1277,6 +1234,21 @@ const selectPhoto = (index: number) => {
 .cafe-detail--page .cafe-detail__leave--quiet {
   border-color: color-mix(in srgb, var(--kd-ink) 34%, transparent);
   background: #ffffff;
+}
+
+.cafe-detail__poster {
+  padding: 0 16px 12px;
+}
+
+.cafe-detail__poster img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+  object-fit: cover;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border-radius: 16px;
+  background: #faf8f5;
 }
 
 .cafe-detail__hero {
@@ -1496,91 +1468,11 @@ const selectPhoto = (index: number) => {
   line-height: 1.4;
 }
 
-.cafe-detail__owner {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 22px;
-  padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
-  border-radius: 16px;
-  background: #faf8f5;
-}
-
-.cafe-detail--page .cafe-detail__owner {
+.cafe-detail--page :deep(.cafe-owner) {
   margin-bottom: calc(20px + env(safe-area-inset-bottom));
 }
 
-.cafe-detail__owner-mast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.cafe-detail__owner-stamp {
-  display: grid;
-  place-items: center;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--kd-accent) 18%, #faf8f5);
-  color: var(--kd-ink);
-}
-
-.cafe-detail__owner-mast h3,
-.cafe-detail__owner-hint {
-  margin: 0;
-  color: var(--kd-ink);
-  overflow-wrap: anywhere;
-}
-
-.cafe-detail__owner-mast h3 {
-  min-width: 0;
-  font-size: 1.125rem;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-}
-
-.cafe-detail__owner-hint {
-  color: color-mix(in srgb, var(--kd-ink) 78%, #faf8f5);
-  font-size: 0.75rem;
-  line-height: 1.3;
-}
-
-.cafe-detail__claim {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--kd-accent);
-  border-radius: 16px;
-  background: var(--kd-accent);
-  color: var(--kd-ink);
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.2;
-  text-decoration: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.cafe-detail__claim.is-quiet {
-  border-color: color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  background: #faf8f5;
-}
-
-.cafe-detail__claim:active {
-  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
-}
-
 :root.is-android .cafe-detail__leave,
-:root.is-android .cafe-detail__claim,
 :root.is-android .cafe-detail__page-actions .cafe-detail__action-face {
   min-height: 48px;
 }
@@ -1588,7 +1480,6 @@ const selectPhoto = (index: number) => {
 .cafe-detail__navigate:focus-visible,
 .cafe-detail__call:focus-visible,
 .cafe-detail__leave:focus-visible,
-.cafe-detail__claim:focus-visible,
 .cafe-detail__thumb:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;
@@ -1610,10 +1501,6 @@ const selectPhoto = (index: number) => {
   .cafe-detail__close:hover {
     border-color: color-mix(in srgb, var(--kd-ink) 55%, transparent);
     background: #faf8f5;
-  }
-
-  .cafe-detail__claim:hover {
-    box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
   }
 
   .cafe-detail__navigate:hover .cafe-detail__action-face--primary {
@@ -1652,7 +1539,6 @@ const selectPhoto = (index: number) => {
   .cafe-detail__action-face--primary:active,
   .cafe-detail__action-face--quiet:active,
   .cafe-detail__leave:active,
-  .cafe-detail__claim:active,
   .cafe-detail__thumb:active,
   .cafe-detail__close:active {
     box-shadow: none;

@@ -1,20 +1,32 @@
-import type { AdCampaignRow, AdminDashboardCounts, AdminUserRow, AdminUsersResponse } from '~/types/admin'
+import type {
+  AdCampaignRow,
+  AdminDashboardCounts,
+  AdminUserRow,
+  AdminUsersResponse,
+  BadgeAwardRow,
+  BadgeAwardShopRow,
+  BadgeLucideId,
+  BadgeNameRow,
+} from '~/types/admin'
+import { isBadgeAwardActive } from '~/utils/admin-badges'
 import type { EventRow } from '~/types/event'
 import { isEventDisplayActive } from '~/utils/events'
 import type { ContentReportRow, MarkerTier, ProfileRole, ProfileRow, ShopCheckinTotalsRow, ShopClaimRow, ShopPlacementRow, ShopRow, ShopStatus, WeeklyHours } from '~/types/shop'
 import { authUserId } from '~/utils/auth'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import {
+  missingAdminCafeMediaSqlCopy,
   missingDeleteAdminShopCopy,
   parseDeletedAdminShop,
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
+import type { ShopPosterRow } from '~/utils/owner-ads'
 import { fetchAdminShopRows } from '~/utils/approved-shops'
 import { chunkImportDrafts, pendingImportDrafts } from '~/utils/cafe-csv-import'
 import { isValidWeeklyHours } from '~/utils/hours'
 import { effectiveMarkerTier } from '~/utils/marker-tier'
 import { parseProfileRole } from '~/utils/profile-role'
-import { edgeFunctionErrorMessage } from '~/utils/admin-users'
+import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, type AdminSearchUserRow } from '~/utils/admin-users'
 import { withReportedReviewText, type ReportedReviewSource } from '~/utils/moderation'
 
 type AdminDatabase = {
@@ -47,7 +59,7 @@ export async function requireAdminUserId(): Promise<string> {
   return userId
 }
 
-export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'ad-banner' | 'event-image'): Promise<string> {
+export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'shop-photo' | 'shop-poster' | 'ad-banner' | 'event-image' | 'badge-icon'): Promise<string> {
   const supabase = useSupabaseClient<AdminDatabase>()
   const form = new FormData()
   form.append('file', file)
@@ -76,6 +88,9 @@ export function useAdminData() {
   const reports = useState<ContentReportRow[]>('kd-admin-reports', () => [])
   const ads = useState<AdCampaignRow[]>('kd-admin-ads', () => [])
   const events = useState<EventRow[]>('kd-admin-events', () => [])
+  const badgeNames = useState<BadgeNameRow[]>('kd-admin-badge-names', () => [])
+  const badgeAwards = useState<BadgeAwardRow[]>('kd-admin-badge-awards', () => [])
+  const badgeAwardShops = useState<BadgeAwardShopRow[]>('kd-admin-badge-award-shops', () => [])
   const claims = useState<ShopClaimRow[]>('kd-admin-claims', () => [])
   const checkIns30d = useState('kd-admin-checkins-30d', () => 0)
   const status = useState<'idle' | 'loading' | 'ready' | 'forbidden' | 'error'>('kd-admin-status', () => 'idle')
@@ -100,6 +115,19 @@ export function useAdminData() {
     ads.value = ads.value.filter((row) => row.shop_id !== shopId)
     claims.value = claims.value.filter((row) => row.shop_id !== shopId)
     reports.value = reports.value.filter((row) => row.shop_id !== shopId)
+    dropLiveBadgeAwardShop(shopId)
+  }
+
+  const dropLiveBadgeAwardShop = (shopId: string) => {
+    const now = new Date().toISOString()
+    const liveAwardIds = new Set(
+      badgeAwards.value
+        .filter((row) => row.enabled && !row.cancelled_at && row.starts_at <= now && row.ends_at > now)
+        .map((row) => row.id),
+    )
+    badgeAwardShops.value = badgeAwardShops.value.filter(
+      (row) => !(row.shop_id === shopId && liveAwardIds.has(row.award_id)),
+    )
   }
 
   const placementsByShop = computed(() => {
@@ -124,6 +152,7 @@ export function useAdminData() {
       activePlacements: placements.value.filter((row) => new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() > now).length,
       activeAds: ads.value.filter((row) => row.enabled && !row.cancelled_at && new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() > now).length,
       activeEvents: events.value.filter((row) => isEventDisplayActive(row)).length,
+      activeBadges: badgeAwards.value.filter((row) => isBadgeAwardActive(row)).length,
       users: 0,
       checkIns30d: checkIns30d.value,
     }
@@ -184,6 +213,40 @@ export function useAdminData() {
     events.value = (data ?? []) as EventRow[]
   }
 
+  const loadBadgeCatalog = async () => {
+    const [names, awards, shops] = await Promise.all([
+      supabase.from('badge_names').select('*').order('label', { ascending: true }),
+      supabase.from('badge_awards').select('*').order('starts_at', { ascending: false }),
+      supabase.from('badge_award_shops').select('*'),
+    ])
+    if (names.error) {
+      badgeNames.value = []
+    } else {
+      badgeNames.value = (names.data ?? []) as BadgeNameRow[]
+    }
+    if (awards.error) {
+      badgeAwards.value = []
+    } else {
+      badgeAwards.value = (awards.data ?? []) as BadgeAwardRow[]
+    }
+    if (shops.error) {
+      badgeAwardShops.value = []
+    } else {
+      badgeAwardShops.value = (shops.data ?? []) as BadgeAwardShopRow[]
+    }
+  }
+
+  const putBadgeAward = (row: BadgeAwardRow, shopIds: string[]) => {
+    const exists = badgeAwards.value.some((item) => item.id === row.id)
+    badgeAwards.value = exists
+      ? badgeAwards.value.map((item) => (item.id === row.id ? row : item))
+      : [row, ...badgeAwards.value]
+    badgeAwardShops.value = [
+      ...badgeAwardShops.value.filter((item) => item.award_id !== row.id),
+      ...shopIds.map((shop_id) => ({ award_id: row.id, shop_id })),
+    ]
+  }
+
   const loadClaims = async () => {
     const { data, error: claimsError } = await supabase
       .from('shop_claims')
@@ -239,7 +302,7 @@ export function useAdminData() {
       }
       const applied = await loadShops(seq)
       if (!applied) return
-      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadEvents(), loadClaims(), loadCheckIns()])
+      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadEvents(), loadBadgeCatalog(), loadClaims(), loadCheckIns()])
       if (seq !== loadSeq.value) return
       status.value = 'ready'
     } catch (err) {
@@ -321,6 +384,7 @@ export function useAdminData() {
         ? { ...row, cancelled_at: now, enabled: false, ends_at: row.ends_at > now ? now : row.ends_at }
         : row,
     )
+    dropLiveBadgeAwardShop(shopId)
   }
 
   const moderate = async (
@@ -504,6 +568,9 @@ export function useAdminData() {
       contact_number: string | null
       logoFile: File | null
       logoObjectKey: string | null
+      galleryFiles?: File[]
+      galleryObjectKeys?: string[]
+      posterFile?: File | null
     },
   ) => {
     let logoKey = adminLogoPayload({
@@ -511,7 +578,13 @@ export function useAdminData() {
       logoObjectKey: input.logoObjectKey,
     }).logoObjectKey
     if (input.logoFile) logoKey = await uploadAdminAsset(input.logoFile, 'shop-logo')
-    const { data, error: rpcError } = await supabase.rpc('update_admin_shop', {
+    const extraKeys = input.galleryObjectKeys ? [...input.galleryObjectKeys] : null
+    if (extraKeys) {
+      for (const file of input.galleryFiles ?? []) {
+        extraKeys.push(await uploadAdminAsset(file, 'shop-photo'))
+      }
+    }
+    const payload: Record<string, unknown> = {
       p_shop_id: shopId,
       p_name: input.name,
       p_address: input.address,
@@ -520,11 +593,64 @@ export function useAdminData() {
       p_hours: input.hours,
       p_contact_number: input.contact_number,
       p_logo_object_key: logoKey,
-    })
-    if (rpcError || !data) throw new Error(rpcError?.message || 'Could not save this cafe.')
+    }
+    if (extraKeys) payload.p_gallery_object_keys = extraKeys
+    const { data, error: rpcError } = await supabase.rpc('update_admin_shop', payload)
+    if (rpcError || !data) {
+      throw new Error(
+        missingAdminCafeMediaSqlCopy(rpcError?.message || '')
+        || rpcError?.message
+        || 'Could not save this cafe.',
+      )
+    }
     const updated = (Array.isArray(data) ? data[0] : data) as ShopRow
     putShop(updated)
     return updated
+  }
+
+  const fetchShopPoster = async (shopId: string): Promise<ShopPosterRow | null> => {
+    try {
+      const { data, error: posterError } = await supabase
+        .from('shop_posters')
+        .select('id, shop_id, poster_object_key, created_at')
+        .eq('shop_id', shopId)
+        .is('ended_at', null)
+        .maybeSingle()
+      if (posterError) return null
+      return (data ?? null) as ShopPosterRow | null
+    } catch {
+      return null
+    }
+  }
+
+  const publishShopPoster = async (shopId: string, file: File) => {
+    const key = await uploadAdminAsset(file, 'shop-poster')
+    const { data, error: rpcError } = await supabase.rpc('publish_admin_poster', {
+      p_shop_id: shopId,
+      p_poster_object_key: key,
+    })
+    if (rpcError || !data) {
+      throw new Error(
+        missingAdminCafeMediaSqlCopy(rpcError?.message || '')
+        || rpcError?.message
+        || 'Could not post this poster.',
+      )
+    }
+    const posted = (Array.isArray(data) ? data[0] : data) as ShopPosterRow
+    return posted
+  }
+
+  const endShopPoster = async (posterId: string) => {
+    const { error: rpcError } = await supabase.rpc('end_admin_poster', {
+      p_poster_id: posterId,
+    })
+    if (rpcError) {
+      throw new Error(
+        missingAdminCafeMediaSqlCopy(rpcError.message)
+        || rpcError.message
+        || 'Could not take down this poster.',
+      )
+    }
   }
 
   const mergeUpdatedShops = (updated: ShopRow[]) => {
@@ -786,6 +912,120 @@ export function useAdminData() {
     return row
   }
 
+  const saveBadgeName = async (payload: {
+    id?: string
+    label: string
+    color: string
+    lucide_icon: BadgeLucideId
+    iconFile: File | null
+    icon_object_key?: string | null
+    clearIcon?: boolean
+    enabled: boolean
+  }) => {
+    const previousKey = payload.id
+      ? badgeNames.value.find((item) => item.id === payload.id)?.icon_object_key ?? null
+      : null
+    let iconKey = payload.clearIcon ? null : (payload.icon_object_key ?? previousKey)
+    if (payload.iconFile) iconKey = await uploadAdminAsset(payload.iconFile, 'badge-icon')
+    const row = {
+      label: payload.label.trim(),
+      color: payload.color,
+      lucide_icon: payload.lucide_icon,
+      icon_object_key: iconKey,
+      enabled: payload.enabled,
+    }
+    let saved: BadgeNameRow
+    if (payload.id) {
+      const { data, error: updateError } = await supabase
+        .from('badge_names')
+        .update(row)
+        .eq('id', payload.id)
+        .select()
+        .single()
+      if (updateError || !data) throw new Error(updateError?.message || 'Could not save this badge.')
+      saved = data as BadgeNameRow
+      badgeNames.value = badgeNames.value.map((item) => (item.id === payload.id ? saved : item))
+    } else {
+      const { data, error: insertError } = await supabase.from('badge_names').insert(row).select().single()
+      if (insertError || !data) throw new Error(insertError?.message || 'Could not save this badge.')
+      saved = data as BadgeNameRow
+      badgeNames.value = [saved, ...badgeNames.value].sort((a, b) => a.label.localeCompare(b.label))
+    }
+    if (previousKey && previousKey !== saved.icon_object_key) {
+      await deleteAdminAssets([previousKey])
+    }
+    return saved
+  }
+
+  const fetchBadgeName = async (badgeId: string): Promise<BadgeNameRow | null> => {
+    const { data, error: badgeError } = await supabase
+      .from('badge_names')
+      .select('*')
+      .eq('id', badgeId)
+      .maybeSingle()
+    if (badgeError) throw badgeError
+    const row = (data ?? badgeNames.value.find((item) => item.id === badgeId) ?? null) as BadgeNameRow | null
+    if (row) {
+      badgeNames.value = badgeNames.value.some((item) => item.id === row.id)
+        ? badgeNames.value.map((item) => (item.id === row.id ? row : item))
+        : [row, ...badgeNames.value].sort((a, b) => a.label.localeCompare(b.label))
+    }
+    return row
+  }
+
+  const disableBadgeName = async (id: string, enabled: boolean) => {
+    const { data, error: updateError } = await supabase
+      .from('badge_names')
+      .update({ enabled })
+      .eq('id', id)
+      .select()
+      .single()
+    if (updateError || !data) throw new Error(updateError?.message || 'Could not update this badge.')
+    const saved = data as BadgeNameRow
+    badgeNames.value = badgeNames.value.map((item) => (item.id === id ? saved : item))
+    return saved
+  }
+
+  const deleteBadgeName = async (row: BadgeNameRow) => {
+    if (badgeAwards.value.some((award) => award.badge_id === row.id)) {
+      throw new Error('End or wait out awards before deleting this badge.')
+    }
+    const { error: deleteError } = await supabase.from('badge_names').delete().eq('id', row.id)
+    if (deleteError) throw new Error(deleteError.message || 'Could not delete this badge.')
+    badgeNames.value = badgeNames.value.filter((item) => item.id !== row.id)
+    if (row.icon_object_key) await deleteAdminAssets([row.icon_object_key])
+  }
+
+  const saveBadgeAward = async (payload: {
+    id?: string
+    badge_id: string
+    starts_at: string
+    ends_at: string
+    shop_ids: string[]
+  }) => {
+    const { data, error: rpcError } = await supabase.rpc('save_badge_award', {
+      p_id: payload.id ?? null,
+      p_badge_id: payload.badge_id,
+      p_starts_at: new Date(payload.starts_at).toISOString(),
+      p_ends_at: new Date(payload.ends_at).toISOString(),
+      p_shop_ids: payload.shop_ids,
+    })
+    const rpcRow = Array.isArray(data) ? data[0] : data
+    if (rpcError || !rpcRow) throw new Error(rpcError?.message || 'Could not save this award.')
+    const saved = rpcRow as BadgeAwardRow
+    putBadgeAward(saved, payload.shop_ids)
+    return saved
+  }
+
+  const endBadgeAward = async (id: string) => {
+    const { data, error: rpcError } = await supabase.rpc('end_badge_award', { p_id: id })
+    const rpcRow = Array.isArray(data) ? data[0] : data
+    if (rpcError || !rpcRow) throw new Error(rpcError?.message || 'Could not end this award.')
+    const saved = rpcRow as BadgeAwardRow
+    badgeAwards.value = badgeAwards.value.map((item) => (item.id === id ? saved : item))
+    return saved
+  }
+
   const cancelAd = async (id: string) => {
     const now = new Date().toISOString()
     const { data, error: updateError } = await supabase
@@ -834,6 +1074,9 @@ export function useAdminData() {
     reports,
     ads,
     events,
+    badgeNames,
+    badgeAwards,
+    badgeAwardShops,
     claims,
     counts,
     status,
@@ -841,9 +1084,13 @@ export function useAdminData() {
     savingId,
     load,
     fetchShop,
+    fetchShopPoster,
+    publishShopPoster,
+    endShopPoster,
     loadPlacements,
     loadAds,
     loadEvents,
+    loadBadgeCatalog,
     loadClaims,
     markerTierFor,
     moderate,
@@ -862,6 +1109,12 @@ export function useAdminData() {
     saveEvent,
     cancelEvent,
     fetchEvent,
+    saveBadgeName,
+    fetchBadgeName,
+    disableBadgeName,
+    deleteBadgeName,
+    saveBadgeAward,
+    endBadgeAward,
     moderateClaim,
   }
 }
@@ -918,6 +1171,17 @@ export function useAdminUsers() {
     total.value = count ?? rows.length
   }
 
+  const loadFromRpc = async (query = '', excludeIds: string[] = []) => {
+    const { data, error: rpcError } = await supabase.rpc('admin_search_users', {
+      p_query: query,
+      p_limit: 20,
+      p_exclude_ids: excludeIds,
+    })
+    if (rpcError) throw rpcError
+    users.value = ((data ?? []) as AdminSearchUserRow[]).map(mapAdminSearchUser)
+    total.value = users.value.length
+  }
+
   const load = async (query = '', page = 1) => {
     status.value = 'loading'
     error.value = ''
@@ -941,6 +1205,38 @@ export function useAdminUsers() {
     } catch (err) {
       status.value = 'error'
       error.value = err instanceof Error ? err.message : 'Could not load users.'
+    }
+  }
+
+  const search = async (query = '', excludeIds: string[] = []) => {
+    status.value = 'loading'
+    error.value = ''
+    try {
+      try {
+        await loadFromRpc(query, excludeIds)
+        status.value = 'ready'
+        return
+      } catch (rpcErr) {
+        const hint = missingAdminSearchSqlCopy(rpcErr instanceof Error ? rpcErr.message : '')
+        await load(query, 1)
+        const excluded = new Set(excludeIds)
+        users.value = users.value.filter((row) => !excluded.has(row.id))
+        total.value = users.value.length
+        if (!users.value.length && hint && query.includes('@')) {
+          error.value = hint
+          status.value = 'error'
+          throw new Error(hint)
+        }
+        status.value = 'ready'
+      }
+    } catch (err) {
+      if (status.value === 'ready') return
+      const message = err instanceof Error ? err.message : 'Could not search people.'
+      error.value = missingAdminSearchSqlCopy(message) || message
+      status.value = 'error'
+      users.value = []
+      total.value = 0
+      throw new Error(error.value)
     }
   }
 
@@ -975,5 +1271,5 @@ export function useAdminUsers() {
     }
   }
 
-  return { users, total, status, error, savingId, load, setRole, setBanned }
+  return { users, total, status, error, savingId, load, search, setRole, setBanned }
 }

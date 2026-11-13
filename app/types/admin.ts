@@ -9,6 +9,7 @@ export type AdminNavId =
   | 'partnerships'
   | 'ads'
   | 'events'
+  | 'badges'
   | 'users'
   | 'moderation'
 
@@ -28,9 +29,81 @@ export interface AdminDashboardCounts {
   activePlacements: number
   activeAds: number
   activeEvents: number
+  activeBadges: number
   users: number
   checkIns30d: number
 }
+
+export type BadgeLucideId =
+  | 'gem'
+  | 'award'
+  | 'trophy'
+  | 'star'
+  | 'crown'
+  | 'sparkles'
+  | 'heart'
+  | 'flame'
+  | 'coffee'
+  | 'leaf'
+  | 'map-pin'
+  | 'medal'
+  | 'badge-check'
+  | 'gift'
+
+export interface CafeBadge {
+  id: string
+  slug: string
+  label: string
+  color: string
+  lucideIcon: BadgeLucideId
+  iconUrl: string | null
+}
+
+export interface BadgeNameRow {
+  id: string
+  label: string
+  slug: string
+  color: string
+  lucide_icon: string
+  icon_object_key: string | null
+  enabled: boolean
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BadgeAwardRow {
+  id: string
+  badge_id: string
+  starts_at: string
+  ends_at: string
+  enabled: boolean
+  cancelled_at: string | null
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BadgeAwardShopRow {
+  award_id: string
+  shop_id: string
+}
+
+export interface ActiveShopBadgeRow {
+  shop_id: string
+  badge_id: string
+  slug: string
+  label: string
+  color: string
+  lucide_icon: string
+  icon_object_key: string | null
+  starts_at: string
+  ends_at: string
+}
+
+export type BadgeAwardLifecycle = 'scheduled' | 'live' | 'ended'
 
 export interface AdCampaignRow {
   id: string

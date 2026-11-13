@@ -3,15 +3,21 @@ import type { ShopRow } from '../types/shop'
 import type { ShopAmenityResolutionRow } from './amenity-status'
 import type { ShopPaymentRow } from './cafe-payment'
 import {
+  APPROVED_SHOP_COLUMNS,
   chunkIds,
   fetchAdminShopRows,
   fetchAmenityRowsForShopIds,
+  fetchApprovedCafeById,
   fetchApprovedCafePage,
   fetchApprovedCafes,
   fetchApprovedPickerRows,
+  fetchApprovedShopRows,
   fetchPages,
   groupAmenityRows,
+  groupBadgeRows,
+  isMissingShopGalleryColumn,
   POSTGREST_PAGE_SIZE,
+  resetApprovedShopSelectForTests,
   SHOP_ID_CHUNK,
   SHOP_ID_GET_CHUNK,
   SIDECAR_RPC,
@@ -88,6 +94,29 @@ describe('approved shop catalog fetch', () => {
     expect(grouped.get(shopId(2))).toHaveLength(1)
   })
 
+  test('rpc payload keeps live badge color and icon on the cafe', () => {
+    const sidecars = sidecarsFromPayload({
+      badges: [{
+        shop_id: shopId(89),
+        badge_id: shopId(7),
+        slug: 'hidden-gem',
+        label: 'Hidden Gem',
+        color: '#1F6F6B',
+        lucide_icon: 'gem',
+        icon_object_key: 'badge-icons/admin/gem.webp',
+        starts_at: '2026-11-01T00:00:00.000Z',
+        ends_at: '2026-11-30T00:00:00.000Z',
+      }],
+    })
+    expect(sidecars.badgesById.get(shopId(89))?.[0]).toMatchObject({
+      slug: 'hidden-gem',
+      color: '#1F6F6B',
+      lucide_icon: 'gem',
+      icon_object_key: 'badge-icons/admin/gem.webp',
+    })
+    expect(groupBadgeRows(sidecars.badgesById.get(shopId(89)) ?? []).size).toBe(1)
+  })
+
   test('rpc payload keeps team-verified wifi and outlets', () => {
     const sidecars = sidecarsFromPayload({
       amenities: [
@@ -125,6 +154,9 @@ describe('approved shop catalog fetch', () => {
       confidence: 'team_verified',
     })
     expect(audited?.payment).toMatchObject({ qr: 'available', card: 'available', cash: 'available' })
+    expect(audited?.badges).toEqual([
+      expect.objectContaining({ slug: 'hidden-gem', label: 'Hidden Gem', lucideIcon: 'gem' }),
+    ])
   })
 
   test('falls back to GET in() of 8 when the rpc is missing', async () => {
@@ -212,6 +244,56 @@ describe('approved shop catalog fetch', () => {
       confidence: 'team_verified',
     })
     expect(cafes[0]?.payment).toMatchObject({ qr: 'available' })
+  })
+
+  test('retries shop catalog without gallery keys when the column is missing', async () => {
+    resetApprovedShopSelectForTests()
+    const shops = [shopRow(1)]
+    const selects: string[] = []
+    const missing = { code: '42703', message: 'column shops.gallery_object_keys does not exist' }
+    const supabase = {
+      async rpc() {
+        return { data: { amenities: [], payments: [], stats: [], tiers: [] }, error: null }
+      },
+      from() {
+        const builder: Record<string, unknown> = {}
+        const chain = () => builder
+        Object.assign(builder, {
+          select(columns: string) {
+            selects.push(columns)
+            return builder
+          },
+          eq: chain,
+          order: chain,
+          limit: () => Promise.resolve(
+            selects.at(-1)?.includes('gallery_object_keys')
+              ? { data: null, error: missing }
+              : { data: shops, error: null },
+          ),
+          range: () => Promise.resolve(
+            selects.at(-1)?.includes('gallery_object_keys')
+              ? { data: null, error: missing }
+              : { data: shops, error: null },
+          ),
+          maybeSingle: () => Promise.resolve(
+            selects.at(-1)?.includes('gallery_object_keys')
+              ? { data: null, error: missing }
+              : { data: shops[0], error: null },
+          ),
+        })
+        return builder
+      },
+    }
+
+    expect(isMissingShopGalleryColumn(missing)).toBe(true)
+    expect(APPROVED_SHOP_COLUMNS).toContain('gallery_object_keys')
+    const rows = await fetchApprovedShopRows(supabase)
+    expect(rows).toHaveLength(1)
+    const cafe = await fetchApprovedCafeById(supabase, '', shopId(1))
+    expect(cafe?.id).toBe(shopId(1))
+    expect(selects.some((columns) => columns.includes('gallery_object_keys'))).toBe(true)
+    expect(selects.some((columns) => !columns.includes('gallery_object_keys'))).toBe(true)
+    resetApprovedShopSelectForTests()
   })
 })
 
@@ -310,6 +392,19 @@ function mockCatalog(
           payments: paymentRows.filter((row) => ids.includes(row.shop_id)),
           stats: [],
           tiers: [],
+          badges: ids.includes(shopId(89))
+            ? [{
+              shop_id: shopId(89),
+              badge_id: shopId(7),
+              slug: 'hidden-gem',
+              label: 'Hidden Gem',
+              color: '#1F6F6B',
+              lucide_icon: 'gem',
+              icon_object_key: null,
+              starts_at: '2026-11-01T00:00:00.000Z',
+              ends_at: '2026-11-30T00:00:00.000Z',
+            }]
+            : [],
         },
         error: null,
       }

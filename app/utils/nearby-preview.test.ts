@@ -22,6 +22,7 @@ function cafe(partial: Partial<Cafe> & Pick<Cafe, 'id' | 'name'>): Cafe {
     lat: 14.55,
     lng: 121.02,
     markerTier: 'standard',
+    badges: [],
     ...partial,
   }
 }

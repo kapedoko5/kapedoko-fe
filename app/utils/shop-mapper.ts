@@ -1,3 +1,4 @@
+import type { CafeBadge } from '../types/admin'
 import type { Amenity, Cafe, CafePayment, CafeReview } from '../types/cafe'
 import type {
   CafeWorkFacts,
@@ -169,6 +170,9 @@ export function mapShopToCafe(
   payment?: CafePayment | null,
 ): Cafe {
   const image = shopImageUrl(shop, publicBase)
+  const gallery = (shop.gallery_object_keys ?? [])
+    .map((key) => publicObjectUrl(key, publicBase))
+    .filter((url): url is string => Boolean(url))
   const open = isOpenNow(shop.hours)
   const hoursHint = formatHoursHint(shop.hours)
   const { rating, label } = ratingFromStats(stats)
@@ -181,7 +185,8 @@ export function mapShopToCafe(
     name: shop.name,
     address: shop.address,
     image,
-    photos: [image],
+    photos: gallery.length ? gallery : [image],
+    poster: null,
     open,
     status: open ? 'Open' : shop.hours ? 'Closed' : 'Hours to confirm',
     hoursHint,
@@ -202,7 +207,12 @@ export function mapShopToCafe(
     markerTier,
     source: shop.source ?? null,
     payment: payment ?? null,
+    badges: [],
   }
+}
+
+export function withCafeBadges(cafe: Cafe, badges: CafeBadge[]): Cafe {
+  return { ...cafe, badges }
 }
 
 export function withCafeReviews(cafe: Cafe, reviews: CafeReview[]): Cafe {

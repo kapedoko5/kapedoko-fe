@@ -40,11 +40,21 @@
               v-for="report in openReports.slice(0, 5)"
               :key="report.id"
               class="desk-slip"
-              :class="report.target_type === 'review' ? 'desk-slip--review' : 'desk-slip--photo'"
+              :class="{
+                'desk-slip--review': report.target_type === 'review',
+                'desk-slip--photo': report.target_type === 'shop_photo',
+                'desk-slip--owner': report.target_type === 'shop_owner',
+              }"
             >
               <h3 class="desk-slip__title">
                 <MessageSquareText
                   v-if="report.target_type === 'review'"
+                  :size="18"
+                  :stroke-width="2.25"
+                  aria-hidden="true"
+                />
+                <Store
+                  v-else-if="report.target_type === 'shop_owner'"
                   :size="18"
                   :stroke-width="2.25"
                   aria-hidden="true"
@@ -55,17 +65,17 @@
                   :stroke-width="2.25"
                   aria-hidden="true"
                 />
-                {{ report.target_type === 'review' ? 'Review' : 'Photo' }}
+                {{ reportTargetHeading(report.target_type).replace(' report', '') }}
               </h3>
               <figure v-if="reportedText(report)" class="desk-quote">
                 <figcaption>Reported text</figcaption>
                 <blockquote class="report-quote">{{ reportedText(report) }}</blockquote>
               </figure>
-              <p class="desk-slip__note">{{ report.reason || 'No note from the reporter.' }}</p>
+              <p class="desk-slip__note">{{ reportTargetNote(report) }}</p>
               <NuxtLink
                 class="admin-btn desk-slip__go"
                 to="/admin/moderation"
-                :aria-label="report.target_type === 'review' ? 'Open moderation for this review' : 'Open moderation for this photo'"
+                :aria-label="`Open moderation for this ${reportTargetWord(report.target_type)}`"
               >
                 Open moderation
               </NuxtLink>
@@ -78,10 +88,10 @@
 </template>
 
 <script lang="ts" setup>
-import { Image as ImageIcon, MessageSquareText } from 'lucide-vue-next'
+import { Image as ImageIcon, MessageSquareText, Store } from 'lucide-vue-next'
 import AdminPendingRail from '~/components/admin/AdminPendingRail.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
-import { reportedReviewCopy } from '~/utils/moderation'
+import { reportedReviewCopy, reportTargetHeading, reportTargetNote, reportTargetWord } from '~/utils/moderation'
 import type { ContentReportRow } from '~/types/shop'
 
 definePageMeta({
@@ -113,6 +123,7 @@ const cards = computed(() => {
     { label: 'Live pins', value: counts.value.activePlacements },
     { label: 'Live ads', value: counts.value.activeAds },
     { label: 'Live events', value: counts.value.activeEvents },
+    { label: 'Live badges', value: counts.value.activeBadges },
     { label: 'Users', value: userTotal.value },
     { label: 'Check-ins 30d', value: counts.value.checkIns30d },
   ]
