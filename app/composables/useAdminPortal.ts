@@ -15,16 +15,18 @@ import type { ContentReportRow, MarkerTier, ProfileRole, ProfileRow, ShopCheckin
 import { authUserId } from '~/utils/auth'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import {
+  missingAdminCafeMediaSqlCopy,
   missingDeleteAdminShopCopy,
   parseDeletedAdminShop,
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
+import type { ShopPosterRow } from '~/utils/owner-ads'
 import { fetchAdminShopRows } from '~/utils/approved-shops'
 import { chunkImportDrafts, pendingImportDrafts } from '~/utils/cafe-csv-import'
 import { isValidWeeklyHours } from '~/utils/hours'
 import { effectiveMarkerTier } from '~/utils/marker-tier'
 import { parseProfileRole } from '~/utils/profile-role'
-import { edgeFunctionErrorMessage } from '~/utils/admin-users'
+import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, type AdminSearchUserRow } from '~/utils/admin-users'
 import { withReportedReviewText, type ReportedReviewSource } from '~/utils/moderation'
 
 type AdminDatabase = {
@@ -57,7 +59,7 @@ export async function requireAdminUserId(): Promise<string> {
   return userId
 }
 
-export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'ad-banner' | 'event-image' | 'badge-icon'): Promise<string> {
+export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'shop-photo' | 'shop-poster' | 'ad-banner' | 'event-image' | 'badge-icon'): Promise<string> {
   const supabase = useSupabaseClient<AdminDatabase>()
   const form = new FormData()
   form.append('file', file)
@@ -566,6 +568,9 @@ export function useAdminData() {
       contact_number: string | null
       logoFile: File | null
       logoObjectKey: string | null
+      galleryFiles?: File[]
+      galleryObjectKeys?: string[]
+      posterFile?: File | null
     },
   ) => {
     let logoKey = adminLogoPayload({
@@ -573,7 +578,13 @@ export function useAdminData() {
       logoObjectKey: input.logoObjectKey,
     }).logoObjectKey
     if (input.logoFile) logoKey = await uploadAdminAsset(input.logoFile, 'shop-logo')
-    const { data, error: rpcError } = await supabase.rpc('update_admin_shop', {
+    const extraKeys = input.galleryObjectKeys ? [...input.galleryObjectKeys] : null
+    if (extraKeys) {
+      for (const file of input.galleryFiles ?? []) {
+        extraKeys.push(await uploadAdminAsset(file, 'shop-photo'))
+      }
+    }
+    const payload: Record<string, unknown> = {
       p_shop_id: shopId,
       p_name: input.name,
       p_address: input.address,
@@ -582,11 +593,64 @@ export function useAdminData() {
       p_hours: input.hours,
       p_contact_number: input.contact_number,
       p_logo_object_key: logoKey,
-    })
-    if (rpcError || !data) throw new Error(rpcError?.message || 'Could not save this cafe.')
+    }
+    if (extraKeys) payload.p_gallery_object_keys = extraKeys
+    const { data, error: rpcError } = await supabase.rpc('update_admin_shop', payload)
+    if (rpcError || !data) {
+      throw new Error(
+        missingAdminCafeMediaSqlCopy(rpcError?.message || '')
+        || rpcError?.message
+        || 'Could not save this cafe.',
+      )
+    }
     const updated = (Array.isArray(data) ? data[0] : data) as ShopRow
     putShop(updated)
     return updated
+  }
+
+  const fetchShopPoster = async (shopId: string): Promise<ShopPosterRow | null> => {
+    try {
+      const { data, error: posterError } = await supabase
+        .from('shop_posters')
+        .select('id, shop_id, poster_object_key, created_at')
+        .eq('shop_id', shopId)
+        .is('ended_at', null)
+        .maybeSingle()
+      if (posterError) return null
+      return (data ?? null) as ShopPosterRow | null
+    } catch {
+      return null
+    }
+  }
+
+  const publishShopPoster = async (shopId: string, file: File) => {
+    const key = await uploadAdminAsset(file, 'shop-poster')
+    const { data, error: rpcError } = await supabase.rpc('publish_admin_poster', {
+      p_shop_id: shopId,
+      p_poster_object_key: key,
+    })
+    if (rpcError || !data) {
+      throw new Error(
+        missingAdminCafeMediaSqlCopy(rpcError?.message || '')
+        || rpcError?.message
+        || 'Could not post this poster.',
+      )
+    }
+    const posted = (Array.isArray(data) ? data[0] : data) as ShopPosterRow
+    return posted
+  }
+
+  const endShopPoster = async (posterId: string) => {
+    const { error: rpcError } = await supabase.rpc('end_admin_poster', {
+      p_poster_id: posterId,
+    })
+    if (rpcError) {
+      throw new Error(
+        missingAdminCafeMediaSqlCopy(rpcError.message)
+        || rpcError.message
+        || 'Could not take down this poster.',
+      )
+    }
   }
 
   const mergeUpdatedShops = (updated: ShopRow[]) => {
@@ -1020,6 +1084,9 @@ export function useAdminData() {
     savingId,
     load,
     fetchShop,
+    fetchShopPoster,
+    publishShopPoster,
+    endShopPoster,
     loadPlacements,
     loadAds,
     loadEvents,
@@ -1104,6 +1171,17 @@ export function useAdminUsers() {
     total.value = count ?? rows.length
   }
 
+  const loadFromRpc = async (query = '', excludeIds: string[] = []) => {
+    const { data, error: rpcError } = await supabase.rpc('admin_search_users', {
+      p_query: query,
+      p_limit: 20,
+      p_exclude_ids: excludeIds,
+    })
+    if (rpcError) throw rpcError
+    users.value = ((data ?? []) as AdminSearchUserRow[]).map(mapAdminSearchUser)
+    total.value = users.value.length
+  }
+
   const load = async (query = '', page = 1) => {
     status.value = 'loading'
     error.value = ''
@@ -1127,6 +1205,38 @@ export function useAdminUsers() {
     } catch (err) {
       status.value = 'error'
       error.value = err instanceof Error ? err.message : 'Could not load users.'
+    }
+  }
+
+  const search = async (query = '', excludeIds: string[] = []) => {
+    status.value = 'loading'
+    error.value = ''
+    try {
+      try {
+        await loadFromRpc(query, excludeIds)
+        status.value = 'ready'
+        return
+      } catch (rpcErr) {
+        const hint = missingAdminSearchSqlCopy(rpcErr instanceof Error ? rpcErr.message : '')
+        await load(query, 1)
+        const excluded = new Set(excludeIds)
+        users.value = users.value.filter((row) => !excluded.has(row.id))
+        total.value = users.value.length
+        if (!users.value.length && hint && query.includes('@')) {
+          error.value = hint
+          status.value = 'error'
+          throw new Error(hint)
+        }
+        status.value = 'ready'
+      }
+    } catch (err) {
+      if (status.value === 'ready') return
+      const message = err instanceof Error ? err.message : 'Could not search people.'
+      error.value = missingAdminSearchSqlCopy(message) || message
+      status.value = 'error'
+      users.value = []
+      total.value = 0
+      throw new Error(error.value)
     }
   }
 
@@ -1161,5 +1271,5 @@ export function useAdminUsers() {
     }
   }
 
-  return { users, total, status, error, savingId, load, setRole, setBanned }
+  return { users, total, status, error, savingId, load, search, setRole, setBanned }
 }

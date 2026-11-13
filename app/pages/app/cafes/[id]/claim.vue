@@ -30,6 +30,13 @@
             Back to {{ cafe?.name || 'this cafe' }}
           </button>
         </div>
+        <div v-else-if="isAdmin" class="owner-page__state">
+          <h2>Admins assign an owner</h2>
+          <p>{{ adminCannotClaimCopy() }}</p>
+          <button type="button" class="owner-page__cta" @click="goCafe">
+            Back to {{ cafe?.name || 'this cafe' }}
+          </button>
+        </div>
         <div v-else-if="!signedIn" class="owner-page__state">
           <h2>Sign in to claim {{ cafe?.name || 'this cafe' }}</h2>
           <p>We’ll ask how you’re connected, then an admin verifies the listing before you can edit it.</p>
@@ -78,7 +85,8 @@ import { ChevronLeft } from 'lucide-vue-next'
 import ClaimFields from '~/components/owner/ClaimFields.vue'
 import type { Cafe } from '~/types/cafe'
 import { fetchApprovedCafeById, isShopId, resolveLiveShopId } from '~/utils/approved-shops'
-import { claimFormError, claimStatusCopy, normalizeClaimNote, showCafeOwnerInvite } from '~/utils/shop-claims'
+import { parseProfileRole } from '~/utils/profile-role'
+import { adminCannotClaimCopy, claimFormError, claimStatusCopy, normalizeClaimNote, showCafeOwnerInvite } from '~/utils/shop-claims'
 import { normalizePhone } from '~/utils/phone'
 
 definePageMeta({
@@ -91,7 +99,7 @@ const route = useRoute()
 const ionRouter = useIonRouter()
 const supabase = useSupabaseClient()
 const config = useRuntimeConfig()
-const { user, goToLogin } = useAuth()
+const { user, goToLogin, loadProfile } = useAuth()
 const ownership = useShopOwnership()
 const { saving, submitClaim, loadClaimForShop, claimForShop } = ownership
 
@@ -102,6 +110,7 @@ const email = ref('')
 const phone = ref('')
 const issues = reactive({ note: null as string | null, contact: null as string | null })
 const formError = ref('')
+const isAdmin = ref(false)
 
 function resolveShopId(): string {
   const param = route.params.id
@@ -122,7 +131,6 @@ const alreadyOwned = computed(() => !showCafeOwnerInvite({
   hasVerifiedOwner: shopId.value ? ownership.shopHasVerifiedOwner(shopId.value) : false,
   ownerKnown: shopId.value ? ownership.shopOwnerFlagKnown(shopId.value) : false,
 }))
-
 const goBack = async () => {
   if (ionRouter.canGoBack()) {
     ionRouter.back()
@@ -194,14 +202,22 @@ const load = async (force = false) => {
       pageStatus.value = 'missing'
       return
     }
-    await ownership.loadShopOwnerFlag(id)
+    await ownership.loadShopOwner(id)
     if (seq !== loadSeq) return
     if (user.value) {
+      try {
+        const profile = await loadProfile()
+        isAdmin.value = parseProfileRole(profile?.role) === 'admin'
+      } catch {
+        isAdmin.value = false
+      }
       try {
         await loadClaimForShop(id)
       } catch {
         // Keep the claim form up even if the existing-claim lookup fails.
       }
+    } else {
+      isAdmin.value = false
     }
     if (seq !== loadSeq) return
     pageStatus.value = 'ready'
@@ -212,6 +228,10 @@ const load = async (force = false) => {
 }
 
 const onSubmit = async () => {
+  if (isAdmin.value) {
+    formError.value = adminCannotClaimCopy()
+    return
+  }
   const next = claimFormError({ note: note.value, email: email.value, phone: phone.value })
   Object.assign(issues, next)
   formError.value = ''

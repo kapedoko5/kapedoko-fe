@@ -46,22 +46,35 @@
           <span class="editor-status__label">Status</span>
           <span class="editor-status__word">{{ statusWord(shop.status) }}</span>
         </p>
+        <CafeOwnerCard
+          desk
+          admin
+          :shop-id="shop.id"
+          :cafe-name="shop.name"
+          @transferred="onOwnerTransferred"
+        />
         <p v-if="formError" class="admin-error" role="alert">{{ formError }}</p>
         <AdminCafeForm
-          :key="shop.id"
+          :key="`${shop.id}-${shop.updated_at}`"
           :shop="shop"
+          :live-poster="livePoster"
           :saving="saving || acting"
           submit-label="Save changes"
           @save="onSave"
+          @take-down-poster="askTakeDownPoster"
         />
       </div>
       <AdminConfirmDialog
-        :open="Boolean(pending)"
-        :variant="pending ? cafeDeskConfirmVariant(pending) : 'default'"
-        :title="shop && pending ? cafeDeskConfirmTitle(pending, shop.name) : ''"
-        :message="pending ? cafeDeskConfirmMessage(pending) : ''"
-        :confirm-label="pending ? cafeDeskConfirmAction(pending) : ''"
-        :busy-label="pending ? cafeDeskBusyLabel(pending) : ''"
+        :open="Boolean(pending) || Boolean(pendingPoster)"
+        :variant="pendingPoster ? 'destructive' : pending ? cafeDeskConfirmVariant(pending) : 'default'"
+        :title="pendingPoster && shop
+          ? adminTakeDownPosterTitle(shop.name)
+          : shop && pending ? cafeDeskConfirmTitle(pending, shop.name) : ''"
+        :message="pendingPoster
+          ? adminTakeDownPosterMessage()
+          : pending ? cafeDeskConfirmMessage(pending) : ''"
+        :confirm-label="pendingPoster ? 'Take down' : pending ? cafeDeskConfirmAction(pending) : ''"
+        :busy-label="pendingPoster ? 'Taking down…' : pending ? cafeDeskBusyLabel(pending) : ''"
         :busy="acting"
         @confirm="confirmPending"
         @cancel="cancelPending"
@@ -75,8 +88,11 @@ import { useIonRouter } from '@ionic/vue'
 import AdminCafeForm from '~/components/admin/AdminCafeForm.vue'
 import AdminConfirmDialog from '~/components/admin/AdminConfirmDialog.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
+import CafeOwnerCard from '~/components/cafe/CafeOwnerCard.vue'
 import type { ShopRow } from '~/types/shop'
 import {
+  adminTakeDownPosterMessage,
+  adminTakeDownPosterTitle,
   cafeDeskBusyLabel,
   cafeDeskConfirmAction,
   cafeDeskConfirmMessage,
@@ -86,6 +102,8 @@ import {
   shopStatusWord,
   type CafeDeskAction,
 } from '~/utils/admin-shop'
+import type { ShopPosterRow } from '~/utils/owner-ads'
+import { transferOwnershipDoneCopy } from '~/utils/shop-claims'
 import { adminActionErrorMessage } from '~/utils/admin-feedback'
 import { shopIdFromRoute } from '~/utils/approved-shops'
 
@@ -96,13 +114,15 @@ definePageMeta({
 const route = useRoute()
 const ionRouter = useIonRouter()
 const admin = useAdminData()
-const { error, updateShop, moderate, deleteShop } = admin
+const { error, updateShop, moderate, deleteShop, fetchShopPoster, publishShopPoster, endShopPoster } = admin
 const toast = useAdminToast()
 const saving = ref(false)
 const acting = ref(false)
 const pending = ref<Extract<CafeDeskAction, 'publish' | 'unpublish' | 'delete'> | null>(null)
 const formError = ref('')
 const shop = ref<ShopRow | null>(null)
+const livePoster = ref<ShopPosterRow | null>(null)
+const pendingPoster = ref<ShopPosterRow | null>(null)
 const lookingUp = ref(true)
 
 function resolveShopId(): string {
@@ -147,12 +167,18 @@ const loadCurrent = async () => {
   }
   try {
     shop.value = await admin.fetchShop(id)
+    livePoster.value = shop.value ? await fetchShopPoster(shop.value.id) : null
   } catch (err) {
     shop.value = null
+    livePoster.value = null
     error.value = err instanceof Error ? err.message : 'Could not load this cafe.'
   } finally {
     lookingUp.value = false
   }
+}
+
+const onOwnerTransferred = (payload: { cafeName: string; personName: string }) => {
+  toast.success('Ownership transferred', transferOwnershipDoneCopy(payload.cafeName, payload.personName))
 }
 
 const onSave = async (payload: Parameters<typeof updateShop>[1]) => {
@@ -161,6 +187,9 @@ const onSave = async (payload: Parameters<typeof updateShop>[1]) => {
   formError.value = ''
   try {
     shop.value = await updateShop(shop.value.id, payload)
+    if (payload.posterFile) {
+      livePoster.value = await publishShopPoster(shop.value.id, payload.posterFile)
+    }
     toast.success('Changes saved', `${shop.value.name} is up to date.`)
   } catch (err) {
     formError.value = adminActionErrorMessage(err, 'Could not save this cafe.')
@@ -172,20 +201,37 @@ const onSave = async (payload: Parameters<typeof updateShop>[1]) => {
 
 const askAction = (action: Extract<CafeDeskAction, 'publish' | 'unpublish' | 'delete'>) => {
   if (!shop.value || saving.value || acting.value) return
+  pendingPoster.value = null
   pending.value = action
+}
+
+const askTakeDownPoster = (poster: ShopPosterRow) => {
+  if (!shop.value || saving.value || acting.value) return
+  pending.value = null
+  pendingPoster.value = poster
 }
 
 const cancelPending = () => {
   if (acting.value) return
   pending.value = null
+  pendingPoster.value = null
 }
 
 const confirmPending = async () => {
+  const poster = pendingPoster.value
   const action = pending.value
   const current = shop.value
-  if (!action || !current || acting.value) return
+  if ((!action && !poster) || !current || acting.value) return
   acting.value = true
   try {
+    if (poster) {
+      await endShopPoster(poster.id)
+      livePoster.value = null
+      pendingPoster.value = null
+      toast.success('Poster taken down', `${current.name} no longer shows a poster.`)
+      return
+    }
+    if (!action) return
     if (action === 'delete') {
       await deleteShop(current)
       pending.value = null
@@ -198,8 +244,10 @@ const confirmPending = async () => {
     toast.success(action === 'unpublish' ? 'Unpublished' : 'Published', cafeDeskDoneCopy(action, current.name))
     pending.value = null
   } catch (err) {
-    const fallback = action === 'delete' ? 'Could not delete this cafe.' : 'Could not update this cafe.'
-    toast.error(action === 'delete' ? 'Could not delete' : 'Could not update this cafe', err, fallback)
+    const fallback = poster
+      ? 'Could not take down this poster.'
+      : action === 'delete' ? 'Could not delete this cafe.' : 'Could not update this cafe.'
+    toast.error(poster ? 'Could not take down' : action === 'delete' ? 'Could not delete' : 'Could not update this cafe', err, fallback)
   } finally {
     acting.value = false
   }
@@ -223,6 +271,10 @@ watch(
   flex-direction: column;
   gap: 20px;
   caret-color: var(--kd-primary);
+}
+
+.cafe-editor :deep(.cafe-owner--desk) {
+  width: 100%;
 }
 
 .cafe-editor ::selection {

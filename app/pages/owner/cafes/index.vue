@@ -2,7 +2,7 @@
   <IonPage>
     <OwnerShell
       title="Cafes"
-      lede="Keep hours, contact, and the logo current. Publish status stays with admin."
+      lede="Keep hours, contact, the logo, and featured photos current. Publish status stays with admin."
       :status="pageStatus"
       :error="error"
       :claim-count="waitingClaims.length"

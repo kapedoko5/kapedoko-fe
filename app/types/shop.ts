@@ -43,6 +43,7 @@ export interface ShopRow {
   hours: WeeklyHours | null
   cover_photo_url: string | null
   logo_object_key: string | null
+  gallery_object_keys?: string[] | null
   contact_number: string | null
   status: ShopStatus
   submitted_by: string | null
@@ -206,6 +207,17 @@ export interface ShopClaimRow {
   updated_at: string
 }
 
+export interface ShopVerifiedOwnerRow {
+  claimant_id: string
+  display_name: string | null
+}
+
+export interface ShopOwnerPublic {
+  claimed: boolean
+  claimantId: string | null
+  displayName: string | null
+}
+
 export type ProfileRole = 'user' | 'cafe-owner' | 'admin' | 'auditor'
 
 export interface ProfileRow {
@@ -222,7 +234,7 @@ export interface FavoriteRow {
   created_at: string
 }
 
-export type ContentReportTarget = 'review' | 'shop_photo'
+export type ContentReportTarget = 'review' | 'shop_photo' | 'shop_owner'
 export type ContentReportStatus = 'open' | 'hidden' | 'dismissed'
 
 export interface ContentReportRow {

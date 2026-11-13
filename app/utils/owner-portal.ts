@@ -120,7 +120,7 @@ export function ownerLiveCopy(shop: Pick<ShopRow, 'status'>): string {
 }
 
 export function ownerEditorLede(): string {
-  return 'These details go live on Home and Map. WiFi and outlets still come from visitor reviews. Publish status stays with admin.'
+  return 'These details go live on Home and Map. Featured photos show on the cafe page. WiFi and outlets still come from visitor reviews. Publish status stays with admin.'
 }
 
 export function unmarkedWaitingClaims(claims: ShopClaimRow[], noticedIds: readonly string[]): ShopClaimRow[] {

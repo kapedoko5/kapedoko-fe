@@ -52,7 +52,7 @@ export function adminCafeHasErrors(input: AdminCafeInput): boolean {
   return Object.values(adminCafeErrors(input)).some(Boolean)
 }
 
-const ADMIN_ASSET_KEY = /^(shop-logos|ad-banners|audit-photos|event-images|badge-icons)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
+const ADMIN_ASSET_KEY = /^(shop-logos|shop-photos|shop-posters|ad-banners|audit-photos|event-images|badge-icons)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
 const ADMIN_ASSET_KEY_LIMIT = 80
 
 export function uniqueDeletableAdminObjectKeys(value: unknown, limit = ADMIN_ASSET_KEY_LIMIT): string[] {
@@ -97,6 +97,37 @@ export function parseDeletedAdminShop(data: unknown): { id: string; name: string
 export function missingDeleteAdminShopCopy(message: string): string | null {
   if (!/schema cache|does not exist|delete_admin_shop/i.test(message)) return null
   return 'Apply db/20261026_delete_admin_shop.sql in the SQL editor, then try again.'
+}
+
+export function missingAdminCafeMediaSqlCopy(message: string): string | null {
+  if (!/schema cache|does not exist|publish_admin_poster|end_admin_poster|p_gallery_object_keys|gallery_object_keys|shop_posters|live_shop_posters/i.test(message)) {
+    return null
+  }
+  return 'Apply db/20261114_owner_cafe_media.sql and db/20261117_admin_cafe_media.sql in the SQL editor, then try again.'
+}
+
+export function adminCafePosterLede(): string {
+  return 'One poster on this cafe’s page. Not a Home banner.'
+}
+
+export function adminCafePhotosLede(): string {
+  return 'Up to 8 photos. Visitors see these on the cafe page.'
+}
+
+export function adminCafePosterEmptyCopy(): string {
+  return 'No poster hanging yet. Choose a file and save to hang one.'
+}
+
+export function adminCafePosterCurrentCopy(): string {
+  return 'Using the current poster. Choose a file only to replace it.'
+}
+
+export function adminTakeDownPosterTitle(name: string): string {
+  return `Take down the poster at ${name}?`
+}
+
+export function adminTakeDownPosterMessage(): string {
+  return 'It leaves that cafe’s page immediately. Featured photos stay.'
 }
 
 export function deleteCafeTitle(name: string): string {

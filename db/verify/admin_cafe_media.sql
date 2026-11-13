@@ -1,0 +1,7 @@
+-- After 20261117_admin_cafe_media.sql, as an admin:
+-- select public.update_admin_shop(
+--   '<shop-id>'::uuid, 'Name', 'A long enough address', 14.6, 121.1,
+--   '{"mon":{"kind":"all_day"}}'::jsonb, null, null, '{}'::text[]
+-- );
+-- select public.publish_admin_poster('<shop-id>'::uuid, 'shop-posters/<uid>/<file>.jpg');
+-- select public.end_admin_poster('<poster-id>'::uuid);

@@ -1,0 +1,5 @@
+-- Optional checks after 20261114_owner_cafe_media.sql
+-- select public.shop_media_key_ok('shop-photos/user/shot.jpg');
+-- select * from public.live_shop_posters;
+-- select public.list_my_shop_posters();
+-- select public.publish_owner_poster(array['<shop-id>'::uuid], 'shop-posters/<uid>/<file>.jpg');

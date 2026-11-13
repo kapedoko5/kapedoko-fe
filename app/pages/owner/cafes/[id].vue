@@ -2,7 +2,7 @@
   <IonPage>
     <OwnerShell
       :title="shop?.name || 'Edit listing'"
-      lede="Hours, contact, identity, and the logo. WiFi and outlets still come from visitor reviews."
+      lede="Hours, contact, identity, logo, and featured photos. WiFi and outlets still come from visitor reviews."
       :status="shellStatus"
       :error="pageError"
       :claim-count="waitingClaims.length"

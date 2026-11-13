@@ -1,22 +1,33 @@
-import type { ShopClaimRow, ShopRow, WeeklyHours } from '~/types/shop'
+import type { ShopClaimRow, ShopOwnerPublic, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import { authUserId } from '~/utils/auth'
+import { missingOwnerMediaSqlCopy, type ShopPosterRow } from '~/utils/owner-ads'
+import { adminCannotOwnCopy, missingShopOwnerSqlCopy } from '~/utils/shop-claims'
+
+type OwnerUploadPurpose = 'shop-logo' | 'shop-poster' | 'shop-photo'
 
 type ListedClaimRow = ShopClaimRow & { shop_name?: string | null }
 
 let loadSeq = 0
 
-async function uploadOwnerLogo(file: File): Promise<string> {
+async function uploadOwnerMedia(file: File, purpose: OwnerUploadPurpose): Promise<string> {
   const supabase = useSupabaseClient()
   const form = new FormData()
   form.append('file', file)
-  form.append('purpose', 'shop-logo')
+  form.append('purpose', purpose)
   const { data, error } = await supabase.functions.invoke('presign-upload', { body: form })
   const payload = (data ?? null) as { objectKey?: string; error?: string } | null
   if (error || !payload?.objectKey) {
     throw new Error(payload?.error || 'Could not upload that file. Try again.')
   }
   return payload.objectKey
+}
+
+function ownerWriteError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback
+  return missingOwnerMediaSqlCopy(message)
+    ?? missingShopOwnerSqlCopy(message)
+    ?? (message.trim() || fallback)
 }
 
 function asClaimRow(row: ListedClaimRow): ShopClaimRow {
@@ -44,6 +55,8 @@ export function useShopOwnership() {
   const ownedShops = useState<ShopRow[]>('kd-owned-shops', () => [])
   const claimShopNames = useState<Record<string, string>>('kd-claim-shop-names', () => ({}))
   const verifiedOwnerByShop = useState<Record<string, boolean>>('kd-shop-verified-owner', () => ({}))
+  const shopOwnerByShop = useState<Record<string, ShopOwnerPublic>>('kd-shop-owner', () => ({}))
+  const posters = useState<ShopPosterRow[]>('kd-owner-posters', () => [])
   const status = useState<'idle' | 'loading' | 'ready' | 'error'>('kd-owner-status', () => 'idle')
   const error = useState('kd-owner-error', () => '')
   const saving = useState('kd-owner-saving', () => false)
@@ -142,18 +155,94 @@ export function useShopOwnership() {
   const isOwner = (shopId: string): boolean =>
     claims.value.some((claim) => claim.shop_id === shopId && claim.status === 'verified')
 
+  const rememberOwner = (shopId: string, owner: ShopOwnerPublic) => {
+    shopOwnerByShop.value = { ...shopOwnerByShop.value, [shopId]: owner }
+    verifiedOwnerByShop.value = { ...verifiedOwnerByShop.value, [shopId]: owner.claimed }
+  }
+
+  const emptyOwner = (): ShopOwnerPublic => ({
+    claimed: false,
+    claimantId: null,
+    displayName: null,
+  })
+
+  const shopOwner = (shopId: string): ShopOwnerPublic | null =>
+    shopOwnerByShop.value[shopId] ?? null
+
   const shopHasVerifiedOwner = (shopId: string): boolean =>
-    verifiedOwnerByShop.value[shopId] === true
+    shopOwnerByShop.value[shopId]?.claimed === true
+    || verifiedOwnerByShop.value[shopId] === true
 
   const shopOwnerFlagKnown = (shopId: string): boolean =>
-    Object.prototype.hasOwnProperty.call(verifiedOwnerByShop.value, shopId)
+    Object.prototype.hasOwnProperty.call(shopOwnerByShop.value, shopId)
+    || Object.prototype.hasOwnProperty.call(verifiedOwnerByShop.value, shopId)
+
+  const loadShopOwnerFlagFallback = async (shopId: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc('shop_has_verified_owner', { p_shop_id: shopId })
+    const owned = error ? true : data === true
+    rememberOwner(shopId, {
+      claimed: owned,
+      claimantId: null,
+      displayName: null,
+    })
+    return owned
+  }
+
+  const loadShopOwner = async (shopId: string): Promise<ShopOwnerPublic> => {
+    if (!shopId) return emptyOwner()
+    const { data, error } = await supabase.rpc('shop_verified_owner', { p_shop_id: shopId })
+    if (error) {
+      await loadShopOwnerFlagFallback(shopId)
+      return shopOwnerByShop.value[shopId] ?? emptyOwner()
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as ShopVerifiedOwnerRow | null
+    const owner: ShopOwnerPublic = row?.claimant_id
+      ? {
+          claimed: true,
+          claimantId: row.claimant_id,
+          displayName: row.display_name,
+        }
+      : emptyOwner()
+    rememberOwner(shopId, owner)
+    return owner
+  }
 
   const loadShopOwnerFlag = async (shopId: string): Promise<boolean> => {
     if (!shopId) return false
-    const { data, error } = await supabase.rpc('shop_has_verified_owner', { p_shop_id: shopId })
-    const owned = error ? true : data === true
-    verifiedOwnerByShop.value = { ...verifiedOwnerByShop.value, [shopId]: owned }
-    return owned
+    const owner = await loadShopOwner(shopId)
+    return owner.claimed
+  }
+
+  const transferShopOwnership = async (shopId: string, nextUserId: string): Promise<ShopClaimRow> => {
+    saving.value = true
+    error.value = ''
+    try {
+      const actorId = await currentUserId()
+      if (actorId && actorId === nextUserId) {
+        throw new Error(adminCannotOwnCopy())
+      }
+      const { data, error: rpcError } = await supabase.rpc('admin_transfer_shop_ownership', {
+        p_shop_id: shopId,
+        p_user_id: nextUserId,
+      })
+      const row = (Array.isArray(data) ? data[0] : data) as ShopClaimRow | null
+      if (rpcError || !row) {
+        const message = rpcError?.message || 'Could not transfer this cafe.'
+        throw new Error(missingShopOwnerSqlCopy(message) || message)
+      }
+      rememberOwner(shopId, {
+        claimed: true,
+        claimantId: row.claimant_id,
+        displayName: shopOwnerByShop.value[shopId]?.displayName ?? null,
+      })
+      return row
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not transfer this cafe.'
+      error.value = missingShopOwnerSqlCopy(message) || message
+      throw new Error(error.value)
+    } finally {
+      saving.value = false
+    }
   }
 
   const shopNameForClaim = (shopId: string): string =>
@@ -249,6 +338,8 @@ export function useShopOwnership() {
       contact_number: string | null
       logoFile: File | null
       logoObjectKey: string | null
+      galleryFiles?: File[]
+      galleryObjectKeys?: string[]
     },
   ) => {
     saving.value = true
@@ -258,7 +349,11 @@ export function useShopOwnership() {
         logoFile: input.logoFile,
         logoObjectKey: input.logoObjectKey,
       }).logoObjectKey
-      if (input.logoFile) logoKey = await uploadOwnerLogo(input.logoFile)
+      if (input.logoFile) logoKey = await uploadOwnerMedia(input.logoFile, 'shop-logo')
+      const extraKeys = [...(input.galleryObjectKeys ?? [])]
+      for (const file of input.galleryFiles ?? []) {
+        extraKeys.push(await uploadOwnerMedia(file, 'shop-photo'))
+      }
       const { data, error: rpcError } = await supabase.rpc('update_owner_shop', {
         p_shop_id: shopId,
         p_name: input.name,
@@ -268,17 +363,69 @@ export function useShopOwnership() {
         p_hours: input.hours,
         p_contact_number: input.contact_number,
         p_logo_object_key: logoKey,
+        p_gallery_object_keys: extraKeys,
       })
       const updated = (Array.isArray(data) ? data[0] : data) as ShopRow | null
-      if (rpcError || !updated) throw new Error(rpcError?.message || 'Could not save this cafe.')
+      if (rpcError || !updated) {
+        throw new Error(ownerWriteError(rpcError?.message || 'Could not save this cafe.', 'Could not save this cafe.'))
+      }
       ownedShops.value = ownedShops.value.map((item) => (item.id === shopId ? updated : item))
       if (updated.name) {
         claimShopNames.value = { ...claimShopNames.value, [shopId]: updated.name }
       }
       return updated
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Could not save this cafe.'
-      throw err
+      error.value = ownerWriteError(err, 'Could not save this cafe.')
+      throw new Error(error.value)
+    } finally {
+      saving.value = false
+    }
+  }
+
+  const loadPosters = async () => {
+    const { data, error: rpcError } = await supabase.rpc('list_my_shop_posters')
+    if (rpcError) throw new Error(ownerWriteError(rpcError.message, 'Could not load posters.'))
+    posters.value = (data ?? []) as ShopPosterRow[]
+    return posters.value
+  }
+
+  const publishPoster = async (shopIds: string[], file: File) => {
+    saving.value = true
+    error.value = ''
+    try {
+      const key = await uploadOwnerMedia(file, 'shop-poster')
+      const { data, error: rpcError } = await supabase.rpc('publish_owner_poster', {
+        p_shop_ids: shopIds,
+        p_poster_object_key: key,
+      })
+      if (rpcError) throw new Error(ownerWriteError(rpcError.message, 'Could not post this poster.'))
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as ShopPosterRow[]
+      const posted = new Set(rows.map((row) => row.shop_id))
+      posters.value = [
+        ...rows,
+        ...posters.value.filter((row) => !posted.has(row.shop_id)),
+      ]
+      return rows
+    } catch (err) {
+      error.value = ownerWriteError(err, 'Could not post this poster.')
+      throw new Error(error.value)
+    } finally {
+      saving.value = false
+    }
+  }
+
+  const endPoster = async (posterId: string) => {
+    saving.value = true
+    error.value = ''
+    try {
+      const { error: rpcError } = await supabase.rpc('end_owner_poster', {
+        p_poster_id: posterId,
+      })
+      if (rpcError) throw new Error(ownerWriteError(rpcError.message, 'Could not take down this poster.'))
+      posters.value = posters.value.filter((row) => row.id !== posterId)
+    } catch (err) {
+      error.value = ownerWriteError(err, 'Could not take down this poster.')
+      throw new Error(error.value)
     } finally {
       saving.value = false
     }
@@ -288,6 +435,7 @@ export function useShopOwnership() {
     claims,
     ownedShops,
     claimShopNames,
+    posters,
     status,
     error,
     saving,
@@ -295,13 +443,19 @@ export function useShopOwnership() {
     load,
     claimForShop,
     isOwner,
+    shopOwner,
     shopHasVerifiedOwner,
     shopOwnerFlagKnown,
+    loadShopOwner,
     loadShopOwnerFlag,
+    transferShopOwnership,
     shopNameForClaim,
     loadClaimForShop,
     submitClaim,
     withdrawClaim,
     updateOwnedShop,
+    loadPosters,
+    publishPoster,
+    endPoster,
   }
 }

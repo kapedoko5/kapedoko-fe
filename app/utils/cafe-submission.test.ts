@@ -279,6 +279,20 @@ describe('shop to cafe mapping', () => {
     const cafe = mapShopToCafe(shop, null, 'https://pub-abc.r2.dev', 'promoted')
     expect(cafe.markerTier).toBe('promoted')
     expect(cafe.image).toBe('https://pub-abc.r2.dev/shop-logos/user/logo.png')
+    expect(cafe.photos).toEqual(['https://pub-abc.r2.dev/shop-logos/user/logo.png'])
+    expect(cafe.poster).toBeNull()
+  })
+
+  test('uses featured photos for the cafe gallery', () => {
+    const cafe = mapShopToCafe(
+      { ...shop, gallery_object_keys: ['shop-photos/user/one.jpg', 'shop-photos/user/two.jpg'] },
+      null,
+      'https://pub-abc.r2.dev',
+    )
+    expect(cafe.photos).toEqual([
+      'https://pub-abc.r2.dev/shop-photos/user/one.jpg',
+      'https://pub-abc.r2.dev/shop-photos/user/two.jpg',
+    ])
   })
 
   test('defaults unpaid shops to the standard pin', () => {

@@ -1,4 +1,34 @@
+import type { AdminUserRow } from '../types/admin'
 import type { ProfileRole } from '../types/shop'
+import { parseProfileRole } from './profile-role'
+
+export interface AdminSearchUserRow {
+  id: string
+  email: string | null
+  display_name: string | null
+  role: string | null
+  banned: boolean | null
+  created_at: string | null
+}
+
+export function mapAdminSearchUser(row: AdminSearchUserRow): AdminUserRow {
+  return {
+    id: row.id,
+    email: row.email,
+    displayName: row.display_name,
+    role: parseProfileRole(row.role),
+    banned: Boolean(row.banned),
+    createdAt: row.created_at,
+    lastSignInAt: null,
+    shopCount: 0,
+    reviewCount: 0,
+  }
+}
+
+export function missingAdminSearchSqlCopy(message: string): string | null {
+  if (!/schema cache|does not exist|admin_search_users/i.test(message)) return null
+  return 'Apply db/20261116_admin_search_users.sql in the SQL editor, then try again.'
+}
 
 export function roleChangeError(input: {
   actorId: string | null

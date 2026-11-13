@@ -15,13 +15,14 @@ import {
   deleteCafeTitle,
   isValidLatitude,
   isValidLongitude,
+  missingAdminCafeMediaSqlCopy,
   missingDeleteAdminShopCopy,
   parseDeletedAdminShop,
   shopStatusWord,
   uniqueDeletableAdminObjectKeys,
 } from './admin-shop'
 import { bannerAspectError, bannerFileError, campaignWindowError, featuredAdCopy, isAdCampaignActive, sortActiveAds } from './admin-ads'
-import { edgeFunctionErrorMessage, roleChangeError, suspendError } from './admin-users'
+import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, roleChangeError, suspendError } from './admin-users'
 import { placementKindFromTier, placementLifecycle, placementWindowError } from './admin-placements'
 import { adminNavIdFromPath, toLocalInput } from './admin-nav'
 import { allDayEveryDay } from './hours'
@@ -89,6 +90,8 @@ describe('admin cafe validation', () => {
       'audit-photos/auditor/visit.png',
       'event-images/admin/poster.webp',
       'badge-icons/admin/gem.webp',
+      'shop-photos/owner/shot.jpg',
+      'shop-posters/owner/poster.webp',
       'shop-logos/admin/mark.webp',
       '../secret',
       'https://evil.example/x',
@@ -99,6 +102,8 @@ describe('admin cafe validation', () => {
       'audit-photos/auditor/visit.png',
       'event-images/admin/poster.webp',
       'badge-icons/admin/gem.webp',
+      'shop-photos/owner/shot.jpg',
+      'shop-posters/owner/poster.webp',
     ])
     expect(parseDeletedAdminShop({
       id: 'shop-1',
@@ -111,6 +116,9 @@ describe('admin cafe validation', () => {
     })
     expect(missingDeleteAdminShopCopy('Could not find the function public.delete_admin_shop')).toMatch(/20261026_delete_admin_shop/)
     expect(missingDeleteAdminShopCopy('Cafe was not found')).toBeNull()
+    expect(missingAdminCafeMediaSqlCopy('Could not find the function public.publish_admin_poster')).toMatch(/20261117_admin_cafe_media/)
+    expect(missingAdminCafeMediaSqlCopy('column shops.gallery_object_keys does not exist')).toMatch(/20261114_owner_cafe_media/)
+    expect(missingAdminCafeMediaSqlCopy('Cafe was not found')).toBeNull()
   })
 
   test('rejects missing pin and short names without requiring Metro Manila', () => {
@@ -224,6 +232,20 @@ describe('roles and placements', () => {
       new Error('Edge Function returned a non-2xx status code'),
       { error: 'Admin only' },
     )).toBe('Admin only')
+    expect(mapAdminSearchUser({
+      id: 'user-2',
+      email: 'kapedoko5@gmail.com',
+      display_name: 'Kapé 5',
+      role: 'user',
+      banned: false,
+      created_at: '2026-01-01T00:00:00.000Z',
+    })).toMatchObject({
+      id: 'user-2',
+      email: 'kapedoko5@gmail.com',
+      displayName: 'Kapé 5',
+      role: 'user',
+    })
+    expect(missingAdminSearchSqlCopy('Could not find the function public.admin_search_users')).toMatch(/20261116_admin_search_users/)
   })
 
   test('classifies placement windows', () => {
