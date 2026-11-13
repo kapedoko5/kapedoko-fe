@@ -75,3 +75,15 @@ export function profileClaimsEmptyCopy(isAdmin: boolean): string {
   if (isAdmin) return 'You review other people’s claims in the admin portal.'
   return 'Claims you send wait here until an admin verifies them.'
 }
+
+/** Invite card on a cafe page. Keep it for the owner or a waiting claim; hide it when someone else already owns the listing. */
+export function showCafeOwnerInvite(input: {
+  myClaimStatus: 'pending' | 'verified' | 'rejected' | null
+  hasVerifiedOwner: boolean
+  ownerKnown?: boolean
+}): boolean {
+  if (input.myClaimStatus === 'verified' || input.myClaimStatus === 'pending') return true
+  if (input.ownerKnown === false) return false
+  if (input.hasVerifiedOwner) return false
+  return true
+}

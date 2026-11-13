@@ -37,7 +37,12 @@
 
 <script setup lang="ts">
 import AuthShell from '~/components/auth/AuthShell.vue'
-import { parseConfirmLink } from '~/utils/auth-confirm'
+import {
+  clearAuthCallbackSnapshot,
+  parseConfirmLocation,
+  readAuthCallbackSnapshot,
+  withTimeout,
+} from '~/utils/auth-confirm'
 import { friendlyAuthError } from '~/utils/auth'
 
 const supabase = useSupabaseClient()
@@ -47,14 +52,17 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('This reset link expired or was already used.')
 const status = ref<'checking' | 'ready' | 'expired' | 'missing'>('checking')
+let capturedHref = ''
 
 const markReady = () => {
+  clearAuthCallbackSnapshot(callbackStorage())
   status.value = 'ready'
 }
 
 let stopAuthWatch: (() => void) | undefined
 
 onMounted(() => {
+  capturedHref = window.location.href
   const { data } = supabase.auth.onAuthStateChange((event, session) => {
     if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) markReady()
   })
@@ -66,10 +74,22 @@ onBeforeUnmount(() => {
   stopAuthWatch?.()
 })
 
+function callbackStorage() {
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
+}
+
 async function consumeResetLink() {
-  const intent = parseConfirmLink({
+  const intent = parseConfirmLocation({
     query: route.query as Record<string, unknown>,
     hash: import.meta.client ? window.location.hash : route.hash,
+    pathname: import.meta.client ? window.location.pathname : route.path,
+    token: route.params.token,
+    href: capturedHref || (import.meta.client ? window.location.href : ''),
+    snapshot: readAuthCallbackSnapshot(callbackStorage()),
   })
 
   if (intent.kind === 'error') {
@@ -89,7 +109,15 @@ async function consumeResetLink() {
       return
     }
     if (intent.kind === 'code') {
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(intent.code)
+      const existing = (await supabase.auth.getSession()).data.session
+      if (existing) {
+        markReady()
+        return
+      }
+      const { error: exchangeError } = await withTimeout(
+        supabase.auth.exchangeCodeForSession(intent.code),
+        8000,
+      )
       if (exchangeError) throw exchangeError
       markReady()
       return
@@ -121,7 +149,7 @@ async function consumeResetLink() {
   }
 
   status.value = 'missing'
-  error.value = 'Open the reset link we sent to your email.'
+  error.value = 'This page opened without a reset token. Use the button in the mail, or request a new link.'
 }
 
 const onSubmit = async () => {

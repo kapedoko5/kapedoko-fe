@@ -2,9 +2,9 @@
   <section id="top" class="landing-hero" aria-labelledby="landing-offer">
     <div class="landing-container landing-hero__grid">
       <div class="landing-hero__copy">
-        <h1 id="landing-offer">A cafe you can actually work from</h1>
+        <h1 id="landing-offer">Filter your next brew.</h1>
         <p class="lead">
-          WiFi, outlets, and hours in Metro Manila, Cebu, or Davao.
+          WiFi, outlets, and hours in Metro Manila, Cebu, or Davao. A drink is a bad way to find out there is no socket.
         </p>
         <div class="landing-hero__actions">
           <LandingOpen />
@@ -36,8 +36,9 @@
         <article class="demo-bag" :class="{ 'is-settled': settled, 'is-reprinting': reprinting }">
           <div class="demo-bag__mast">
             <div class="demo-bag__copy">
-              <p class="demo-bag__name">On each cafe</p>
-              <p class="demo-bag__origin">Philippines</p>
+              <p class="demo-bag__name">A work cafe</p>
+              <p v-if="facts.closed" class="demo-bag__closed">Closed</p>
+              <p class="demo-bag__origin">Sample</p>
             </div>
           </div>
           <div :key="reprintKey" class="demo-bag__lines">
@@ -80,26 +81,31 @@ const filters = [
 ]
 
 const FACTS: Record<FilterId, {
+  closed: boolean
   hours: string
   wifi: { word: string, soft: boolean }
   outlets: { word: string, soft: boolean }
 }> = {
   near: {
+    closed: false,
     hours: 'Open now',
     wifi: { word: 'Yes', soft: false },
     outlets: { word: 'Yes', soft: false },
   },
   popular: {
-    hours: 'Open now',
+    closed: true,
+    hours: 'Closed',
     wifi: { word: 'Yes', soft: false },
-    outlets: { word: 'Yes', soft: false },
+    outlets: { word: 'Unknown', soft: true },
   },
   wifi: {
+    closed: false,
     hours: 'Open now',
     wifi: { word: 'Yes', soft: false },
     outlets: { word: 'Unknown', soft: true },
   },
   plugs: {
+    closed: false,
     hours: 'Open now',
     wifi: { word: 'Unknown', soft: true },
     outlets: { word: 'Yes', soft: false },
@@ -275,6 +281,14 @@ const setFilter = (id: FilterId) => {
   letter-spacing: var(--tracking-display);
   overflow-wrap: break-word;
   min-width: 0;
+}
+
+.demo-bag__closed {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .demo-bag__origin {

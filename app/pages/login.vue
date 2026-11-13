@@ -32,10 +32,16 @@
           required
         />
       </label>
-      <button type="submit" class="auth-submit" :disabled="loading">
+      <button type="submit" class="auth-submit" :disabled="busy">
         {{ loading ? 'Signing in…' : 'Sign in' }}
       </button>
     </form>
+    <AuthGoogleButton
+      v-if="showGoogle"
+      :loading="googleLoading"
+      :disabled="busy"
+      @click="onGoogle"
+    />
     <div class="auth-links">
       <NuxtLink :to="{ path: '/forgot-password', query }">Forgot password?</NuxtLink>
       <p>
@@ -50,38 +56,71 @@
 </template>
 
 <script setup lang="ts">
+import { Capacitor } from '@capacitor/core'
+import AuthGoogleButton from '~/components/auth/AuthGoogleButton.vue'
 import AuthShell from '~/components/auth/AuthShell.vue'
-import { loginLedeForRedirect, safeRedirectPath } from '~/utils/auth'
+import {
+  consumeAuthRedirect,
+  loginLedeForRedirect,
+  rememberAuthRedirect,
+  shouldOfferGoogleAuth,
+} from '~/utils/auth'
 
 definePageMeta({
   middleware: 'guest',
 })
 
 const route = useRoute()
-const { signIn } = useAuth()
+const { signIn, signInWithGoogle } = useAuth()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
+const googleLoading = ref(false)
 const error = ref('')
+const showGoogle = ref(false)
 
 const query = computed(() => {
   const redirect = route.query.redirect
   return typeof redirect === 'string' ? { redirect } : {}
 })
 const lede = computed(() => loginLedeForRedirect(query.value.redirect))
+const busy = computed(() => loading.value || googleLoading.value)
+
+onMounted(() => {
+  showGoogle.value = shouldOfferGoogleAuth(Capacitor.isNativePlatform())
+})
+
+const requestedRedirect = () => {
+  const requested = Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect
+  rememberAuthRedirect(requested)
+  return requested
+}
 
 const onSubmit = async () => {
-  if (loading.value) return
+  if (busy.value) return
   loading.value = true
   error.value = ''
   try {
+    const requested = requestedRedirect()
     await signIn(email.value, password.value)
-    const requested = Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect
-    await navigateTo(safeRedirectPath(requested))
+    await navigateTo(consumeAuthRedirect(requested))
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not sign in.'
   } finally {
     loading.value = false
+  }
+}
+
+const onGoogle = async () => {
+  if (busy.value) return
+  googleLoading.value = true
+  error.value = ''
+  try {
+    requestedRedirect()
+    await signInWithGoogle()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Could not continue with Google.'
+    googleLoading.value = false
   }
 }
 </script>

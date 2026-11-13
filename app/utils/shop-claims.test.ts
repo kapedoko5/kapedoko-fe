@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { claimFormError, claimStatusCopy, canWithdrawClaim, claimRejectionReasonError, claimStatusWord, claimsQueueEmptyCopy, profileClaimsEmptyCopy } from './shop-claims'
+import { claimFormError, claimStatusCopy, canWithdrawClaim, claimRejectionReasonError, claimStatusWord, claimsQueueEmptyCopy, profileClaimsEmptyCopy, showCafeOwnerInvite } from './shop-claims'
 import { parseProfileRole } from './profile-role'
 
 describe('cafe claims', () => {
@@ -28,6 +28,15 @@ describe('cafe claims', () => {
     expect(claimsQueueEmptyCopy('pending')).toMatch(/land here/)
     expect(profileClaimsEmptyCopy(false)).toMatch(/wait here/)
     expect(profileClaimsEmptyCopy(true)).toMatch(/admin portal/)
+  })
+
+  test('hides the owner invite when someone else already manages the cafe', () => {
+    expect(showCafeOwnerInvite({ myClaimStatus: null, hasVerifiedOwner: true, ownerKnown: true })).toBe(false)
+    expect(showCafeOwnerInvite({ myClaimStatus: 'rejected', hasVerifiedOwner: true, ownerKnown: true })).toBe(false)
+    expect(showCafeOwnerInvite({ myClaimStatus: 'verified', hasVerifiedOwner: true, ownerKnown: true })).toBe(true)
+    expect(showCafeOwnerInvite({ myClaimStatus: 'pending', hasVerifiedOwner: false, ownerKnown: true })).toBe(true)
+    expect(showCafeOwnerInvite({ myClaimStatus: null, hasVerifiedOwner: false, ownerKnown: true })).toBe(true)
+    expect(showCafeOwnerInvite({ myClaimStatus: null, hasVerifiedOwner: false, ownerKnown: false })).toBe(false)
   })
 })
 

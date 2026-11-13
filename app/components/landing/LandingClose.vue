@@ -1,15 +1,36 @@
 <template>
+  <section class="landing-paths" aria-label="Other ways in">
+    <div class="landing-container landing-paths__stack">
+      <article class="path-label">
+        <h2>If you already know the shop</h2>
+        <p>
+          Search it by name, read whether it is open, and save it on this phone.
+        </p>
+      </article>
+      <article class="path-label">
+        <h2>If you are deciding with other people</h2>
+        <p>
+          See what is open nearby. A gathering within 5 km shows on Home and as a teal pin. Save the shop before you leave.
+        </p>
+      </article>
+    </div>
+  </section>
+
   <section class="landing-place" aria-labelledby="landing-place-title">
     <div class="landing-container">
       <h2 id="landing-place-title">Public submissions cover the Philippines</h2>
       <p class="lead">Pins outside the country stay blocked.</p>
+      <p class="landing-place__claim">
+        <NuxtLink to="/login?redirect=/app">Sign in</NuxtLink>
+        and claim a listed shop. An admin verifies before hours, contact, and logo can be edited.
+      </p>
     </div>
   </section>
 
   <section class="landing-close" aria-labelledby="landing-close-title">
     <div class="landing-container">
       <div class="landing-close__panel">
-        <h2 id="landing-close-title">Open the cafe shelf</h2>
+        <h2 id="landing-close-title">Open the app</h2>
         <p class="lead">
           No account needed to browse. Sign in later for saves on every device.
         </p>
@@ -36,6 +57,36 @@ import LandingOpen from '~/components/landing/LandingOpen.vue'
 </script>
 
 <style scoped>
+.landing-paths {
+  padding-block: var(--space-2xl) var(--space-xl);
+}
+
+.landing-paths__stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.path-label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-xl);
+  border: 1px solid color-mix(in srgb, var(--color-ink) 34%, transparent);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+}
+
+.path-label h2 {
+  max-width: 18ch;
+}
+
+.path-label p {
+  max-width: 36rem;
+  font-size: var(--text-md);
+  line-height: 1.45;
+}
+
 .landing-place {
   padding-block: var(--space-2xl) var(--space-xl);
 }
@@ -58,6 +109,12 @@ import LandingOpen from '~/components/landing/LandingOpen.vue'
 .landing-place .lead {
   margin: 0;
   font-size: var(--text-lg);
+}
+
+.landing-place__claim {
+  max-width: 36rem;
+  font-size: var(--text-md);
+  line-height: 1.45;
 }
 
 .landing-close {
@@ -130,6 +187,19 @@ import LandingOpen from '~/components/landing/LandingOpen.vue'
 }
 
 @media (min-width: 840px) {
+  .landing-paths {
+    padding-block: var(--space-3xl) var(--space-2xl);
+  }
+
+  .path-label {
+    padding: var(--space-2xl) var(--space-2xl) var(--space-xl);
+  }
+
+  .path-label p {
+    font-size: var(--text-lg);
+    line-height: 1.4;
+  }
+
   .landing-place {
     padding-block: var(--space-3xl) var(--space-2xl);
   }
@@ -138,6 +208,10 @@ import LandingOpen from '~/components/landing/LandingOpen.vue'
     grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
     align-items: end;
     column-gap: var(--gap-columns);
+  }
+
+  .landing-place__claim {
+    grid-column: 1 / -1;
   }
 
   .landing-close {

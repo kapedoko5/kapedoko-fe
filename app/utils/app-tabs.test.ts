@@ -95,7 +95,9 @@ describe('app tab paths', () => {
     expect(isForeignSurface('/admin/cafes')).toBe(true)
     expect(isForeignSurface('/#/admin')).toBe(true)
     expect(isForeignSurface('/confirm')).toBe(true)
+    expect(isForeignSurface('/confirm/path-token')).toBe(true)
     expect(isForeignSurface('/reset-password')).toBe(true)
+    expect(isForeignSurface('/reset-password/reset-token')).toBe(true)
     expect(isForeignSurface('/app/profile')).toBe(false)
   })
 

@@ -151,9 +151,58 @@ defineProps<{
 }
 
 .auth-submit:focus-visible,
+.auth-google:focus-visible,
 .auth-links a:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 3px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 8px;
+  color: color-mix(in srgb, var(--kd-ink) 62%, #f2f2f2);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--kd-ink) 18%, transparent);
+}
+
+.auth-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 16px;
+  border: 1px solid var(--kd-primary);
+  border-radius: 16px;
+  background: #faf8f5;
+  color: var(--kd-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-google:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.auth-google svg {
+  flex-shrink: 0;
 }
 
 .auth-links {
@@ -182,11 +231,13 @@ defineProps<{
 }
 
 :root.is-android .auth-submit,
+:root.is-android .auth-google,
 :root.is-android .auth-field input {
   min-height: 48px;
 }
 
-.auth-submit:active:not(:disabled) {
+.auth-submit:active:not(:disabled),
+.auth-google:active:not(:disabled) {
   transform: scale(0.98);
 }
 
@@ -194,14 +245,20 @@ defineProps<{
   .auth-submit:hover:not(:disabled) {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kd-ink) 18%, transparent);
   }
+
+  .auth-google:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--kd-primary) 8%, #faf8f5);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-submit {
+  .auth-submit,
+  .auth-google {
     transition: none;
   }
 
-  .auth-submit:active {
+  .auth-submit:active,
+  .auth-google:active {
     transform: none;
   }
 }
