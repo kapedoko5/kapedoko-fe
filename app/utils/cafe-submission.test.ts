@@ -283,6 +283,7 @@ describe('shop to cafe mapping', () => {
 
   test('defaults unpaid shops to the standard pin', () => {
     expect(mapShopToCafe(shop).markerTier).toBe('standard')
+    expect(mapShopToCafe(shop).badges).toEqual([])
   })
 
   test('carries OSM source for attribution', () => {
@@ -325,6 +326,7 @@ describe('cafe search suggestions', () => {
     lat,
     lng,
     markerTier: 'standard',
+    badges: [],
   })
 
   test('ranks name prefix matches ahead of address hits', () => {

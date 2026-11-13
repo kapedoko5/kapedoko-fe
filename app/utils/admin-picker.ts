@@ -31,6 +31,15 @@ export function findAdminPickerOption(
   return options.find((option) => option.id === value) ?? null
 }
 
+export function selectedAdminPickerOptions(
+  options: AdminPickerOption[],
+  ids: Iterable<string> | null | undefined,
+): AdminPickerOption[] {
+  const wanted = new Set([...(ids ?? [])].map((id) => id.trim()).filter(Boolean))
+  if (wanted.size === 0) return []
+  return options.filter((option) => wanted.has(option.id))
+}
+
 export function searchAdminPickerOptions(
   options: AdminPickerOption[],
   query: string,

@@ -6,6 +6,7 @@ import {
   findAdminPickerOption,
   pickerWindowSize,
   searchAdminPickerOptions,
+  selectedAdminPickerOptions,
 } from './admin-picker'
 
 const shops = [
@@ -30,6 +31,10 @@ describe('admin search picker', () => {
     expect(findAdminPickerOption(options, 'yard')?.title).toBe('Yardstick')
     expect(findAdminPickerOption(options, '  ')).toBeNull()
     expect(findAdminPickerOption(options, null)).toBeNull()
+    expect(selectedAdminPickerOptions(options, ['yard', 'pending', 'tca']).map((option) => option.id)).toEqual([
+      'tca',
+      'yard',
+    ])
   })
 
   test('ranks name prefix matches ahead of address hits', () => {

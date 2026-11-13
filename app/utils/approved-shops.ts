@@ -1,4 +1,6 @@
+import type { ActiveShopBadgeRow, CafeBadge } from '../types/admin'
 import type { Cafe } from '../types/cafe'
+import { cafeBadgeFromName } from './admin-badges'
 import type { GeoBounds } from './geography'
 import type {
   MarkerTier,
@@ -14,6 +16,8 @@ import { mapPublicReview, matchaInsightFromStats, statsFromPublicReviews } from 
 import type { ShopAmenityResolutionRow } from './amenity-status'
 import {
   mapShopToCafe,
+  publicObjectUrl,
+  withCafeBadges,
   withCafeBusyness,
   withCafeCheckIns,
   withCafeReviews,
@@ -167,6 +171,7 @@ interface ShopCardSidecarsPayload {
   payments?: ShopPaymentRow[] | null
   stats?: ShopReviewStatsRow[] | null
   tiers?: ShopMarkerTierRow[] | null
+  badges?: ActiveShopBadgeRow[] | null
 }
 
 export function parseSidecarPayload(data: unknown): ShopCardSidecarsPayload | null {
@@ -185,6 +190,7 @@ export interface CafeSidecars {
   tierById: Map<string, MarkerTier>
   amenityById: Map<string, ShopAmenityResolutionRow[]>
   paymentById: Map<string, CafePayment>
+  badgesById: Map<string, ActiveShopBadgeRow[]>
   amenitiesLoaded: boolean
   paymentsLoaded: boolean
 }
@@ -202,9 +208,20 @@ export function sidecarsFromPayload(payload?: ShopCardSidecarsPayload | null): C
     ),
     amenityById: groupAmenityRows(payload?.amenities ?? []),
     paymentById,
+    badgesById: groupBadgeRows(payload?.badges ?? []),
     amenitiesLoaded: Array.isArray(payload?.amenities),
     paymentsLoaded: Array.isArray(payload?.payments),
   }
+}
+
+export function groupBadgeRows(rows: ActiveShopBadgeRow[]): Map<string, ActiveShopBadgeRow[]> {
+  const grouped = new Map<string, ActiveShopBadgeRow[]>()
+  for (const row of rows) {
+    const list = grouped.get(row.shop_id) ?? []
+    list.push(row)
+    grouped.set(row.shop_id, list)
+  }
+  return grouped
 }
 
 export function mergeSidecars(target: CafeSidecars, extra: CafeSidecars): CafeSidecars {
@@ -214,6 +231,9 @@ export function mergeSidecars(target: CafeSidecars, extra: CafeSidecars): CafeSi
     target.amenityById.set(id, [...(target.amenityById.get(id) ?? []), ...rows])
   }
   for (const [id, row] of extra.paymentById) target.paymentById.set(id, row)
+  for (const [id, rows] of extra.badgesById) {
+    target.badgesById.set(id, [...(target.badgesById.get(id) ?? []), ...rows])
+  }
   target.amenitiesLoaded = target.amenitiesLoaded || extra.amenitiesLoaded
   target.paymentsLoaded = target.paymentsLoaded || extra.paymentsLoaded
   return target
@@ -231,7 +251,7 @@ async function loadCafeSidecarsByIn(supabase: ShopClient, ids: string[]): Promis
   const unique = [...new Set(ids)]
   if (!unique.length) return sidecarsFromPayload()
 
-  const [amenities, stats, tiers, payments] = await Promise.all([
+  const [amenities, stats, tiers, payments, badges] = await Promise.all([
     rowsOrNull(fetchByShopIds<ShopAmenityResolutionRow>(unique, (chunk, from, to) =>
       supabase
         .from('shop_amenity_resolutions_public')
@@ -248,9 +268,12 @@ async function loadCafeSidecarsByIn(supabase: ShopClient, ids: string[]): Promis
     rowsOrNull(fetchByShopIds<ShopPaymentRow>(unique, (chunk, from, to) =>
       supabase.from('shop_payment_public').select(PAYMENT_COLUMNS).in('shop_id', chunk).range(from, to),
     )),
+    rowsOrNull(fetchByShopIds<ActiveShopBadgeRow>(unique, (chunk, from, to) =>
+      supabase.from('active_shop_badges').select('*').in('shop_id', chunk).range(from, to),
+    )),
   ])
 
-  return sidecarsFromPayload({ amenities, stats, tiers, payments })
+  return sidecarsFromPayload({ amenities, stats, tiers, payments, badges })
 }
 
 async function loadCafeSidecarsByRpc(supabase: ShopClient, ids: string[]): Promise<CafeSidecars | null> {
@@ -295,12 +318,33 @@ export async function fetchAmenityRowsForShopIds(
   return [...sidecars.amenityById.values()].flat()
 }
 
+function cafeBadgesFromRows(
+  rows: ActiveShopBadgeRow[] | undefined,
+  publicBase: string,
+): CafeBadge[] {
+  const seen = new Set<string>()
+  const badges: CafeBadge[] = []
+  for (const row of rows ?? []) {
+    if (seen.has(row.badge_id)) continue
+    seen.add(row.badge_id)
+    badges.push(cafeBadgeFromName({
+      id: row.badge_id,
+      slug: row.slug,
+      label: row.label,
+      color: row.color,
+      lucide_icon: row.lucide_icon,
+      iconUrl: publicObjectUrl(row.icon_object_key, publicBase),
+    }))
+  }
+  return badges
+}
+
 function cafeFromApprovedShop(
   shop: ShopRow,
   publicBase: string,
   sidecars: CafeSidecars,
 ): Cafe {
-  return mapShopToCafe(
+  const cafe = mapShopToCafe(
     shop,
     sidecars.statsById.get(shop.id),
     publicBase,
@@ -308,6 +352,7 @@ function cafeFromApprovedShop(
     sidecars.amenitiesLoaded ? sidecars.amenityById.get(shop.id) ?? [] : undefined,
     sidecars.paymentById.get(shop.id) ?? null,
   )
+  return withCafeBadges(cafe, cafeBadgesFromRows(sidecars.badgesById.get(shop.id), publicBase))
 }
 
 function approvedShopQuery(

@@ -13,6 +13,7 @@ describe('admin routes', () => {
       '/admin/partnerships',
       '/admin/ads',
       '/admin/events',
+      '/admin/badges',
       '/admin/users',
       '/admin/moderation',
     ])
@@ -30,6 +31,8 @@ describe('admin routes', () => {
     expect(adminNavIdFromPath('/admin/users')).toBe('users')
     expect(adminNavIdFromPath('/admin/events')).toBe('events')
     expect(adminNavIdFromPath('/admin/events/new')).toBe('events')
+    expect(adminNavIdFromPath('/admin/badges')).toBe('badges')
+    expect(adminNavIdFromPath('/admin/badges/new')).toBe('badges')
     expect(adminNavIdFromPath('/admin')).toBe('dashboard')
   })
 
@@ -76,11 +79,21 @@ describe('admin routes', () => {
     })
   })
 
+  test('nested badge pages return to the badges index', () => {
+    expect(adminBackNav('/admin/badges')).toBeNull()
+    expect(adminBackNav('/admin/badges/new')).toEqual({ to: '/admin/badges', label: 'Badges' })
+    expect(adminBackNav('/admin/badges/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toEqual({
+      to: '/admin/badges',
+      label: 'Badges',
+    })
+  })
+
   test('section indexes do not grow a back control', () => {
     expect(adminBackNav('/admin')).toBeNull()
     expect(adminBackNav('/admin/requests')).toBeNull()
     expect(adminBackNav('/admin/claims')).toBeNull()
     expect(adminBackNav('/admin/users')).toBeNull()
     expect(adminBackNav('/admin/events')).toBeNull()
+    expect(adminBackNav('/admin/badges')).toBeNull()
   })
 })

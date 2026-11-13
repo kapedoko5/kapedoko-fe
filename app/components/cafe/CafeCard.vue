@@ -15,6 +15,13 @@
         </span>
         <span class="bag__copy">
           <span class="bag__name">{{ cafe.name }}</span>
+          <span v-if="cafe.badges?.length" class="bag__badges">
+            <CafeBadgeChip
+              v-for="badge in cafe.badges"
+              :key="badge.id"
+              :badge="badge"
+            />
+          </span>
           <span v-if="closed" class="bag__closed">Closed</span>
           <span v-if="cafe.address" class="bag__origin">{{ cafe.address }}</span>
         </span>
@@ -73,6 +80,7 @@
 
 <script lang="ts" setup>
 import { BadgeCheck, Clock, Heart, Navigation, Plug, Unplug, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import type { Cafe } from '~/types/cafe'
 import {
   ANALYTICS_EVENTS,
@@ -88,7 +96,7 @@ import { amenityAriaLabel, amenityBagPress, amenityBagValue, amenitySoft, amenit
 import { paymentCard, paymentTeamPress } from '~/utils/cafe-payment'
 
 const props = defineProps<{
-  cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment'>
+  cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment' | 'badges'>
   selected?: boolean
   distanceLabel?: string
   surface?: CardSurface
@@ -270,6 +278,13 @@ onBeforeUnmount(() => {
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
+}
+
+.bag__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
 }
 
 .bag__origin,

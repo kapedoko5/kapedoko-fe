@@ -38,6 +38,13 @@
           </svg>
         </button>
       </div>
+      <div v-if="cafe.badges?.length" class="cafe-detail__badges">
+        <CafeBadgeChip
+          v-for="badge in cafe.badges"
+          :key="badge.id"
+          :badge="badge"
+        />
+      </div>
     </header>
 
     <div class="cafe-detail__scroll">
@@ -378,6 +385,7 @@
 
 <script lang="ts" setup>
 import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Store, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { Cafe } from '~/types/cafe'
 import { isKapedokoMark, KAPEDOKO_BEAN_PIN_SRC } from '~/utils/logo'
@@ -764,6 +772,13 @@ const selectPhoto = (index: number) => {
   align-items: center;
   justify-content: space-between;
   gap: 8px 12px;
+}
+
+.cafe-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .cafe-detail--sheet .cafe-detail__header {
