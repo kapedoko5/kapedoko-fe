@@ -1,4 +1,4 @@
-import type { ContentReportRow, ShopReviewPublicRow } from '../types/shop'
+import type { ContentReportRow, ContentReportTarget, ShopReviewPublicRow } from '../types/shop'
 import { reviewQuote } from './cafe-review'
 
 export type ReportedReviewSource = Pick<
@@ -26,4 +26,22 @@ export function withReportedReviewText(
 export function reportedReviewCopy(report: Pick<ContentReportRow, 'target_type' | 'review_text'>): string | null {
   if (report.target_type !== 'review') return null
   return report.review_text || 'This review is no longer available.'
+}
+
+export function reportTargetWord(type: ContentReportTarget): string {
+  if (type === 'review') return 'review'
+  if (type === 'shop_owner') return 'claim'
+  return 'photo'
+}
+
+export function reportTargetHeading(type: ContentReportTarget): string {
+  if (type === 'review') return 'Review report'
+  if (type === 'shop_owner') return 'Ownership report'
+  return 'Photo report'
+}
+
+export function reportTargetNote(report: Pick<ContentReportRow, 'target_type' | 'reason'>): string {
+  if (report.reason) return report.reason
+  if (report.target_type === 'shop_owner') return 'Someone says this listing’s owner is a mistake.'
+  return 'No note from the reporter.'
 }

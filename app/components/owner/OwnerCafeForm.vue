@@ -12,6 +12,12 @@
       @update:name="draft.name = $event"
       @update:logoFile="onLogoFile"
     />
+    <OwnerFeaturedPhotos
+      :object-keys="draft.galleryObjectKeys"
+      :issue="issues.gallery"
+      @change="onGallery"
+      @issue="issues.gallery = $event"
+    />
     <CafeDetailsStep
       :phone="draft.phone"
       :same-every-day="draft.sameEveryDay"
@@ -54,10 +60,12 @@
 import CafeIdentityStep from '~/components/submit/CafeIdentityStep.vue'
 import CafeDetailsStep from '~/components/submit/CafeDetailsStep.vue'
 import CafeLocationPicker from '~/components/submit/CafeLocationPicker.client.vue'
+import OwnerFeaturedPhotos from '~/components/owner-portal/OwnerFeaturedPhotos.vue'
 import type { ShopRow, WeeklyHours } from '~/types/shop'
 import { adminCafeErrors } from '~/utils/admin-shop'
 import { allDayEveryDay, isValidWeeklyHours, sameHoursEveryDay } from '~/utils/hours'
 import { normalizeAddress, normalizeCafeName } from '~/utils/identity'
+import { featuredPhotoCountError } from '~/utils/owner-ads'
 import { optionalPhone } from '~/utils/phone'
 import { publicObjectUrl } from '~/utils/shop-mapper'
 import { DAY_KEYS } from '~/types/shop'
@@ -83,6 +91,8 @@ const emit = defineEmits<{
     contact_number: string | null
     logoFile: File | null
     logoObjectKey: string | null
+    galleryFiles: File[]
+    galleryObjectKeys: string[]
   }]
 }>()
 
@@ -111,6 +121,8 @@ const draft = reactive({
   lng: props.shop.longitude as number | null,
   address: props.shop.address,
   phone: props.shop.contact_number ?? '',
+  galleryFiles: [] as File[],
+  galleryObjectKeys: [...(props.shop.gallery_object_keys ?? [])],
   sameEveryDay: initial.sameEveryDay,
   allDay: initial.allDay,
   openTime: initial.openTime,
@@ -125,6 +137,7 @@ const issues = reactive({
   pin: null as string | null,
   phone: null as string | null,
   hours: null as string | null,
+  gallery: null as string | null,
   form: null as string | null,
 })
 
@@ -143,6 +156,20 @@ const onLogoFile = (file: File | null) => {
   if (file) draft.logoObjectKey = null
 }
 
+const onGallery = (payload: { files: File[]; objectKeys: string[] }) => {
+  draft.galleryFiles = payload.files
+  draft.galleryObjectKeys = payload.objectKeys
+  issues.gallery = featuredPhotoCountError(payload.files.length + payload.objectKeys.length)
+}
+
+watch(
+  () => (props.shop.gallery_object_keys ?? []).join('|'),
+  () => {
+    draft.galleryFiles = []
+    draft.galleryObjectKeys = [...(props.shop.gallery_object_keys ?? [])]
+  },
+)
+
 const onSubmit = () => {
   if (draft.sameEveryDay) {
     draft.weekly = draft.allDay ? allDayEveryDay() : sameHoursEveryDay(draft.openTime, draft.closeTime)
@@ -156,8 +183,9 @@ const onSubmit = () => {
     hours: draft.weekly,
     logoFile: draft.logoFile,
   })
-  Object.assign(issues, { ...next, form: null })
-  if (Object.values(next).some(Boolean) || draft.lat == null || draft.lng == null) return
+  const galleryIssue = featuredPhotoCountError(draft.galleryFiles.length + draft.galleryObjectKeys.length)
+  Object.assign(issues, { ...next, gallery: galleryIssue, form: null })
+  if (Object.values(next).some(Boolean) || galleryIssue || draft.lat == null || draft.lng == null) return
   emit('save', {
     name: normalizeCafeName(draft.name),
     address: normalizeAddress(draft.address),
@@ -167,6 +195,8 @@ const onSubmit = () => {
     contact_number: optionalPhone(draft.phone),
     logoFile: draft.logoFile,
     logoObjectKey: draft.logoObjectKey,
+    galleryFiles: draft.galleryFiles,
+    galleryObjectKeys: draft.galleryObjectKeys,
   })
 }
 </script>

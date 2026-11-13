@@ -33,8 +33,45 @@ import {
 } from './cafe-feed'
 import type { CafeFilterId } from './cafe-filters'
 
-export const APPROVED_SHOP_COLUMNS =
+const APPROVED_SHOP_COLUMNS_CORE =
   'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,contact_number,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
+
+export const APPROVED_SHOP_COLUMNS =
+  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,gallery_object_keys,contact_number,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
+
+let shopColumnSelect = APPROVED_SHOP_COLUMNS
+
+export function isMissingShopGalleryColumn(error: unknown): boolean {
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'object' && error !== null && 'message' in error
+      ? String((error as { message?: unknown }).message ?? '')
+      : String(error ?? '')
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code ?? '')
+    : ''
+  return /gallery_object_keys/i.test(message)
+    && (/does not exist|schema cache/i.test(message) || code === '42703')
+}
+
+export function resetApprovedShopSelectForTests(): void {
+  shopColumnSelect = APPROVED_SHOP_COLUMNS
+}
+
+function dropGalleryColumnSelect(): boolean {
+  if (shopColumnSelect === APPROVED_SHOP_COLUMNS_CORE) return false
+  shopColumnSelect = APPROVED_SHOP_COLUMNS_CORE
+  return true
+}
+
+async function withShopGalleryFallback<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run()
+  } catch (error) {
+    if (!isMissingShopGalleryColumn(error) || !dropGalleryColumnSelect()) throw error
+    return await run()
+  }
+}
 
 const SHOP_ID_RE =
   /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
@@ -365,7 +402,7 @@ function approvedShopQuery(
 ) {
   let request = supabase
     .from('shops')
-    .select(APPROVED_SHOP_COLUMNS)
+    .select(shopColumnSelect)
     .eq('status', 'approved')
 
   if (options.ids) request = request.in('id', options.ids)
@@ -418,15 +455,16 @@ export async function fetchApprovedShopRows(
     limit?: number
   } = {},
 ): Promise<ShopRow[]> {
-  const shops = options.limit
-    ? await (async () => {
-        const { data, error } = await approvedShopQuery(supabase, options).limit(options.limit)
-        if (error) throw error
-        return (data ?? []) as ShopRow[]
-      })()
-    : await fetchPages<ShopRow>((from, to) =>
-        approvedShopQuery(supabase, options).range(from, to),
-      )
+  const shops = await withShopGalleryFallback(async () => {
+    if (options.limit) {
+      const { data, error } = await approvedShopQuery(supabase, options).limit(options.limit)
+      if (error) throw error
+      return (data ?? []) as ShopRow[]
+    }
+    return await fetchPages<ShopRow>((from, to) =>
+      approvedShopQuery(supabase, options).range(from, to),
+    )
+  })
   return shops.filter((shop) => shop.status === 'approved')
 }
 
@@ -473,22 +511,24 @@ export async function fetchApprovedCafePage(
 ): Promise<{ cafes: Cafe[]; hasMore: boolean }> {
   const limit = Math.max(1, options.limit ?? CAFE_FEED_PAGE_SIZE)
   const offset = Math.max(0, options.offset ?? 0)
-  const { data, error } = await approvedShopQuery(supabase, {
-    bounds: options.bounds,
-    query: options.query,
-  })
-    .order('id')
-    .range(offset, offset + limit - 1)
+  return await withShopGalleryFallback(async () => {
+    const { data, error } = await approvedShopQuery(supabase, {
+      bounds: options.bounds,
+      query: options.query,
+    })
+      .order('id')
+      .range(offset, offset + limit - 1)
 
-  if (error) throw error
-  const rows = (data ?? []) as ShopRow[]
-  const shops = rows.filter((shop) => shop.status === 'approved')
-  if (!shops.length) return { cafes: [], hasMore: false }
-  const sidecars = await loadCafeSidecars(supabase, shops.map((shop) => shop.id))
-  return {
-    cafes: cafesFromApprovedShops(shops, publicBase, sidecars),
-    hasMore: rows.length === limit,
-  }
+    if (error) throw error
+    const rows = (data ?? []) as ShopRow[]
+    const shops = rows.filter((shop) => shop.status === 'approved')
+    if (!shops.length) return { cafes: [], hasMore: false }
+    const sidecars = await loadCafeSidecars(supabase, shops.map((shop) => shop.id))
+    return {
+      cafes: cafesFromApprovedShops(shops, publicBase, sidecars),
+      hasMore: rows.length === limit,
+    }
+  })
 }
 
 /** Id and position only, inside a map box. Callers rank these before loading cards. */
@@ -607,8 +647,10 @@ export async function fetchApprovedCafesByIds(
   const ids = [...new Set(shopIds.filter((id) => isShopId(id)))]
   if (!ids.length) return []
 
-  const found = await fetchByShopIds<ShopRow>(ids, (chunk, from, to) =>
-    approvedShopQuery(supabase, { ids: chunk }).range(from, to),
+  const found = await withShopGalleryFallback(() =>
+    fetchByShopIds<ShopRow>(ids, (chunk, from, to) =>
+      approvedShopQuery(supabase, { ids: chunk }).range(from, to),
+    ),
   )
   const approved = found.filter((shop) => shop.status === 'approved')
   if (!approved.length) return []
@@ -631,18 +673,44 @@ export async function fetchApprovedCafeById(
 ): Promise<Cafe | null> {
   if (!isShopId(shopId)) return null
 
-  const { data: shop, error } = await supabase
-    .from('shops')
-    .select(APPROVED_SHOP_COLUMNS)
-    .eq('id', shopId)
-    .eq('status', 'approved')
-    .maybeSingle()
-
-  if (error) throw error
+  const shop = await withShopGalleryFallback(async () => {
+    const { data, error } = await supabase
+      .from('shops')
+      .select(shopColumnSelect)
+      .eq('id', shopId)
+      .eq('status', 'approved')
+      .maybeSingle()
+    if (error) throw error
+    return data
+  })
   if (!shop) return null
 
   const sidecars = await loadCafeSidecars(supabase, [shopId])
-  return cafeFromApprovedShop(shop as ShopRow, publicBase, sidecars)
+  const cafe = cafeFromApprovedShop(shop as ShopRow, publicBase, sidecars)
+  const poster = await fetchLiveShopPoster(supabase, shopId, publicBase)
+  return poster ? { ...cafe, poster } : cafe
+}
+
+export async function fetchLiveShopPoster(
+  supabase: { from: (relation: string) => any },
+  shopId: string,
+  publicBase: string,
+): Promise<string | null> {
+  if (!isShopId(shopId)) return null
+  try {
+    const { data, error } = await supabase
+      .from('live_shop_posters')
+      .select('poster_object_key')
+      .eq('shop_id', shopId)
+      .maybeSingle()
+    if (error || !data) return null
+    return publicObjectUrl(
+      (data as { poster_object_key?: string | null }).poster_object_key,
+      publicBase,
+    )
+  } catch {
+    return null
+  }
 }
 
 export async function fetchPublicCafeReviews(

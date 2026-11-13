@@ -3,16 +3,21 @@ import type { ShopRow } from '../types/shop'
 import type { ShopAmenityResolutionRow } from './amenity-status'
 import type { ShopPaymentRow } from './cafe-payment'
 import {
+  APPROVED_SHOP_COLUMNS,
   chunkIds,
   fetchAdminShopRows,
   fetchAmenityRowsForShopIds,
+  fetchApprovedCafeById,
   fetchApprovedCafePage,
   fetchApprovedCafes,
   fetchApprovedPickerRows,
+  fetchApprovedShopRows,
   fetchPages,
   groupAmenityRows,
   groupBadgeRows,
+  isMissingShopGalleryColumn,
   POSTGREST_PAGE_SIZE,
+  resetApprovedShopSelectForTests,
   SHOP_ID_CHUNK,
   SHOP_ID_GET_CHUNK,
   SIDECAR_RPC,
@@ -239,6 +244,56 @@ describe('approved shop catalog fetch', () => {
       confidence: 'team_verified',
     })
     expect(cafes[0]?.payment).toMatchObject({ qr: 'available' })
+  })
+
+  test('retries shop catalog without gallery keys when the column is missing', async () => {
+    resetApprovedShopSelectForTests()
+    const shops = [shopRow(1)]
+    const selects: string[] = []
+    const missing = { code: '42703', message: 'column shops.gallery_object_keys does not exist' }
+    const supabase = {
+      async rpc() {
+        return { data: { amenities: [], payments: [], stats: [], tiers: [] }, error: null }
+      },
+      from() {
+        const builder: Record<string, unknown> = {}
+        const chain = () => builder
+        Object.assign(builder, {
+          select(columns: string) {
+            selects.push(columns)
+            return builder
+          },
+          eq: chain,
+          order: chain,
+          limit: () => Promise.resolve(
+            selects.at(-1)?.includes('gallery_object_keys')
+              ? { data: null, error: missing }
+              : { data: shops, error: null },
+          ),
+          range: () => Promise.resolve(
+            selects.at(-1)?.includes('gallery_object_keys')
+              ? { data: null, error: missing }
+              : { data: shops, error: null },
+          ),
+          maybeSingle: () => Promise.resolve(
+            selects.at(-1)?.includes('gallery_object_keys')
+              ? { data: null, error: missing }
+              : { data: shops[0], error: null },
+          ),
+        })
+        return builder
+      },
+    }
+
+    expect(isMissingShopGalleryColumn(missing)).toBe(true)
+    expect(APPROVED_SHOP_COLUMNS).toContain('gallery_object_keys')
+    const rows = await fetchApprovedShopRows(supabase)
+    expect(rows).toHaveLength(1)
+    const cafe = await fetchApprovedCafeById(supabase, '', shopId(1))
+    expect(cafe?.id).toBe(shopId(1))
+    expect(selects.some((columns) => columns.includes('gallery_object_keys'))).toBe(true)
+    expect(selects.some((columns) => !columns.includes('gallery_object_keys'))).toBe(true)
+    resetApprovedShopSelectForTests()
   })
 })
 

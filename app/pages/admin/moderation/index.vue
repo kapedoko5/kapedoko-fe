@@ -2,7 +2,7 @@
   <IonPage>
     <AdminShell
       title="Moderation"
-      lede="Open reports stay here until you hide the review or restore it."
+      lede="Open reports stay here until you hide a review or photo, restore it, or dismiss an ownership flag."
       :status="status"
       :error="error"
     >
@@ -10,7 +10,7 @@
       <div v-else class="report-list">
         <article v-for="report in openReports" :key="report.id" class="admin-card report-card">
           <header class="report-head">
-            <h2>{{ report.target_type === 'review' ? 'Review report' : 'Photo report' }}</h2>
+            <h2>{{ reportTargetHeading(report.target_type) }}</h2>
             <span class="report-stamp report-stamp--open">
               <span class="report-stamp__mark" aria-hidden="true" />
               Open
@@ -19,13 +19,21 @@
           <template v-if="reportedText(report)">
             <blockquote class="report-quote">{{ reportedText(report) }}</blockquote>
           </template>
-          <p class="report-note">{{ report.reason || 'No note from the reporter.' }}</p>
+          <p class="report-note">{{ reportTargetNote(report) }}</p>
+          <NuxtLink
+            v-if="report.target_type === 'shop_owner' && report.shop_id"
+            class="admin-btn admin-btn--ghost"
+            :to="`/admin/cafes/${report.shop_id}`"
+          >
+            Open cafe
+          </NuxtLink>
           <p class="report-meta">
             <span>{{ formatAdminDate(report.created_at) }}</span>
             <span v-if="reference(report)" :title="referenceTitle(report)">{{ reference(report) }}</span>
           </p>
           <div class="report-actions">
             <button
+              v-if="report.target_type !== 'shop_owner'"
               type="button"
               class="report-warn"
               :disabled="savingId === report.id"
@@ -42,11 +50,15 @@
               class="report-restore"
               :disabled="savingId === report.id"
               :aria-busy="savingId === report.id && pendingOutcome === 'dismissed' || undefined"
-              :aria-label="`Restore ${targetWord(report)}`"
+              :aria-label="report.target_type === 'shop_owner' ? 'Dismiss this report' : `Restore ${targetWord(report)}`"
               @click="onResolve(report, 'dismissed')"
             >
               <AdminBusyLabel :busy="savingId === report.id && pendingOutcome === 'dismissed'">
-                {{ savingId === report.id && pendingOutcome === 'dismissed' ? 'Restoring…' : 'Restore' }}
+                {{
+                  savingId === report.id && pendingOutcome === 'dismissed'
+                    ? (report.target_type === 'shop_owner' ? 'Dismissing…' : 'Restoring…')
+                    : (report.target_type === 'shop_owner' ? 'Dismiss' : 'Restore')
+                }}
               </AdminBusyLabel>
             </button>
           </div>
@@ -60,7 +72,7 @@
 import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import { formatAdminDate } from '~/utils/admin-nav'
-import { reportedReviewCopy } from '~/utils/moderation'
+import { reportedReviewCopy, reportTargetHeading, reportTargetNote, reportTargetWord } from '~/utils/moderation'
 import type { ContentReportRow } from '~/types/shop'
 
 definePageMeta({
@@ -75,7 +87,7 @@ const openReports = computed(() => reports.value.filter((report) => report.statu
 const reportedText = (report: ContentReportRow) => reportedReviewCopy(report)
 const pendingOutcome = ref<'hidden' | 'dismissed' | null>(null)
 
-const targetWord = (report: ContentReportRow) => (report.target_type === 'review' ? 'review' : 'photo')
+const targetWord = (report: ContentReportRow) => reportTargetWord(report.target_type)
 
 const reference = (report: ContentReportRow) => {
   if (report.review_id) return `Review ${report.review_id.slice(0, 8)}`
@@ -87,6 +99,7 @@ const referenceTitle = (report: ContentReportRow) => report.review_id || report.
 
 const onResolve = async (report: ContentReportRow, outcome: 'hidden' | 'dismissed') => {
   const word = targetWord(report)
+  const ownership = report.target_type === 'shop_owner'
   const choice = outcome === 'hidden'
     ? await askAdmin({
       title: `Keep this ${word} hidden?`,
@@ -95,17 +108,23 @@ const onResolve = async (report: ContentReportRow, outcome: 'hidden' | 'dismisse
       variant: 'destructive',
     })
     : await askAdmin({
-      title: `Restore this ${word}?`,
-      message: 'It can show on the cafe again.',
-      confirmLabel: 'Restore',
+      title: ownership ? 'Dismiss this ownership report?' : `Restore this ${word}?`,
+      message: ownership
+        ? 'The cafe stays claimed. Transfer the owner from cafe edit if the claim is wrong.'
+        : 'It can show on the cafe again.',
+      confirmLabel: ownership ? 'Dismiss' : 'Restore',
     })
   if (!choice.confirmed) return
   pendingOutcome.value = outcome
   try {
     await resolveReport(report.id, outcome)
     toast.success(
-      outcome === 'hidden' ? 'Kept hidden' : 'Restored',
-      outcome === 'hidden' ? `The ${word} stays off the cafe.` : `The ${word} can show on the cafe again.`,
+      outcome === 'hidden' ? 'Kept hidden' : ownership ? 'Dismissed' : 'Restored',
+      outcome === 'hidden'
+        ? `The ${word} stays off the cafe.`
+        : ownership
+          ? 'This ownership report is closed.'
+          : `The ${word} can show on the cafe again.`,
     )
   } catch (err) {
     toast.error('Could not update this report', err, 'Could not update this report.')

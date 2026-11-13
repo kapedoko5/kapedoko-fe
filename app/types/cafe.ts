@@ -39,6 +39,7 @@ export interface Cafe {
   address: string
   image: string
   photos: string[]
+  poster?: string | null
   open: boolean
   status: string
   hoursHint: string
