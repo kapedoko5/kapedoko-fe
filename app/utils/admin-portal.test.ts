@@ -88,6 +88,7 @@ describe('admin cafe validation', () => {
       '/ad-banners/admin/banner.jpg',
       'audit-photos/auditor/visit.png',
       'event-images/admin/poster.webp',
+      'badge-icons/admin/gem.webp',
       'shop-logos/admin/mark.webp',
       '../secret',
       'https://evil.example/x',
@@ -97,6 +98,7 @@ describe('admin cafe validation', () => {
       'ad-banners/admin/banner.jpg',
       'audit-photos/auditor/visit.png',
       'event-images/admin/poster.webp',
+      'badge-icons/admin/gem.webp',
     ])
     expect(parseDeletedAdminShop({
       id: 'shop-1',

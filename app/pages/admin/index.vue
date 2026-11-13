@@ -113,6 +113,7 @@ const cards = computed(() => {
     { label: 'Live pins', value: counts.value.activePlacements },
     { label: 'Live ads', value: counts.value.activeAds },
     { label: 'Live events', value: counts.value.activeEvents },
+    { label: 'Live badges', value: counts.value.activeBadges },
     { label: 'Users', value: userTotal.value },
     { label: 'Check-ins 30d', value: counts.value.checkIns30d },
   ]

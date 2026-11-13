@@ -1,4 +1,7 @@
+import type { CafeBadge } from './admin'
 import type { BusynessLevel, CafeWorkFacts, MarkerTier } from './shop'
+
+export type { CafeBadge }
 
 export type Amenity = 'wifi' | 'plug'
 export type PaymentKind = 'qr' | 'card' | 'cash'
@@ -60,4 +63,5 @@ export interface Cafe {
   markerTier: MarkerTier
   source?: 'openstreetmap' | 'user' | 'admin' | null
   payment?: CafePayment | null
+  badges: CafeBadge[]
 }

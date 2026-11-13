@@ -1,3 +1,4 @@
+import type { CafeBadge } from '../types/admin'
 import type { Amenity, Cafe, CafePayment, CafeReview } from '../types/cafe'
 import type {
   CafeWorkFacts,
@@ -202,7 +203,12 @@ export function mapShopToCafe(
     markerTier,
     source: shop.source ?? null,
     payment: payment ?? null,
+    badges: [],
   }
+}
+
+export function withCafeBadges(cafe: Cafe, badges: CafeBadge[]): Cafe {
+  return { ...cafe, badges }
 }
 
 export function withCafeReviews(cafe: Cafe, reviews: CafeReview[]): Cafe {
