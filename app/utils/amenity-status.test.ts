@@ -98,6 +98,46 @@ describe('amenity resolution mirror', () => {
     expect(resolveAmenity({ votes: votes(['yes', 'yes']), now }).confidence).toBe('reported')
   })
 
+  test('owner proof is owner verified and beats community', () => {
+    const resolved = resolveAmenity({
+      owner: { reviewedAt: '2026-09-20T00:00:00.000Z', wifiDownloadMbps: 42 },
+      votes: votes(['no', 'no', 'no']),
+      now,
+    })
+    expect(resolved).toMatchObject({
+      availability: 'available',
+      confidence: 'owner_verified',
+      wifiSpeed: 'fast',
+    })
+    expect(trustedPositive(resolved)).toBe(true)
+    expect(amenityCardLabel('wifi', resolved)).toBe('Verified')
+    expect(amenityStampKind(resolved)).toBe('owner')
+    expect(amenityBagPress(resolved, resolved)).toBe('Verified · Sep 20, 2026')
+  })
+
+  test('newer owner proof beats an older team audit', () => {
+    expect(resolveAmenity({
+      audit: { result: 'unavailable', auditedAt: '2026-08-01T00:00:00.000Z' },
+      owner: { reviewedAt: '2026-09-20T00:00:00.000Z', wifiDownloadMbps: 12 },
+      now,
+    })).toMatchObject({
+      availability: 'available',
+      confidence: 'owner_verified',
+      wifiSpeed: 'okay',
+    })
+  })
+
+  test('newer team audit still beats owner proof', () => {
+    expect(resolveAmenity({
+      audit: { result: 'available', auditedAt: '2026-10-01T00:00:00.000Z' },
+      owner: { reviewedAt: '2026-09-20T00:00:00.000Z', wifiDownloadMbps: 80 },
+      now,
+    })).toMatchObject({
+      availability: 'available',
+      confidence: 'team_verified',
+    })
+  })
+
   test('12 team audit with no reviews is team verified', () => {
     expect(resolveAmenity({
       audit: { result: 'available', auditedAt: '2026-09-01T00:00:00.000Z' },
@@ -270,6 +310,9 @@ describe('trusted filters and labels', () => {
       audit: { result: 'available', auditedAt: day(-181) },
       now: new Date('2026-10-02T00:00:00.000Z'),
     }))).toBe(true)
+    expect(trustedPositive(resolveAmenity({
+      owner: { reviewedAt: '2026-09-20T00:00:00.000Z' },
+    }))).toBe(true)
   })
 
   test('card copy names each display state', () => {
@@ -281,10 +324,10 @@ describe('trusted filters and labels', () => {
     expect(amenityCardLabel('wifi', resolveAmenity({ votes: votes(['yes', 'no']) }))).toBe('Mixed reports')
     expect(amenityCardLabel('wifi', resolveAmenity({
       audit: { result: 'available', auditedAt: '2026-09-01T00:00:00.000Z' },
-    }))).toBe('KapeDoko team')
+    }))).toBe('Verified')
     expect(amenityPressLabel('wifi', resolveAmenity({
       audit: { result: 'available', auditedAt: '2026-09-01T00:00:00.000Z' },
-    }))).toBe('KapeDoko team')
+    }))).toBe('Verified')
     expect(amenityCardLabel('wifi', resolveAmenity({
       audit: { result: 'available', auditedAt: '2026-08-01T00:00:00.000Z' },
       votes: votes(['no', 'no', 'no'], '2026-09-01T00:00:00.000Z'),
@@ -300,7 +343,7 @@ describe('trusted filters and labels', () => {
     expect(amenityEvidenceLabel(resolveAmenity({ votes: votes(['yes', 'yes', 'yes']) }))).toBe('3 KapéBeans')
     expect(amenityStampKind(unknownAmenityStatus())).toBe('unknown')
     expect(amenityBagValue('wifi', verified)).toBe('Yes')
-    expect(amenityBagPress(verified, verified)).toBe('Verified by KapeDoko team · Oct 2, 2026')
+    expect(amenityBagPress(verified, verified)).toBe('Verified · Oct 2, 2026')
     expect(amenityBagPress(
       resolveAmenity({ votes: votes(['yes', 'yes', 'yes']) }),
       resolveAmenity({ votes: votes(['yes', 'yes', 'yes']) }),

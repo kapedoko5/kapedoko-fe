@@ -4,6 +4,7 @@ export const ADMIN_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/admin' },
   { id: 'cafes', label: 'Cafes', href: '/admin/cafes' },
   { id: 'audits', label: 'Audits', href: '/admin/audits' },
+  { id: 'verifications', label: 'Proofs', href: '/admin/verifications' },
   { id: 'requests', label: 'Requests', href: '/admin/requests' },
   { id: 'claims', label: 'Claims', href: '/admin/claims' },
   { id: 'partnerships', label: 'Partnerships', href: '/admin/partnerships' },
@@ -55,6 +56,10 @@ export function adminBackNav(
     return { to: '/admin/audits', label: 'Audits' }
   }
 
+  if (current.startsWith('/admin/verifications/') && current !== '/admin/verifications/') {
+    return { to: '/admin/verifications', label: 'Proofs' }
+  }
+
   if (current.startsWith('/admin/cafes/') && current !== '/admin/cafes/') {
     return { to: '/admin/cafes', label: 'Cafes' }
   }
@@ -71,11 +76,12 @@ export function adminBackNav(
 }
 
 export function staffNav(role: 'admin' | 'auditor' | string | null | undefined) {
-  if (role === 'auditor') return ADMIN_NAV.filter((item) => item.id === 'audits')
+  if (role === 'auditor') return ADMIN_NAV.filter((item) => item.id === 'audits' || item.id === 'verifications')
   return [...ADMIN_NAV]
 }
 
 export function adminNavIdFromPath(path: string): (typeof ADMIN_NAV)[number]['id'] {
+  if (path.includes('/verifications')) return 'verifications'
   if (path.includes('/audits')) return 'audits'
   if (path.startsWith('/admin/cafes')) return 'cafes'
   if (path.startsWith('/admin/requests')) return 'requests'

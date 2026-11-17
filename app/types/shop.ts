@@ -31,6 +31,34 @@ export type WeeklyHours = Record<DayKey, DayHours>
 export type ShopSource = 'openstreetmap' | 'user' | 'admin'
 export type OsmElementType = 'node' | 'way' | 'relation'
 export type ShopClaimStatus = 'pending' | 'verified' | 'rejected'
+export type AmenityVerificationStatus = 'pending' | 'approved' | 'rejected'
+export type PaymentChoice = 'available' | 'unavailable' | 'unknown'
+
+export interface ShopAmenityVerificationRow {
+  id: string
+  shop_id: string
+  shop_name?: string | null
+  owner_id: string
+  owner_name?: string | null
+  status: AmenityVerificationStatus
+  include_wifi: boolean
+  wifi_screenshot_object_key: string | null
+  wifi_download_mbps: number | null
+  include_seating: boolean
+  seating_photo_object_key: string | null
+  seating_capacity: number | null
+  include_outlets: boolean
+  outlets_photo_object_key: string | null
+  include_payment: boolean
+  accepts_qr: PaymentChoice | string | null
+  accepts_card: PaymentChoice | string | null
+  accepts_cash: PaymentChoice | string | null
+  rejection_reason: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+  updated_at: string
+}
 
 export interface ShopRow {
   id: string
@@ -64,7 +92,7 @@ export type WifiTimeLimit = 'unlimited' | 'voucher' | 'purchase' | 'unsure'
 export type PowerAccess = 'easy' | 'limited' | 'scarce'
 
 export type AmenityAvailability = 'available' | 'unavailable' | 'mixed' | 'unknown'
-export type AmenityConfidence = 'team_verified' | 'community_confirmed' | 'reported' | 'unknown'
+export type AmenityConfidence = 'team_verified' | 'owner_verified' | 'community_confirmed' | 'reported' | 'unknown'
 
 export interface CafeAmenityStatus {
   availability: AmenityAvailability

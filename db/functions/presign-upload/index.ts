@@ -10,7 +10,7 @@ const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const BANNER_MAX_BYTES = 4 * 1024 * 1024
 const AUDIT_PHOTO_MAX_BYTES = 4 * 1024 * 1024
 
-type UploadPurpose = 'shop-logo' | 'shop-photo' | 'shop-poster' | 'ad-banner' | 'audit-photo' | 'event-image' | 'badge-icon'
+type UploadPurpose = 'shop-logo' | 'shop-photo' | 'shop-poster' | 'ad-banner' | 'audit-photo' | 'event-image' | 'badge-icon' | 'amenity-proof'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,6 +76,7 @@ function parsePurpose(value: unknown): UploadPurpose {
   if (value === 'audit-photo') return 'audit-photo'
   if (value === 'event-image') return 'event-image'
   if (value === 'badge-icon') return 'badge-icon'
+  if (value === 'amenity-proof') return 'amenity-proof'
   if (value === 'shop-photo') return 'shop-photo'
   if (value === 'shop-poster') return 'shop-poster'
   return 'shop-logo'
@@ -86,6 +87,7 @@ function purposeFolder(purpose: UploadPurpose): string {
   if (purpose === 'audit-photo') return 'audit-photos'
   if (purpose === 'event-image') return 'event-images'
   if (purpose === 'badge-icon') return 'badge-icons'
+  if (purpose === 'amenity-proof') return 'amenity-proofs'
   if (purpose === 'shop-photo') return 'shop-photos'
   if (purpose === 'shop-poster') return 'shop-posters'
   return 'shop-logos'
@@ -149,6 +151,27 @@ async function isAdmin(auth: AuthUser): Promise<boolean> {
 async function isAuditor(auth: AuthUser): Promise<boolean> {
   const role = await profileRole(auth)
   return role === 'admin' || role === 'auditor'
+}
+
+async function canUploadAmenityProof(auth: AuthUser): Promise<boolean> {
+  const role = await profileRole(auth)
+  if (role === 'cafe-owner') return true
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const supabaseAnon = Deno.env.get('SUPABASE_ANON_KEY')
+  if (!supabaseUrl || !supabaseAnon) return false
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/shop_claims?claimant_id=eq.${auth.id}&status=eq.verified&select=id&limit=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${auth.jwt}`,
+        apikey: supabaseAnon,
+        Accept: 'application/json',
+      },
+    },
+  )
+  if (!res.ok) return false
+  const rows = (await res.json()) as unknown[]
+  return Array.isArray(rows) && rows.length > 0
 }
 
 function validateImageMeta(
@@ -248,6 +271,9 @@ async function handleMultipartUpload(
   if (purpose === 'audit-photo' && !(await isAuditor(auth))) {
     return json(403, { error: 'Auditor only' })
   }
+  if (purpose === 'amenity-proof' && !(await canUploadAmenityProof(auth))) {
+    return json(403, { error: 'Only a verified cafe owner can upload amenity proof.' })
+  }
 
   const file = form.get('file')
   if (!(file instanceof File)) {
@@ -263,7 +289,7 @@ async function handleMultipartUpload(
   return uploadToR2(config, auth.id, purpose, file.type, validation.ext, body)
 }
 
-const ADMIN_ASSET_KEY = /^(shop-logos|shop-photos|shop-posters|ad-banners|audit-photos|event-images|badge-icons)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
+const ADMIN_ASSET_KEY = /^(shop-logos|shop-photos|shop-posters|ad-banners|audit-photos|event-images|badge-icons|amenity-proofs)\/[A-Za-z0-9][A-Za-z0-9/_.:-]*$/
 const ADMIN_ASSET_KEY_LIMIT = 80
 
 function uniqueDeletableObjectKeys(value: unknown): string[] {
@@ -343,6 +369,9 @@ async function handlePresignRequest(
   }
   if (purpose === 'audit-photo' && !(await isAuditor(auth))) {
     return json(403, { error: 'Auditor only' })
+  }
+  if (purpose === 'amenity-proof' && !(await canUploadAmenityProof(auth))) {
+    return json(403, { error: 'Only a verified cafe owner can upload amenity proof.' })
   }
 
   const contentType = String(payload.contentType ?? '')
