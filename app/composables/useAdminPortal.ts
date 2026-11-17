@@ -28,6 +28,7 @@ import { effectiveMarkerTier } from '~/utils/marker-tier'
 import { parseProfileRole } from '~/utils/profile-role'
 import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, type AdminSearchUserRow } from '~/utils/admin-users'
 import { withReportedReviewText, type ReportedReviewSource } from '~/utils/moderation'
+import { uploadPresignedImage } from '~/utils/presign-upload'
 
 type AdminDatabase = {
   public: {
@@ -60,16 +61,7 @@ export async function requireAdminUserId(): Promise<string> {
 }
 
 export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'shop-photo' | 'shop-poster' | 'ad-banner' | 'event-image' | 'badge-icon'): Promise<string> {
-  const supabase = useSupabaseClient<AdminDatabase>()
-  const form = new FormData()
-  form.append('file', file)
-  form.append('purpose', purpose)
-  const { data, error } = await supabase.functions.invoke('presign-upload', { body: form })
-  const payload = (data ?? null) as { objectKey?: string; error?: string } | null
-  if (error || !payload?.objectKey) {
-    throw new Error(payload?.error || 'Could not upload that file. Try again.')
-  }
-  return payload.objectKey
+  return uploadPresignedImage(file, purpose)
 }
 
 export async function deleteAdminAssets(objectKeys: string[]): Promise<void> {

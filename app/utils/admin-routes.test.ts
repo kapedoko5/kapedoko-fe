@@ -8,6 +8,7 @@ describe('admin routes', () => {
       '/admin',
       '/admin/cafes',
       '/admin/audits',
+      '/admin/verifications',
       '/admin/requests',
       '/admin/claims',
       '/admin/partnerships',
@@ -24,6 +25,8 @@ describe('admin routes', () => {
     expect(adminNavIdFromPath('/admin/cafes/abc-123')).toBe('cafes')
     expect(adminNavIdFromPath('/admin/cafes/import')).toBe('cafes')
     expect(adminNavIdFromPath('/admin/audits/new')).toBe('audits')
+    expect(adminNavIdFromPath('/admin/verifications')).toBe('verifications')
+    expect(adminNavIdFromPath('/admin/verifications/abc')).toBe('verifications')
     expect(adminNavIdFromPath('/admin/cafes/abc-123/audits')).toBe('audits')
     expect(adminNavIdFromPath('/admin/requests?id=1')).toBe('requests')
     expect(adminNavIdFromPath('/admin/claims')).toBe('claims')
@@ -36,9 +39,10 @@ describe('admin routes', () => {
     expect(adminNavIdFromPath('/admin')).toBe('dashboard')
   })
 
-  test('auditors only see the audits section', () => {
-    expect(staffNav('auditor').map((item) => item.id)).toEqual(['audits'])
+  test('auditors only see audits and proofs', () => {
+    expect(staffNav('auditor').map((item) => item.id)).toEqual(['audits', 'verifications'])
     expect(staffNav('admin').map((item) => item.id)).toContain('cafes')
+    expect(staffNav('admin').map((item) => item.id)).toContain('verifications')
   })
 
   test('nested cafe pages return to the cafes index', () => {
@@ -68,6 +72,11 @@ describe('admin routes', () => {
       label: 'Audits',
     })
     expect(adminBackNav(`/admin/audits/${shop}`)).toEqual({ to: '/admin/audits', label: 'Audits' })
+    expect(adminBackNav('/admin/verifications')).toBeNull()
+    expect(adminBackNav('/admin/verifications/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toEqual({
+      to: '/admin/verifications',
+      label: 'Proofs',
+    })
   })
 
   test('nested event pages return to the events index', () => {
@@ -95,5 +104,6 @@ describe('admin routes', () => {
     expect(adminBackNav('/admin/users')).toBeNull()
     expect(adminBackNav('/admin/events')).toBeNull()
     expect(adminBackNav('/admin/badges')).toBeNull()
+    expect(adminBackNav('/admin/verifications')).toBeNull()
   })
 })

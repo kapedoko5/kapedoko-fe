@@ -318,6 +318,19 @@ describe('shop to cafe mapping', () => {
       sourceAt: '2026-10-02T00:00:00.000Z',
     })
   })
+
+  test('carries team-visit seating estimates', () => {
+    expect(mapShopToCafe(shop).seating).toBeNull()
+    expect(mapShopToCafe(shop, null, undefined, 'standard', undefined, null, {
+      count: 24,
+      source: 'team',
+      sourceAt: '2026-10-02T00:00:00.000Z',
+    }).seating).toEqual({
+      count: 24,
+      source: 'team',
+      sourceAt: '2026-10-02T00:00:00.000Z',
+    })
+  })
 })
 
 describe('cafe search suggestions', () => {

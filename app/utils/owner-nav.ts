@@ -51,6 +51,10 @@ export function ownerCafeEditPath(shopId: string): string {
   return isShopId(shopId) ? `/owner/cafes/${shopId}` : '/owner/cafes'
 }
 
+export function ownerCafeVerifyPath(shopId: string): string {
+  return isShopId(shopId) ? `/owner/cafes/${shopId}/verify` : '/owner/cafes'
+}
+
 /** Keep the top Ionic page visible after owner-desk navigations. */
 export function settleOwnerIonPages() {
   if (typeof document === 'undefined') return

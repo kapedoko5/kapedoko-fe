@@ -1,26 +1,20 @@
-import type { ShopClaimRow, ShopOwnerPublic, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
+import type { ShopAmenityVerificationRow, ShopClaimRow, ShopOwnerPublic, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import { authUserId } from '~/utils/auth'
 import { missingOwnerMediaSqlCopy, type ShopPosterRow } from '~/utils/owner-ads'
+import { uploadPresignedImage } from '~/utils/presign-upload'
+import type { OwnerVerifyDraft } from '~/utils/owner-verify'
+import { ownerVerifySubmitPayload } from '~/utils/owner-verify'
 import { adminCannotOwnCopy, missingShopOwnerSqlCopy } from '~/utils/shop-claims'
 
-type OwnerUploadPurpose = 'shop-logo' | 'shop-poster' | 'shop-photo'
+type OwnerUploadPurpose = 'shop-logo' | 'shop-poster' | 'shop-photo' | 'amenity-proof'
 
 type ListedClaimRow = ShopClaimRow & { shop_name?: string | null }
 
 let loadSeq = 0
 
 async function uploadOwnerMedia(file: File, purpose: OwnerUploadPurpose): Promise<string> {
-  const supabase = useSupabaseClient()
-  const form = new FormData()
-  form.append('file', file)
-  form.append('purpose', purpose)
-  const { data, error } = await supabase.functions.invoke('presign-upload', { body: form })
-  const payload = (data ?? null) as { objectKey?: string; error?: string } | null
-  if (error || !payload?.objectKey) {
-    throw new Error(payload?.error || 'Could not upload that file. Try again.')
-  }
-  return payload.objectKey
+  return uploadPresignedImage(file, purpose)
 }
 
 function ownerWriteError(err: unknown, fallback: string): string {
@@ -57,6 +51,7 @@ export function useShopOwnership() {
   const verifiedOwnerByShop = useState<Record<string, boolean>>('kd-shop-verified-owner', () => ({}))
   const shopOwnerByShop = useState<Record<string, ShopOwnerPublic>>('kd-shop-owner', () => ({}))
   const posters = useState<ShopPosterRow[]>('kd-owner-posters', () => [])
+  const verifications = useState<ShopAmenityVerificationRow[]>('kd-owner-verifications', () => [])
   const status = useState<'idle' | 'loading' | 'ready' | 'error'>('kd-owner-status', () => 'idle')
   const error = useState('kd-owner-error', () => '')
   const saving = useState('kd-owner-saving', () => false)
@@ -431,6 +426,62 @@ export function useShopOwnership() {
     }
   }
 
+  const loadVerifications = async () => {
+    const { data, error: rpcError } = await supabase.rpc('list_my_shop_amenity_verifications')
+    if (rpcError) throw new Error(ownerWriteError(rpcError.message, 'Could not load amenity proofs.'))
+    verifications.value = (data ?? []) as ShopAmenityVerificationRow[]
+    return verifications.value
+  }
+
+  const submitAmenityVerification = async (shopId: string, draft: OwnerVerifyDraft) => {
+    saving.value = true
+    error.value = ''
+    try {
+      const payload = ownerVerifySubmitPayload(draft)
+      let wifiKey = draft.wifiKey
+      let seatingKey = draft.seatingKey
+      let outletsKey = draft.outletsKey
+      if (payload.includeWifi && draft.wifiFile) {
+        wifiKey = await uploadOwnerMedia(draft.wifiFile, 'amenity-proof')
+      }
+      if (payload.includeSeating && draft.seatingFile) {
+        seatingKey = await uploadOwnerMedia(draft.seatingFile, 'amenity-proof')
+      }
+      if (payload.includeOutlets && draft.outletsFile) {
+        outletsKey = await uploadOwnerMedia(draft.outletsFile, 'amenity-proof')
+      }
+      const { data, error: rpcError } = await supabase.rpc('submit_shop_amenity_verification', {
+        p_shop_id: shopId,
+        p_include_wifi: payload.includeWifi,
+        p_wifi_screenshot_object_key: payload.includeWifi ? wifiKey : null,
+        p_wifi_download_mbps: payload.wifiMbps,
+        p_include_seating: payload.includeSeating,
+        p_seating_photo_object_key: payload.includeSeating ? seatingKey : null,
+        p_seating_capacity: payload.seatingCapacity,
+        p_include_outlets: payload.includeOutlets,
+        p_outlets_photo_object_key: payload.includeOutlets ? outletsKey : null,
+        p_include_payment: payload.includePayment,
+        p_accepts_qr: payload.acceptsQr,
+        p_accepts_card: payload.acceptsCard,
+        p_accepts_cash: payload.acceptsCash,
+      })
+      const saved = (Array.isArray(data) ? data[0] : data) as ShopAmenityVerificationRow | null
+      if (rpcError || !saved) {
+        throw new Error(ownerWriteError(rpcError?.message || 'Could not send this proof.', 'Could not send this proof.'))
+      }
+      verifications.value = [
+        saved,
+        ...verifications.value.filter((row) => row.id !== saved.id),
+      ]
+      return saved
+    } catch (err) {
+      error.value = ownerWriteError(err, 'Could not send this proof.')
+      throw new Error(error.value)
+    } finally {
+      saving.value = false
+    }
+  }
+
   return {
     claims,
     ownedShops,
@@ -457,5 +508,8 @@ export function useShopOwnership() {
     loadPosters,
     publishPoster,
     endPoster,
+    verifications,
+    loadVerifications,
+    submitAmenityVerification,
   }
 }

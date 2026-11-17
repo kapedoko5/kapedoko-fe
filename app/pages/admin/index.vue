@@ -7,6 +7,7 @@
       :error="error"
       :pending-count="counts.pending"
       :claim-count="counts.pendingClaims"
+      :proof-count="proofCount"
     >
       <div class="desk">
         <ul class="desk-tallies" aria-label="Admin totals">
@@ -29,6 +30,12 @@
             title="Waiting to verify"
             empty-copy="No ownership claims waiting."
             :to="claimTo"
+          />
+          <AdminPendingRail
+            :tickets="proofTickets"
+            :status="proofStatus"
+            title="Amenity proofs"
+            empty-copy="No amenity proofs waiting."
           />
         </div>
 
@@ -102,7 +109,20 @@ const actionLabels = new Set(['Pending', 'Hidden', 'Claims', 'Reports'])
 
 const admin = useAdminData()
 const usersAdmin = useAdminUsers()
+const proofs = useAmenityVerifications()
 const { shops, reports, claims, counts, status, error, load } = admin
+const proofCount = proofs.pendingCount
+const proofStatus = proofs.status
+const proofTickets = computed(() =>
+  proofs.rows.value
+    .filter((row) => row.status === 'pending')
+    .map((row) => ({
+      id: row.id,
+      name: row.shop_name || 'Unknown cafe',
+      detail: row.owner_name || 'Cafe owner',
+      to: `/admin/verifications/${row.id}`,
+    })),
+)
 const pending = computed(() => shops.value.filter((shop) => shop.status === 'pending'))
 const claimShops = computed(() => {
   const ids = new Set(claims.value.filter((claim) => claim.status === 'pending').map((claim) => claim.shop_id))
@@ -134,7 +154,7 @@ const cards = computed(() => {
 })
 
 onMounted(async () => {
-  await Promise.all([load(), usersAdmin.load('', 1)])
+  await Promise.all([load(), usersAdmin.load('', 1), proofs.load()])
 })
 </script>
 

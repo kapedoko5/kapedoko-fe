@@ -89,7 +89,9 @@ export function useCafeAudits() {
       p_audited_at: draft.auditedAt,
       p_timezone: draft.timezone,
       p_time_of_day_local: draft.timeOfDayLocal || null,
-      p_seating_capacity_estimate: draft.seatingCapacity.trim() ? Number(draft.seatingCapacity) : null,
+      p_seating_capacity_estimate: draft.seatingCapacity.trim()
+        ? Math.round(Number(draft.seatingCapacity))
+        : null,
       p_notes: draft.notes.trim() || null,
       p_corrects_audit_id: draft.correctsAuditId,
       p_accepts_qr: draft.payment.qr,

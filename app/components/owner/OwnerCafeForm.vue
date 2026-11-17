@@ -66,6 +66,7 @@ import { adminCafeErrors } from '~/utils/admin-shop'
 import { allDayEveryDay, isValidWeeklyHours, sameHoursEveryDay } from '~/utils/hours'
 import { normalizeAddress, normalizeCafeName } from '~/utils/identity'
 import { featuredPhotoCountError } from '~/utils/owner-ads'
+import { ownerEditorLede } from '~/utils/owner-portal'
 import { optionalPhone } from '~/utils/phone'
 import { publicObjectUrl } from '~/utils/shop-mapper'
 import { DAY_KEYS } from '~/types/shop'
@@ -78,7 +79,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   saving: false,
   submitLabel: 'Save changes',
-  lede: 'These details go live on Home and Map. WiFi and outlets still come from visitor reviews.',
+  lede: ownerEditorLede(),
 })
 
 const emit = defineEmits<{

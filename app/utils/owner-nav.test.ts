@@ -5,6 +5,7 @@ import {
   isOwnerLoginPath,
   ownerBackNav,
   ownerCafeEditPath,
+  ownerCafeVerifyPath,
   ownerNavIdFromPath,
 } from './owner-nav'
 
@@ -25,6 +26,10 @@ describe('owner nav', () => {
       to: '/owner/cafes',
       label: 'Cafes',
     })
+    expect(ownerBackNav('/owner/cafes/11111111-1111-4111-8111-111111111111/verify')).toEqual({
+      to: '/owner/cafes',
+      label: 'Cafes',
+    })
   })
 
   test('knows desk versus login paths', () => {
@@ -41,6 +46,12 @@ describe('owner nav', () => {
       '/owner/cafes/11111111-1111-4111-8111-111111111111',
     )
     expect(ownerCafeEditPath('not-an-id')).toBe('/owner/cafes')
+    expect(ownerCafeVerifyPath('11111111-1111-4111-8111-111111111111')).toBe(
+      '/owner/cafes/11111111-1111-4111-8111-111111111111/verify',
+    )
+    expect(ownerCafeVerifyPath('11111111-1111-4111-8111-111111111111')).not.toBe(
+      ownerCafeEditPath('11111111-1111-4111-8111-111111111111'),
+    )
   })
 
   test('formats a Philippine datetime or an em dash', () => {

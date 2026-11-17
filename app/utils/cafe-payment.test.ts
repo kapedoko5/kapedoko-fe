@@ -22,6 +22,7 @@ describe('cafe payment facts', () => {
       card: 'unavailable',
       cash: 'available',
       sourceAt: '2026-10-02T00:00:00.000Z',
+      source: 'team',
     })
   })
 
@@ -79,7 +80,15 @@ describe('cafe payment facts', () => {
       accepts_cash: 'unavailable',
       source_at: '2026-10-02T00:00:00.000Z',
     }))?.unavailable).toBe(true)
-    expect(paymentTeamPress(mixed)).toBe('Verified by KapeDoko team · Oct 2, 2026')
+    expect(paymentTeamPress(mixed)).toBe('Verified · Oct 2, 2026')
+    expect(paymentTeamPress(paymentFromRow({
+      shop_id: '1',
+      accepts_qr: 'available',
+      accepts_card: 'unavailable',
+      accepts_cash: 'available',
+      source_at: '2026-10-02T00:00:00.000Z',
+      source: 'owner',
+    }))).toBe('Verified · Oct 2, 2026')
     expect(paymentCard(null)).toBeNull()
   })
 })

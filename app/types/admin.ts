@@ -4,6 +4,7 @@ export type AdminNavId =
   | 'dashboard'
   | 'cafes'
   | 'audits'
+  | 'verifications'
   | 'requests'
   | 'claims'
   | 'partnerships'

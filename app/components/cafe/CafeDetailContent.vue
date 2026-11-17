@@ -150,7 +150,7 @@
         </a>
       </div>
 
-      <ul class="cafe-detail__presses" aria-label="WiFi, outlets, and payments">
+      <ul class="cafe-detail__presses" aria-label="WiFi, outlets, seating, and payments">
         <li
           v-for="(row, index) in pressFacts"
           :key="row.kind"
@@ -372,7 +372,7 @@
 </template>
 
 <script lang="ts" setup>
-import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import { Armchair, BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import CafeOwnerCard from '~/components/cafe/CafeOwnerCard.vue'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
@@ -394,6 +394,7 @@ import {
 } from '~/utils/analytics'
 import { fetchOwnShopReview, isShopId } from '~/utils/approved-shops'
 import { BUSYNESS_METER_SEATS, busynessMeterFill, monthCheckInCopy } from '~/utils/cafe-review'
+import { seatingDateLabel, seatingPressLabel } from '~/utils/cafe-seating'
 
 const props = withDefaults(
   defineProps<{
@@ -526,7 +527,7 @@ const onHeroError = () => {
 }
 
 const stampIcon = (kind: AmenityStampKind) => {
-  if (kind === 'team') return BadgeCheck
+  if (kind === 'team' || kind === 'owner') return BadgeCheck
   if (kind === 'community') return Users
   if (kind === 'reported') return MessageCircle
   if (kind === 'recheck') return BadgeAlert
@@ -565,7 +566,7 @@ const pressFacts = computed(() => {
         noun: 'Pay',
         icon: Wallet,
         stamp: pay.stamp,
-        stampIcon: pay.stamp === 'team' ? BadgeCheck : CircleHelp,
+        stampIcon: pay.stamp === 'unknown' ? CircleHelp : BadgeCheck,
         label: pay.label,
         meta: paymentDateLabel(props.cafe.payment),
         aria: pay.aria,
@@ -573,7 +574,22 @@ const pressFacts = computed(() => {
         unavailable: pay.unavailable,
       }]
     : []
-  return [...amenityFacts.value, ...payments]
+  const seatingLabel = seatingPressLabel(props.cafe.seating)
+  const seating = seatingLabel && props.cafe.seating
+    ? [{
+        kind: 'seating' as const,
+        noun: 'Seats',
+        icon: Armchair,
+        stamp: props.cafe.seating.source,
+        stampIcon: BadgeCheck,
+        label: seatingLabel,
+        meta: seatingDateLabel(props.cafe.seating) ?? 'Verified',
+        aria: `Seats, ${seatingLabel}`,
+        soft: false,
+        unavailable: false,
+      }]
+    : []
+  return [...amenityFacts.value, ...seating, ...payments]
 })
 
 const mapsHref = computed(() => googleMapsDirectionsUrl(props.cafe.lat, props.cafe.lng))
