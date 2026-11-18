@@ -1,10 +1,10 @@
 <template>
   <form class="admin-panel admin-form" @submit.prevent="onSubmit">
-    <label class="admin-field">
+    <label class="admin-field admin-span">
       Badge name
       <input v-model="draft.label" maxlength="40" required placeholder="Hidden Gem" />
     </label>
-    <p v-if="issues.label" class="admin-error">{{ issues.label }}</p>
+    <p v-if="issues.label" class="admin-error admin-span">{{ issues.label }}</p>
     <p class="admin-meta admin-span">Slug {{ slugPreview || '—' }}</p>
 
     <fieldset class="admin-field admin-span">
@@ -21,7 +21,7 @@
         />
       </div>
     </fieldset>
-    <p v-if="issues.color" class="admin-error">{{ issues.color }}</p>
+    <p v-if="issues.color" class="admin-error admin-span">{{ issues.color }}</p>
 
     <fieldset class="admin-field admin-span">
       <legend>Icon</legend>
@@ -46,24 +46,24 @@
       </div>
     </fieldset>
 
-    <label class="admin-field">
+    <label class="admin-field admin-span">
       Custom icon
       <input type="file" accept="image/jpeg,image/png,image/webp" @change="onFile" />
     </label>
-    <p v-if="issues.icon" class="admin-error">{{ issues.icon }}</p>
+    <p v-if="issues.icon" class="admin-error admin-span">{{ issues.icon }}</p>
     <p v-if="draft.iconObjectKey && !draft.iconFile && !draft.clearIcon" class="admin-meta admin-span">
       Using the current custom icon. Choose a file only to replace it.
     </p>
     <button
       v-if="(draft.iconFile || draft.iconObjectKey) && !draft.clearIcon"
       type="button"
-      class="admin-btn admin-btn--quiet"
+      class="admin-btn admin-btn--danger admin-span"
       @click="clearCustomIcon"
     >
       Remove custom icon
     </button>
 
-    <label v-if="badge" class="admin-field">
+    <label v-if="badge" class="admin-field admin-span">
       <input v-model="draft.enabled" type="checkbox" />
       Enabled
     </label>
@@ -215,6 +215,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.admin-field legend {
+  padding: 0;
+  margin: 0 0 8px;
+}
+
 .badge-color {
   display: flex;
   flex-wrap: wrap;

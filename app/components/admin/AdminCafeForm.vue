@@ -106,7 +106,7 @@
         <ul v-if="galleryItems.length" class="cafe-media__grid">
           <li v-for="item in galleryItems" :key="item.key">
             <img :src="item.src" alt="" width="96" height="96" />
-            <button type="button" class="admin-link" @click="removePhoto(item.key)">Remove</button>
+            <button type="button" class="admin-btn admin-btn--danger" @click="removePhoto(item.key)">Remove</button>
           </li>
         </ul>
         <div class="cafe-media__actions">
@@ -549,8 +549,8 @@ const onSubmit = () => {
 .cafe-media__grid li {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  width: 96px;
+  gap: 8px;
+  width: 132px;
 }
 
 .cafe-media__grid img {
@@ -578,7 +578,6 @@ const onSubmit = () => {
 }
 
 .cafe-media input:focus-visible,
-.cafe-media .admin-link:focus-visible,
 .cafe-media .admin-btn:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;

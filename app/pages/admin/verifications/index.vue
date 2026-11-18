@@ -33,7 +33,8 @@
         role="tabpanel"
         :aria-labelledby="`proof-tab-${activeFilter}`"
       >
-        <p v-if="visible.length === 0" class="admin-meta">{{ verificationQueueEmptyCopy(activeFilter) }}</p>
+        <p v-if="visible.length === 0" class="admin-empty">{{ verificationQueueEmptyCopy(activeFilter) }}</p>
+        <div v-else class="admin-grid proof-list">
         <article
           v-for="row in visible"
           :key="row.id"
@@ -43,10 +44,12 @@
             'is-stamping': savingId === row.id && !rejectingId,
           }"
         >
-          <h2>{{ row.shop_name || 'Unknown cafe' }}</h2>
-          <p class="admin-status" :class="`admin-status--${row.status}`">
-            {{ verificationStatusWord(row.status) }}
-          </p>
+          <div class="proof-ticket__mast">
+            <h2>{{ row.shop_name || 'Unknown cafe' }}</h2>
+            <p class="admin-status" :class="`admin-status--${row.status}`">
+              {{ verificationStatusWord(row.status) }}
+            </p>
+          </div>
           <p class="admin-meta">{{ row.owner_name || 'Cafe owner' }} · {{ includedCopy(row) }}</p>
           <p class="admin-meta">Sent {{ formatAdminDate(row.created_at) }}</p>
           <aside v-if="row.rejection_reason" class="proof-note" role="status">
@@ -75,12 +78,12 @@
             </p>
             <p v-if="rejectIssue" class="admin-error" role="alert">{{ rejectIssue }}</p>
             <div class="admin-row-actions">
-              <button type="submit" class="admin-btn" :disabled="savingId === row.id" :aria-busy="savingId === row.id || undefined">
+              <button type="submit" class="admin-btn admin-btn--danger" :disabled="savingId === row.id" :aria-busy="savingId === row.id || undefined">
                 <AdminBusyLabel :busy="savingId === row.id">
                   {{ savingId === row.id ? 'Sending…' : 'Send rejection' }}
                 </AdminBusyLabel>
               </button>
-              <button type="button" class="admin-btn admin-btn--quiet" :disabled="savingId === row.id" @click="cancelReject">
+              <button type="button" class="admin-btn admin-btn--ghost" :disabled="savingId === row.id" @click="cancelReject">
                 Cancel
               </button>
             </div>
@@ -106,12 +109,14 @@
             >
               Write a rejection
             </button>
+            <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/verifications/${row.id}`">Open proof</NuxtLink>
           </div>
 
-          <p>
-            <NuxtLink class="admin-link" :to="`/admin/verifications/${row.id}`">Open proof</NuxtLink>
-          </p>
+          <div v-else class="admin-row-actions">
+            <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/verifications/${row.id}`">Open proof</NuxtLink>
+          </div>
         </article>
+        </div>
       </div>
     </AdminShell>
   </IonPage>
@@ -234,21 +239,32 @@ onMounted(() => {
 
 <style scoped>
 .proof-notice {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 0.7875rem;
   font-weight: 700;
 }
 
 .proof-count {
-  margin-left: 6px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+}
+
+.proof-list {
+  margin-top: 0;
 }
 
 .proof-ticket {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.proof-ticket__mast {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
 }
 
 .proof-ticket.is-stamping {

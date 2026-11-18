@@ -42,7 +42,7 @@
               required
             />
           </label>
-          <button type="submit" class="owner-login__submit" :disabled="loading">
+          <button type="submit" class="owner-btn" :disabled="loading">
             {{ loading ? 'Signing in…' : 'Sign in' }}
           </button>
         </form>
@@ -200,30 +200,11 @@ const onSubmit = async () => {
   outline-offset: 2px;
 }
 
-.owner-login__submit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.owner-login .owner-btn {
   width: 100%;
-  min-height: 44px;
   margin-top: 8px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 16px;
-  background: var(--kd-accent);
-  color: var(--kd-ink);
-  font-size: 0.95rem;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
 }
 
-.owner-login__submit:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.owner-login__submit:focus-visible,
 .owner-login__links a:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 3px;
@@ -244,7 +225,4 @@ const onSubmit = async () => {
   text-underline-offset: 3px;
 }
 
-:root.is-android .owner-login__submit {
-  min-height: 48px;
-}
 </style>

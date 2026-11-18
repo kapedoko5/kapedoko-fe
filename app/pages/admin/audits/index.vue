@@ -58,9 +58,9 @@
           />
         </div>
 
-        <p v-if="audited.length === 0" class="audit-slip audit-slip--sheet">
-          No team visits yet. Start with
-          <NuxtLink class="audit-inline" to="/admin/audits/new">New audit</NuxtLink>.
+        <p v-if="audited.length === 0" class="admin-empty admin-empty--actions">
+          No team visits yet.
+          <NuxtLink class="admin-btn" to="/admin/audits/new">New audit</NuxtLink>
         </p>
         <p
           v-else-if="visible.length === 0"
@@ -110,12 +110,12 @@
                   </td>
                   <td>
                     <div class="audit-actions">
-                      <NuxtLink class="audit-history" :to="`/admin/audits/${row.shopId}`">History</NuxtLink>
-                      <NuxtLink class="audit-go" :to="`/admin/audits/new?shop=${row.shopId}`">Audit</NuxtLink>
+                      <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/audits/${row.shopId}`">History</NuxtLink>
+                      <NuxtLink class="admin-btn" :to="`/admin/audits/new?shop=${row.shopId}`">Audit</NuxtLink>
                       <button
                         v-if="isAdmin"
                         type="button"
-                        class="audit-remove"
+                        class="admin-btn admin-btn--danger"
                         :disabled="Boolean(removingId)"
                         :aria-busy="removingId === row.auditId || undefined"
                         :aria-label="removeAuditAriaLabel(row.name)"
@@ -164,12 +164,12 @@
                 </span>
               </p>
               <div class="audit-actions">
-                <NuxtLink class="audit-history" :to="`/admin/audits/${row.shopId}`">History</NuxtLink>
-                <NuxtLink class="audit-go" :to="`/admin/audits/new?shop=${row.shopId}`">Audit</NuxtLink>
+                <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/audits/${row.shopId}`">History</NuxtLink>
+                <NuxtLink class="admin-btn" :to="`/admin/audits/new?shop=${row.shopId}`">Audit</NuxtLink>
                 <button
                   v-if="isAdmin"
                   type="button"
-                  class="audit-remove"
+                  class="admin-btn admin-btn--danger"
                   :disabled="Boolean(removingId)"
                   :aria-busy="removingId === row.auditId || undefined"
                   :aria-label="removeAuditAriaLabel(row.name)"
@@ -327,7 +327,7 @@ onMounted(async () => {
 
 <style scoped>
 .audit-queue {
-  margin: 0 0 32px;
+  margin: 0;
 }
 
 .audit-queue__head,
@@ -404,13 +404,6 @@ onMounted(async () => {
   max-width: 100%;
 }
 
-.audit-inline {
-  color: var(--kd-primary);
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 .audit-catalog {
   caret-color: var(--kd-primary);
 }
@@ -426,7 +419,7 @@ onMounted(async () => {
 
 .audit-queue__scroller {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   margin: 0 -4px;
@@ -512,73 +505,14 @@ onMounted(async () => {
 
 .audit-actions {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  width: max-content;
-}
-
-.audit-history,
-.audit-go,
-.audit-remove {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 16px;
-  font: inherit;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.audit-history {
-  color: var(--kd-primary);
-}
-
-.audit-remove {
-  border: 0;
-  background: transparent;
-  color: var(--kd-destructive);
-  cursor: pointer;
-}
-
-.audit-remove:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.audit-go {
-  border: 1px solid var(--kd-primary);
-  background: transparent;
-  color: var(--kd-primary);
-  transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.audit-catalog .admin-ledger.audit-ledger th,
-.audit-catalog .admin-ledger.audit-ledger td {
-  vertical-align: middle;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  gap: 12px;
 }
 
 .audit-catalog .admin-ledger.audit-ledger th:last-child,
 .audit-catalog .admin-ledger.audit-ledger td:last-child {
   width: 1%;
-  padding-right: 0;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.audit-catalog .admin-ledger.audit-ledger .audit-actions {
-  justify-content: flex-end;
-}
-
-.audit-catalog .admin-ledger.audit-ledger tbody tr:focus-within {
-  background: color-mix(in srgb, var(--kd-primary) 8%, #faf8f5);
 }
 
 .audit-catalog .audit-card.admin-card h2 {
@@ -590,54 +524,14 @@ onMounted(async () => {
   color: var(--kd-ink);
 }
 
-.audit-inline:focus-visible,
-.audit-history:focus-visible,
-.audit-go:focus-visible,
-.audit-remove:focus-visible,
 .audit-queue .admin-ticket:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .audit-catalog .admin-ledger.audit-ledger tbody tr:hover {
-    background: color-mix(in srgb, var(--kd-ink) 4%, #faf8f5);
-  }
-
-  .audit-history:hover,
-  .audit-remove:hover:not(:disabled) {
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
-  .audit-go:hover {
-    background: color-mix(in srgb, var(--kd-primary) 10%, #faf8f5);
-  }
-
-  .audit-inline:hover {
-    color: var(--kd-ink);
-  }
-}
-
-.audit-go:active {
-  background: color-mix(in srgb, var(--kd-primary) 16%, #faf8f5);
-}
-
 @media (max-width: 767px) {
   .audit-when {
     white-space: normal;
-  }
-
-  .audit-catalog .admin-ledger.audit-ledger .audit-actions,
-  .audit-actions {
-    justify-content: flex-start;
-    width: 100%;
-  }
-
-  .audit-history,
-  .audit-go,
-  .audit-remove {
-    flex: 1 1 0;
   }
 }
 

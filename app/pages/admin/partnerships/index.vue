@@ -63,61 +63,70 @@
         </button>
       </div>
 
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Cafe</th>
-              <th>Kind</th>
-              <th>Window</th>
-              <th>State</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in visible" :key="row.id">
-              <td>{{ shopName(row.shop_id) }}</td>
-              <td>{{ row.kind }}</td>
-              <td>{{ formatAdminDate(row.starts_at) }} – {{ formatAdminDate(row.ends_at) }}</td>
-              <td><span class="admin-status" :class="`admin-status--${row.life}`">{{ row.life }}</span></td>
-              <td>
-                <button
-                  v-if="row.life !== 'ended'"
-                  type="button"
-                  class="admin-btn admin-btn--ghost"
-                  :disabled="savingId === row.id"
-                  :aria-busy="savingId === row.id || undefined"
-                  @click="onEnd(row)"
-                >
-                  <AdminBusyLabel :busy="savingId === row.id">
-                    {{ savingId === row.id ? 'Ending…' : 'End now' }}
-                  </AdminBusyLabel>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <p v-if="visible.length === 0" class="admin-empty">
+        {{ lifecycle === 'all' ? 'No placements yet. Save one with the form above.' : 'No placements in this filter.' }}
+      </p>
 
-      <div class="admin-cards">
-        <article v-for="row in visible" :key="row.id" class="admin-card">
-          <h2>{{ shopName(row.shop_id) }}</h2>
-          <p>{{ row.kind }} · {{ row.life }}</p>
-          <p>{{ formatAdminDate(row.starts_at) }} – {{ formatAdminDate(row.ends_at) }}</p>
-          <button
-            v-if="row.life !== 'ended'"
-            type="button"
-            class="admin-btn admin-btn--ghost"
-            :disabled="savingId === row.id"
-            :aria-busy="savingId === row.id || undefined"
-            @click="onEnd(row)"
-          >
-            <AdminBusyLabel :busy="savingId === row.id">
-              {{ savingId === row.id ? 'Ending…' : 'End now' }}
-            </AdminBusyLabel>
-          </button>
-        </article>
-      </div>
+      <template v-else>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Cafe</th>
+                <th>Kind</th>
+                <th>Window</th>
+                <th>State</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in visible" :key="row.id">
+                <td>{{ shopName(row.shop_id) }}</td>
+                <td>{{ row.kind }}</td>
+                <td>{{ formatAdminDate(row.starts_at) }} – {{ formatAdminDate(row.ends_at) }}</td>
+                <td><span class="admin-status" :class="`admin-status--${row.life}`">{{ row.life }}</span></td>
+                <td>
+                  <button
+                    v-if="row.life !== 'ended'"
+                    type="button"
+                    class="admin-btn admin-btn--danger"
+                    :disabled="savingId === row.id"
+                    :aria-busy="savingId === row.id || undefined"
+                    @click="onEnd(row)"
+                  >
+                    <AdminBusyLabel :busy="savingId === row.id">
+                      {{ savingId === row.id ? 'Ending…' : 'End now' }}
+                    </AdminBusyLabel>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-cards">
+          <article v-for="row in visible" :key="row.id" class="admin-card">
+            <h2>{{ shopName(row.shop_id) }}</h2>
+            <p>{{ row.kind }}</p>
+            <p>
+              <span class="admin-status" :class="`admin-status--${row.life}`">{{ row.life }}</span>
+            </p>
+            <p>{{ formatAdminDate(row.starts_at) }} – {{ formatAdminDate(row.ends_at) }}</p>
+            <button
+              v-if="row.life !== 'ended'"
+              type="button"
+              class="admin-btn admin-btn--danger"
+              :disabled="savingId === row.id"
+              :aria-busy="savingId === row.id || undefined"
+              @click="onEnd(row)"
+            >
+              <AdminBusyLabel :busy="savingId === row.id">
+                {{ savingId === row.id ? 'Ending…' : 'End now' }}
+              </AdminBusyLabel>
+            </button>
+          </article>
+        </div>
+      </template>
     </AdminShell>
   </IonPage>
 </template>

@@ -431,7 +431,7 @@ onBeforeUnmount(() => {
 .owner-verify {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .owner-verify__form,
@@ -470,7 +470,7 @@ onBeforeUnmount(() => {
 .owner-verify__block {
   margin: 0;
   padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
   background: #faf8f5;
 }
@@ -576,7 +576,7 @@ onBeforeUnmount(() => {
 .owner-verify__field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -586,7 +586,7 @@ onBeforeUnmount(() => {
   padding: 0 16px;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
-  background: #f2f2f2;
+  background: #faf8f5;
   color: var(--kd-ink);
   font: inherit;
   font-size: 0.95rem;
@@ -595,7 +595,7 @@ onBeforeUnmount(() => {
 }
 
 .owner-verify__field input::placeholder {
-  color: color-mix(in srgb, var(--kd-ink) 45%, #faf8f5);
+  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
 }
 
 .owner-verify__field input[aria-invalid='true'] {
@@ -635,7 +635,7 @@ onBeforeUnmount(() => {
 .owner-verify__picks {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .owner-verify__empty {

@@ -60,7 +60,7 @@
           <button
             v-if="editingId"
             type="button"
-            class="admin-btn admin-btn--quiet"
+            class="admin-btn admin-btn--ghost"
             :disabled="saving"
             @click="cancelEdit"
           >
@@ -69,79 +69,87 @@
         </div>
       </form>
 
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Cafe</th>
-              <th>Window</th>
-              <th>State</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="ad in ads" :key="ad.id">
-              <td>{{ shopName(ad.shop_id) }}</td>
-              <td>{{ formatAdminDate(ad.starts_at) }} – {{ formatAdminDate(ad.ends_at) }}</td>
-              <td>{{ adState(ad) }}</td>
-              <td>
-                <div class="admin-row-actions">
-                  <button
-                    v-if="canEdit(ad)"
-                    type="button"
-                    class="admin-link"
-                    @click="startEdit(ad)"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    v-if="ad.enabled && !ad.cancelled_at"
-                    type="button"
-                    class="admin-btn admin-btn--quiet"
-                    :disabled="endingId === ad.id || saving"
-                    :aria-busy="endingId === ad.id || undefined"
-                    @click="onEndAd(ad)"
-                  >
-                    <AdminBusyLabel :busy="endingId === ad.id">
-                      {{ endingId === ad.id ? 'Ending…' : 'End now' }}
-                    </AdminBusyLabel>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <p v-if="ads.length === 0" class="admin-empty">No banners yet. Schedule one with the form above.</p>
 
-      <div class="admin-cards">
-        <article v-for="ad in ads" :key="ad.id" class="admin-card">
-          <h2>{{ shopName(ad.shop_id) }}</h2>
-          <p>{{ formatAdminDate(ad.starts_at) }} – {{ formatAdminDate(ad.ends_at) }}</p>
-          <p>{{ adState(ad) }}</p>
-          <div class="admin-row-actions">
-            <button
-              v-if="canEdit(ad)"
-              type="button"
-              class="admin-link"
-              @click="startEdit(ad)"
-            >
-              Edit
-            </button>
-            <button
-              v-if="ad.enabled && !ad.cancelled_at"
-              type="button"
-              class="admin-btn admin-btn--quiet"
-              :disabled="endingId === ad.id || saving"
-              :aria-busy="endingId === ad.id || undefined"
-              @click="onEndAd(ad)"
-            >
-              <AdminBusyLabel :busy="endingId === ad.id">
-                {{ endingId === ad.id ? 'Ending…' : 'End now' }}
-              </AdminBusyLabel>
-            </button>
-          </div>
-        </article>
-      </div>
+      <template v-else>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Cafe</th>
+                <th>Window</th>
+                <th>State</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="ad in ads" :key="ad.id">
+                <td>{{ shopName(ad.shop_id) }}</td>
+                <td>{{ formatAdminDate(ad.starts_at) }} – {{ formatAdminDate(ad.ends_at) }}</td>
+                <td>
+                  <span class="admin-status" :class="`admin-status--${adState(ad)}`">{{ adState(ad) }}</span>
+                </td>
+                <td>
+                  <div class="admin-row-actions">
+                    <button
+                      v-if="canEdit(ad)"
+                      type="button"
+                      class="admin-btn admin-btn--ghost"
+                      @click="startEdit(ad)"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      v-if="ad.enabled && !ad.cancelled_at"
+                      type="button"
+                      class="admin-btn admin-btn--danger"
+                      :disabled="endingId === ad.id || saving"
+                      :aria-busy="endingId === ad.id || undefined"
+                      @click="onEndAd(ad)"
+                    >
+                      <AdminBusyLabel :busy="endingId === ad.id">
+                        {{ endingId === ad.id ? 'Ending…' : 'End now' }}
+                      </AdminBusyLabel>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-cards">
+          <article v-for="ad in ads" :key="ad.id" class="admin-card">
+            <h2>{{ shopName(ad.shop_id) }}</h2>
+            <p>{{ formatAdminDate(ad.starts_at) }} – {{ formatAdminDate(ad.ends_at) }}</p>
+            <p>
+              <span class="admin-status" :class="`admin-status--${adState(ad)}`">{{ adState(ad) }}</span>
+            </p>
+            <div class="admin-row-actions">
+              <button
+                v-if="canEdit(ad)"
+                type="button"
+                class="admin-btn admin-btn--ghost"
+                @click="startEdit(ad)"
+              >
+                Edit
+              </button>
+              <button
+                v-if="ad.enabled && !ad.cancelled_at"
+                type="button"
+                class="admin-btn admin-btn--danger"
+                :disabled="endingId === ad.id || saving"
+                :aria-busy="endingId === ad.id || undefined"
+                @click="onEndAd(ad)"
+              >
+                <AdminBusyLabel :busy="endingId === ad.id">
+                  {{ endingId === ad.id ? 'Ending…' : 'End now' }}
+                </AdminBusyLabel>
+              </button>
+            </div>
+          </article>
+        </div>
+      </template>
     </AdminShell>
   </IonPage>
 </template>

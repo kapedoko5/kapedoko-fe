@@ -425,7 +425,7 @@ const onSubmit = async () => {
 <style scoped>
 .audit-visit {
   display: grid;
-  gap: 16px;
+  gap: 20px;
   width: 100%;
   min-width: 0;
   caret-color: var(--kd-primary);

@@ -247,7 +247,7 @@ const onSubmit = () => {
 .owner-editor {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .owner-editor__map {
@@ -260,7 +260,7 @@ const onSubmit = () => {
 .owner-editor__actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .owner-editor__error {

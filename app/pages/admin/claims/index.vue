@@ -30,10 +30,11 @@
 
       <div
         :id="`claim-panel-${activeFilter}`"
+        class="claim-list"
         role="tabpanel"
         :aria-labelledby="`claim-tab-${activeFilter}`"
       >
-        <p v-if="visible.length === 0" class="admin-meta">{{ claimsQueueEmptyCopy(activeFilter) }}</p>
+        <p v-if="visible.length === 0" class="admin-empty">{{ claimsQueueEmptyCopy(activeFilter) }}</p>
 
         <article
           v-for="claim in visible"
@@ -112,12 +113,12 @@
             </p>
             <p v-if="rejectIssue" class="admin-error" role="alert">{{ rejectIssue }}</p>
             <div class="admin-row-actions">
-              <button type="submit" class="admin-btn" :disabled="savingId === claim.id" :aria-busy="savingId === claim.id || undefined">
+              <button type="submit" class="admin-btn admin-btn--danger" :disabled="savingId === claim.id" :aria-busy="savingId === claim.id || undefined">
                 <AdminBusyLabel :busy="savingId === claim.id">
                   {{ savingId === claim.id ? 'Sending…' : 'Send rejection' }}
                 </AdminBusyLabel>
               </button>
-              <button type="button" class="admin-btn admin-btn--quiet" :disabled="savingId === claim.id" @click="cancelReject">
+              <button type="button" class="admin-btn admin-btn--ghost" :disabled="savingId === claim.id" @click="cancelReject">
                 Cancel
               </button>
             </div>
@@ -154,7 +155,7 @@
           </p>
 
           <p>
-            <NuxtLink class="admin-link" :to="`/admin/cafes/${claim.shop_id}`">Open cafe</NuxtLink>
+            <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/cafes/${claim.shop_id}`">Open cafe</NuxtLink>
           </p>
         </article>
       </div>
@@ -304,15 +305,19 @@ onMounted(() => {
 
 <style scoped>
 .claim-notice {
-  margin: 0 0 16px;
+  margin: 0;
   color: var(--kd-ink);
   font-size: 0.7875rem;
   font-weight: 700;
   line-height: 1.3;
 }
 
+.claim-list {
+  display: grid;
+  gap: 12px;
+}
+
 .claim-count {
-  margin-left: 6px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
@@ -446,27 +451,9 @@ onMounted(() => {
 }
 
 .claim-ticket :deep(.admin-row-actions) {
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
-.claim-ticket :deep(.admin-btn) {
-  border: 1px solid var(--kd-accent);
-  transition: box-shadow 160ms ease;
-}
-
-.claim-ticket :deep(.admin-btn--ghost) {
-  border-color: var(--kd-primary);
-}
-
-.claim-ticket :deep(.admin-btn--quiet) {
-  border-color: transparent;
-}
-
-@media (hover: hover) {
-  .claim-ticket :deep(.admin-btn:hover:not(:disabled)) {
-    box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .claim-ticket,

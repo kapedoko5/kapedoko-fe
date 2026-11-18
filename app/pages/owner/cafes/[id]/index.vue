@@ -164,7 +164,7 @@ onBeforeUnmount(() => {
 .owner-edit {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .owner-edit__live,

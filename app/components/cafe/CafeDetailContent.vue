@@ -172,25 +172,27 @@
         </li>
       </ul>
 
-      <ul
+      <section
         v-if="vibePresses.length"
-        class="cafe-detail__vibes"
-        :aria-label="vibeAria"
+        class="cafe-detail__vibe-block"
       >
-        <li
-          v-for="(tag, index) in vibePresses"
-          :key="tag.id"
-          class="cafe-detail__vibe-slot"
-        >
-          <span
-            class="cafe-detail__vibe"
-            :style="{ '--tilt': index % 2 ? '1.8deg' : '-1.6deg', ...vibeTagColorStyle(tag.color) }"
+        <h3 class="cafe-detail__vibe-label">Vibe tags</h3>
+        <ul class="cafe-detail__vibes">
+          <li
+            v-for="(tag, index) in vibePresses"
+            :key="tag.id"
+            class="cafe-detail__vibe-slot"
           >
-            <component :is="tag.icon" :size="13" :stroke-width="2.25" aria-hidden="true" />
-            {{ tag.label }}
-          </span>
-        </li>
-      </ul>
+            <span
+              class="cafe-detail__vibe"
+              :style="{ '--tilt': index % 2 ? '1.8deg' : '-1.6deg', ...vibeTagColorStyle(tag.color) }"
+            >
+              <component :is="tag.icon" :size="13" :stroke-width="2.25" aria-hidden="true" />
+              {{ tag.label }}
+            </span>
+          </li>
+        </ul>
+      </section>
 
       <div v-if="variant === 'page'" class="cafe-detail__page-actions">
         <a
@@ -624,11 +626,6 @@ const vibePresses = computed(() =>
   })),
 )
 
-const vibeAria = computed(() => {
-  const names = vibePresses.value.map((tag) => tag.label)
-  return names.length ? `Vibe: ${names.join(', ')}` : 'Vibe stamps'
-})
-
 const mapsHref = computed(() => googleMapsDirectionsUrl(props.cafe.lat, props.cafe.lng))
 
 watch(
@@ -701,7 +698,7 @@ const selectPhoto = (index: number) => {
 .cafe-detail--page .cafe-detail__address { order: 1; }
 .cafe-detail--page .cafe-detail__actions { order: 2; }
 .cafe-detail--page .cafe-detail__presses { order: 3; }
-.cafe-detail--page .cafe-detail__vibes { order: 4; }
+.cafe-detail--page .cafe-detail__vibe-block { order: 4; }
 .cafe-detail--page .cafe-detail__crowd-block { order: 5; }
 .cafe-detail--page .cafe-detail__rating { order: 6; }
 .cafe-detail--page .cafe-detail__page-actions { order: 7; }
@@ -1008,6 +1005,22 @@ const selectPhoto = (index: number) => {
   border-style: dashed;
 }
 
+.cafe-detail__vibe-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  margin: 4px 0 8px;
+}
+
+.cafe-detail__vibe-label {
+  margin: 8px 0 0;
+  color: var(--kd-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .cafe-detail__vibes {
   display: flex;
   flex-wrap: nowrap;
@@ -1016,8 +1029,8 @@ const selectPhoto = (index: number) => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  margin: 0 0 8px;
-  padding: 2px 0 6px;
+  margin: 0;
+  padding: 0 0 6px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;

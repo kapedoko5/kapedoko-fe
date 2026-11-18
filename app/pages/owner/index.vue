@@ -16,7 +16,7 @@
 
         <section class="owner-desk__shelf" aria-labelledby="owner-shelf-title">
           <h2 id="owner-shelf-title">Cafes you manage</h2>
-          <p v-if="ownedShops.length === 0" class="owner-desk__empty">
+          <p v-if="ownedShops.length === 0" class="owner-empty">
             {{ ownerDeskCafesEmptyCopy(waitingClaims.length) }}
           </p>
           <div v-else class="owner-desk__labels">
@@ -78,22 +78,11 @@ onMounted(() => {
   gap: 28px;
 }
 
-.owner-desk__shelf h2,
-.owner-desk__empty {
-  margin: 0;
-}
-
 .owner-desk__shelf h2 {
-  margin-bottom: 12px;
+  margin: 0 0 12px;
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1.2;
-}
-
-.owner-desk__empty {
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.7875rem;
-  line-height: 1.3;
 }
 
 .owner-desk__labels {

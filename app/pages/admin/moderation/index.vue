@@ -6,7 +6,7 @@
       :status="status"
       :error="error"
     >
-      <p v-if="openReports.length === 0" class="admin-meta">No open reports.</p>
+      <p v-if="openReports.length === 0" class="admin-empty">No open reports.</p>
       <div v-else class="report-list">
         <article v-for="report in openReports" :key="report.id" class="admin-card report-card">
           <header class="report-head">
@@ -35,7 +35,7 @@
             <button
               v-if="report.target_type !== 'shop_owner'"
               type="button"
-              class="report-warn"
+              class="admin-btn admin-btn--danger"
               :disabled="savingId === report.id"
               :aria-busy="savingId === report.id && pendingOutcome === 'hidden' || undefined"
               :aria-label="`Keep ${targetWord(report)} hidden`"
@@ -47,7 +47,7 @@
             </button>
             <button
               type="button"
-              class="report-restore"
+              class="admin-btn admin-btn--ghost"
               :disabled="savingId === report.id"
               :aria-busy="savingId === report.id && pendingOutcome === 'dismissed' || undefined"
               :aria-label="report.target_type === 'shop_owner' ? 'Dismiss this report' : `Restore ${targetWord(report)}`"
@@ -215,65 +215,7 @@ onMounted(() => {
 .report-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
   margin-top: 16px;
-}
-
-.report-warn,
-.report-restore {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 16px;
-  font: inherit;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.report-warn {
-  border: 1px solid var(--kd-destructive);
-  background: var(--kd-destructive);
-  color: var(--kd-white);
-}
-
-.report-restore {
-  border: 1px solid var(--kd-primary);
-  background: transparent;
-  color: var(--kd-primary);
-}
-
-.report-restore:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--kd-primary) 10%, #faf8f5);
-}
-
-.report-warn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--kd-destructive) 88%, #1c1917);
-}
-
-.report-warn:focus-visible,
-.report-restore:focus-visible {
-  outline: 2px solid var(--kd-primary);
-  outline-offset: 2px;
-}
-
-.report-warn:active:not(:disabled),
-.report-restore:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.report-warn:disabled,
-.report-restore:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .report-warn:active:not(:disabled),
-  .report-restore:active:not(:disabled) {
-    transform: none;
-  }
 }
 </style>

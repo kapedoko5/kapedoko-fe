@@ -71,7 +71,7 @@
           >
             All {{ visible.length }} in this search
           </button>
-          <button type="button" class="admin-btn admin-btn--quiet" :disabled="busy" @click="resetTicks">
+          <button type="button" class="admin-btn admin-btn--ghost" :disabled="busy" @click="resetTicks">
             Clear extra ticks
           </button>
         </template>
@@ -546,7 +546,7 @@ onIonViewWillEnter(() => {
 
 <style scoped>
 .cafe-notice {
-  margin: 0 0 16px;
+  margin: 0;
   color: var(--kd-ink);
   font-size: 0.7875rem;
   font-weight: 700;
@@ -564,8 +564,7 @@ onIonViewWillEnter(() => {
   transform: rotate(-1.25deg);
 }
 
-.cafe-stamp-pad :deep(.admin-btn--ghost),
-.cafe-stamp-pad :deep(.admin-btn--quiet) {
+.cafe-stamp-pad :deep(.admin-btn--ghost) {
   transform: none;
 }
 
@@ -602,6 +601,11 @@ onIonViewWillEnter(() => {
   background: color-mix(in srgb, var(--kd-accent) 12%, #faf8f5);
 }
 
+.cafe-board.admin-toolbar {
+  display: grid;
+  gap: 12px;
+}
+
 .cafe-board {
   caret-color: var(--kd-primary);
 }
@@ -615,13 +619,13 @@ onIonViewWillEnter(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .cafe-filters .admin-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border-color: color-mix(in srgb, var(--kd-ink) 16%, transparent);
 }
 
@@ -780,7 +784,7 @@ onIonViewWillEnter(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 .cafe-page {

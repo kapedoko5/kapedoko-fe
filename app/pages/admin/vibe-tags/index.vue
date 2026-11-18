@@ -10,77 +10,89 @@
         <NuxtLink class="admin-btn" to="/admin/vibe-tags/new">Add vibe tag</NuxtLink>
       </template>
 
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Stamp</th>
-              <th>Cafes</th>
-              <th>State</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in vibeTagNames" :key="row.id">
-              <td>
-                <span class="vibe-cell" :style="vibeTagColorStyle(row.color)">
-                  <component :is="vibeTagLucideComponent(row.lucide_icon)" :size="15" :stroke-width="2.25" aria-hidden="true" />
-                  {{ row.label }}
-                </span>
-              </td>
-              <td>{{ cafeCount(row.id) }}</td>
-              <td>{{ row.enabled ? 'enabled' : 'disabled' }}</td>
-              <td>
-                <div class="admin-row-actions">
-                  <NuxtLink class="admin-link" :to="`/admin/vibe-tags/${row.id}`">Edit</NuxtLink>
-                  <button
-                    type="button"
-                    class="admin-btn admin-btn--quiet"
-                    :disabled="togglingId === row.id"
-                    :aria-busy="togglingId === row.id || undefined"
-                    @click="onToggle(row)"
-                  >
-                    <AdminBusyLabel :busy="togglingId === row.id">
-                      {{ togglingId === row.id ? 'Saving…' : (row.enabled ? 'Disable' : 'Enable') }}
-                    </AdminBusyLabel>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <p v-if="status === 'ready' && vibeTagNames.length === 0" class="admin-meta">
+      <p v-if="status === 'ready' && vibeTagNames.length === 0" class="admin-empty">
         No vibe tags yet. Add one so cafe owners can stamp their listings.
       </p>
 
-      <div class="admin-cards">
-        <article v-for="row in vibeTagNames" :key="row.id" class="admin-card">
-          <h2>
-            <span class="vibe-cell" :style="vibeTagColorStyle(row.color)">
-              <component :is="vibeTagLucideComponent(row.lucide_icon)" :size="15" :stroke-width="2.25" aria-hidden="true" />
-              {{ row.label }}
-            </span>
-          </h2>
-          <p>{{ cafeCount(row.id) }} cafes</p>
-          <p>{{ row.enabled ? 'enabled' : 'disabled' }}</p>
-          <div class="admin-row-actions">
-            <NuxtLink class="admin-link" :to="`/admin/vibe-tags/${row.id}`">Edit</NuxtLink>
-            <button
-              type="button"
-              class="admin-btn admin-btn--quiet"
-              :disabled="togglingId === row.id"
-              :aria-busy="togglingId === row.id || undefined"
-              @click="onToggle(row)"
-            >
-              <AdminBusyLabel :busy="togglingId === row.id">
-                {{ togglingId === row.id ? 'Saving…' : (row.enabled ? 'Disable' : 'Enable') }}
-              </AdminBusyLabel>
-            </button>
-          </div>
-        </article>
-      </div>
+      <template v-else>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Stamp</th>
+                <th>Cafes</th>
+                <th>State</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in vibeTagNames" :key="row.id">
+                <td>
+                  <span class="vibe-cell" :style="vibeTagColorStyle(row.color)">
+                    <component :is="vibeTagLucideComponent(row.lucide_icon)" :size="15" :stroke-width="2.25" aria-hidden="true" />
+                    {{ row.label }}
+                  </span>
+                </td>
+                <td>{{ cafeCount(row.id) }}</td>
+                <td>
+                  <span class="admin-status" :class="row.enabled ? 'admin-status--enabled' : 'admin-status--disabled'">
+                    {{ row.enabled ? 'enabled' : 'disabled' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="admin-row-actions">
+                    <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/vibe-tags/${row.id}`">Edit</NuxtLink>
+                    <button
+                      type="button"
+                      class="admin-btn"
+                      :class="row.enabled ? 'admin-btn--danger' : 'admin-btn--ghost'"
+                      :disabled="togglingId === row.id"
+                      :aria-busy="togglingId === row.id || undefined"
+                      @click="onToggle(row)"
+                    >
+                      <AdminBusyLabel :busy="togglingId === row.id">
+                        {{ togglingId === row.id ? 'Saving…' : (row.enabled ? 'Disable' : 'Enable') }}
+                      </AdminBusyLabel>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-cards">
+          <article v-for="row in vibeTagNames" :key="row.id" class="admin-card">
+            <h2>
+              <span class="vibe-cell" :style="vibeTagColorStyle(row.color)">
+                <component :is="vibeTagLucideComponent(row.lucide_icon)" :size="15" :stroke-width="2.25" aria-hidden="true" />
+                {{ row.label }}
+              </span>
+            </h2>
+            <p>{{ cafeCount(row.id) }} cafes</p>
+            <p>
+              <span class="admin-status" :class="row.enabled ? 'admin-status--enabled' : 'admin-status--disabled'">
+                {{ row.enabled ? 'enabled' : 'disabled' }}
+              </span>
+            </p>
+            <div class="admin-row-actions">
+              <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/vibe-tags/${row.id}`">Edit</NuxtLink>
+              <button
+                type="button"
+                class="admin-btn"
+                :class="row.enabled ? 'admin-btn--danger' : 'admin-btn--ghost'"
+                :disabled="togglingId === row.id"
+                :aria-busy="togglingId === row.id || undefined"
+                @click="onToggle(row)"
+              >
+                <AdminBusyLabel :busy="togglingId === row.id">
+                  {{ togglingId === row.id ? 'Saving…' : (row.enabled ? 'Disable' : 'Enable') }}
+                </AdminBusyLabel>
+              </button>
+            </div>
+          </article>
+        </div>
+      </template>
     </AdminShell>
   </IonPage>
 </template>
