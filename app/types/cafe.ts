@@ -1,7 +1,7 @@
-import type { CafeBadge } from './admin'
+import type { CafeBadge, CafeVibeTag } from './admin'
 import type { BusynessLevel, CafeWorkFacts, MarkerTier } from './shop'
 
-export type { CafeBadge }
+export type { CafeBadge, CafeVibeTag }
 
 export type Amenity = 'wifi' | 'plug'
 export type PaymentKind = 'qr' | 'card' | 'cash'
@@ -65,4 +65,5 @@ export interface Cafe {
   source?: 'openstreetmap' | 'user' | 'admin' | null
   payment?: CafePayment | null
   badges: CafeBadge[]
+  vibeTags: CafeVibeTag[]
 }

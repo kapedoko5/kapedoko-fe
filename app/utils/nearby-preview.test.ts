@@ -23,6 +23,7 @@ function cafe(partial: Partial<Cafe> & Pick<Cafe, 'id' | 'name'>): Cafe {
     lng: 121.02,
     markerTier: 'standard',
     badges: [],
+    vibeTags: [],
     ...partial,
   }
 }

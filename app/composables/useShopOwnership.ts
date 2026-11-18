@@ -1,3 +1,4 @@
+import type { ShopVibeTagRow, VibeTagNameRow } from '~/types/admin'
 import type { ShopClaimRow, ShopOwnerPublic, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import { authUserId } from '~/utils/auth'
@@ -57,6 +58,8 @@ export function useShopOwnership() {
   const verifiedOwnerByShop = useState<Record<string, boolean>>('kd-shop-verified-owner', () => ({}))
   const shopOwnerByShop = useState<Record<string, ShopOwnerPublic>>('kd-shop-owner', () => ({}))
   const posters = useState<ShopPosterRow[]>('kd-owner-posters', () => [])
+  const vibeTagNames = useState<VibeTagNameRow[]>('kd-owner-vibe-tag-names', () => [])
+  const shopVibeTags = useState<ShopVibeTagRow[]>('kd-owner-shop-vibe-tags', () => [])
   const status = useState<'idle' | 'loading' | 'ready' | 'error'>('kd-owner-status', () => 'idle')
   const error = useState('kd-owner-error', () => '')
   const saving = useState('kd-owner-saving', () => false)
@@ -80,6 +83,7 @@ export function useShopOwnership() {
   const loadOwnedShops = async (verifiedIds: string[]) => {
     if (!verifiedIds.length) {
       ownedShops.value = []
+      await loadVibeTags([])
       return
     }
     const { data: shops, error: shopsError } = await supabase
@@ -89,6 +93,18 @@ export function useShopOwnership() {
       .order('name', { ascending: true })
     if (shopsError) throw shopsError
     ownedShops.value = (shops ?? []) as ShopRow[]
+    await loadVibeTags(verifiedIds)
+  }
+
+  const loadVibeTags = async (shopIds: string[]) => {
+    const [names, assigned] = await Promise.all([
+      supabase.from('vibe_tag_names').select('*').eq('enabled', true).order('label', { ascending: true }),
+      shopIds.length
+        ? supabase.from('shop_vibe_tags').select('*').in('shop_id', shopIds)
+        : Promise.resolve({ data: [], error: null }),
+    ])
+    vibeTagNames.value = names.error ? [] : ((names.data ?? []) as VibeTagNameRow[])
+    shopVibeTags.value = assigned.error ? [] : ((assigned.data ?? []) as ShopVibeTagRow[])
   }
 
   const loadViaTable = async (uid: string) => {
@@ -119,6 +135,8 @@ export function useShopOwnership() {
       claims.value = []
       ownedShops.value = []
       claimShopNames.value = {}
+      vibeTagNames.value = []
+      shopVibeTags.value = []
       status.value = 'ready'
       error.value = ''
       return
@@ -340,6 +358,7 @@ export function useShopOwnership() {
       logoObjectKey: string | null
       galleryFiles?: File[]
       galleryObjectKeys?: string[]
+      vibeTagIds?: string[]
     },
   ) => {
     saving.value = true
@@ -364,12 +383,24 @@ export function useShopOwnership() {
         p_contact_number: input.contact_number,
         p_logo_object_key: logoKey,
         p_gallery_object_keys: extraKeys,
+        ...(input.vibeTagIds ? { p_vibe_tag_ids: input.vibeTagIds } : {}),
       })
       const updated = (Array.isArray(data) ? data[0] : data) as ShopRow | null
       if (rpcError || !updated) {
         throw new Error(ownerWriteError(rpcError?.message || 'Could not save this cafe.', 'Could not save this cafe.'))
       }
       ownedShops.value = ownedShops.value.map((item) => (item.id === shopId ? updated : item))
+      if (input.vibeTagIds) {
+        const hidden = shopVibeTags.value.filter((row) => {
+          if (row.shop_id !== shopId) return false
+          return !vibeTagNames.value.some((item) => item.id === row.tag_id)
+        })
+        shopVibeTags.value = [
+          ...shopVibeTags.value.filter((row) => row.shop_id !== shopId),
+          ...hidden,
+          ...input.vibeTagIds.map((tag_id) => ({ shop_id: shopId, tag_id })),
+        ]
+      }
       if (updated.name) {
         claimShopNames.value = { ...claimShopNames.value, [shopId]: updated.name }
       }
@@ -436,6 +467,8 @@ export function useShopOwnership() {
     ownedShops,
     claimShopNames,
     posters,
+    vibeTagNames,
+    shopVibeTags,
     status,
     error,
     saving,

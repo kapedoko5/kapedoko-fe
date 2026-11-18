@@ -117,6 +117,25 @@ describe('approved shop catalog fetch', () => {
     expect(groupBadgeRows(sidecars.badgesById.get(shopId(89)) ?? []).size).toBe(1)
   })
 
+  test('rpc payload keeps live vibe stamps on the cafe', () => {
+    const sidecars = sidecarsFromPayload({
+      vibes: [{
+        shop_id: shopId(89),
+        tag_id: shopId(3),
+        slug: 'quiet',
+        label: 'Quiet',
+        lucide_icon: 'volume-x',
+        color: '#1F6F6B',
+      }],
+    })
+    expect(sidecars.vibesById.get(shopId(89))?.[0]).toMatchObject({
+      slug: 'quiet',
+      label: 'Quiet',
+      lucide_icon: 'volume-x',
+      color: '#1F6F6B',
+    })
+  })
+
   test('rpc payload keeps team-verified wifi and outlets', () => {
     const sidecars = sidecarsFromPayload({
       amenities: [

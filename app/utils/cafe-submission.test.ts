@@ -341,6 +341,7 @@ describe('cafe search suggestions', () => {
     lng,
     markerTier: 'standard',
     badges: [],
+    vibeTags: [],
   })
 
   test('ranks name prefix matches ahead of address hits', () => {

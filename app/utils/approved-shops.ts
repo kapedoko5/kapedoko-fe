@@ -1,6 +1,7 @@
-import type { ActiveShopBadgeRow, CafeBadge } from '../types/admin'
+import type { ActiveShopBadgeRow, ActiveShopVibeTagRow, CafeBadge, CafeVibeTag } from '../types/admin'
 import type { Cafe } from '../types/cafe'
 import { cafeBadgeFromName } from './admin-badges'
+import { cafeVibeTagFromName } from './admin-vibe-tags'
 import type { GeoBounds } from './geography'
 import type {
   MarkerTier,
@@ -21,6 +22,7 @@ import {
   withCafeBusyness,
   withCafeCheckIns,
   withCafeReviews,
+  withCafeVibeTags,
 } from './shop-mapper'
 import { paymentFromRow, type CafePayment, type ShopPaymentRow } from './cafe-payment'
 import {
@@ -209,6 +211,7 @@ interface ShopCardSidecarsPayload {
   stats?: ShopReviewStatsRow[] | null
   tiers?: ShopMarkerTierRow[] | null
   badges?: ActiveShopBadgeRow[] | null
+  vibes?: ActiveShopVibeTagRow[] | null
 }
 
 export function parseSidecarPayload(data: unknown): ShopCardSidecarsPayload | null {
@@ -228,6 +231,7 @@ export interface CafeSidecars {
   amenityById: Map<string, ShopAmenityResolutionRow[]>
   paymentById: Map<string, CafePayment>
   badgesById: Map<string, ActiveShopBadgeRow[]>
+  vibesById: Map<string, ActiveShopVibeTagRow[]>
   amenitiesLoaded: boolean
   paymentsLoaded: boolean
 }
@@ -246,6 +250,7 @@ export function sidecarsFromPayload(payload?: ShopCardSidecarsPayload | null): C
     amenityById: groupAmenityRows(payload?.amenities ?? []),
     paymentById,
     badgesById: groupBadgeRows(payload?.badges ?? []),
+    vibesById: groupVibeRows(payload?.vibes ?? []),
     amenitiesLoaded: Array.isArray(payload?.amenities),
     paymentsLoaded: Array.isArray(payload?.payments),
   }
@@ -253,6 +258,16 @@ export function sidecarsFromPayload(payload?: ShopCardSidecarsPayload | null): C
 
 export function groupBadgeRows(rows: ActiveShopBadgeRow[]): Map<string, ActiveShopBadgeRow[]> {
   const grouped = new Map<string, ActiveShopBadgeRow[]>()
+  for (const row of rows) {
+    const list = grouped.get(row.shop_id) ?? []
+    list.push(row)
+    grouped.set(row.shop_id, list)
+  }
+  return grouped
+}
+
+export function groupVibeRows(rows: ActiveShopVibeTagRow[]): Map<string, ActiveShopVibeTagRow[]> {
+  const grouped = new Map<string, ActiveShopVibeTagRow[]>()
   for (const row of rows) {
     const list = grouped.get(row.shop_id) ?? []
     list.push(row)
@@ -271,6 +286,9 @@ export function mergeSidecars(target: CafeSidecars, extra: CafeSidecars): CafeSi
   for (const [id, rows] of extra.badgesById) {
     target.badgesById.set(id, [...(target.badgesById.get(id) ?? []), ...rows])
   }
+  for (const [id, rows] of extra.vibesById) {
+    target.vibesById.set(id, [...(target.vibesById.get(id) ?? []), ...rows])
+  }
   target.amenitiesLoaded = target.amenitiesLoaded || extra.amenitiesLoaded
   target.paymentsLoaded = target.paymentsLoaded || extra.paymentsLoaded
   return target
@@ -288,7 +306,7 @@ async function loadCafeSidecarsByIn(supabase: ShopClient, ids: string[]): Promis
   const unique = [...new Set(ids)]
   if (!unique.length) return sidecarsFromPayload()
 
-  const [amenities, stats, tiers, payments, badges] = await Promise.all([
+  const [amenities, stats, tiers, payments, badges, vibes] = await Promise.all([
     rowsOrNull(fetchByShopIds<ShopAmenityResolutionRow>(unique, (chunk, from, to) =>
       supabase
         .from('shop_amenity_resolutions_public')
@@ -308,9 +326,12 @@ async function loadCafeSidecarsByIn(supabase: ShopClient, ids: string[]): Promis
     rowsOrNull(fetchByShopIds<ActiveShopBadgeRow>(unique, (chunk, from, to) =>
       supabase.from('active_shop_badges').select('*').in('shop_id', chunk).range(from, to),
     )),
+    rowsOrNull(fetchByShopIds<ActiveShopVibeTagRow>(unique, (chunk, from, to) =>
+      supabase.from('active_shop_vibe_tags').select('*').in('shop_id', chunk).range(from, to),
+    )),
   ])
 
-  return sidecarsFromPayload({ amenities, stats, tiers, payments, badges })
+  return sidecarsFromPayload({ amenities, stats, tiers, payments, badges, vibes })
 }
 
 async function loadCafeSidecarsByRpc(supabase: ShopClient, ids: string[]): Promise<CafeSidecars | null> {
@@ -355,6 +376,23 @@ export async function fetchAmenityRowsForShopIds(
   return [...sidecars.amenityById.values()].flat()
 }
 
+function cafeVibeTagsFromRows(rows: ActiveShopVibeTagRow[] | undefined): CafeVibeTag[] {
+  const seen = new Set<string>()
+  const tags: CafeVibeTag[] = []
+  for (const row of rows ?? []) {
+    if (seen.has(row.tag_id)) continue
+    seen.add(row.tag_id)
+    tags.push(cafeVibeTagFromName({
+      id: row.tag_id,
+      slug: row.slug,
+      label: row.label,
+      lucide_icon: row.lucide_icon,
+      color: row.color,
+    }))
+  }
+  return tags
+}
+
 function cafeBadgesFromRows(
   rows: ActiveShopBadgeRow[] | undefined,
   publicBase: string,
@@ -389,7 +427,10 @@ function cafeFromApprovedShop(
     sidecars.amenitiesLoaded ? sidecars.amenityById.get(shop.id) ?? [] : undefined,
     sidecars.paymentById.get(shop.id) ?? null,
   )
-  return withCafeBadges(cafe, cafeBadgesFromRows(sidecars.badgesById.get(shop.id), publicBase))
+  return withCafeVibeTags(
+    withCafeBadges(cafe, cafeBadgesFromRows(sidecars.badgesById.get(shop.id), publicBase)),
+    cafeVibeTagsFromRows(sidecars.vibesById.get(shop.id)),
+  )
 }
 
 function approvedShopQuery(
