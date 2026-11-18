@@ -150,7 +150,7 @@
         </a>
       </div>
 
-      <ul class="cafe-detail__presses" aria-label="WiFi, outlets, seating, and payments">
+      <ul class="cafe-detail__presses" :aria-label="pressAria">
         <li
           v-for="(row, index) in pressFacts"
           :key="row.kind"
@@ -167,8 +167,28 @@
             <component :is="row.icon" :size="15" :stroke-width="2.25" aria-hidden="true" />
             {{ row.noun }}
           </span>
-          <span class="cafe-detail__press-mark">{{ row.label }}</span>
+          <span v-if="row.label" class="cafe-detail__press-mark">{{ row.label }}</span>
           <span v-if="row.meta" class="cafe-detail__press-date">{{ row.meta }}</span>
+        </li>
+      </ul>
+
+      <ul
+        v-if="vibePresses.length"
+        class="cafe-detail__vibes"
+        :aria-label="vibeAria"
+      >
+        <li
+          v-for="(tag, index) in vibePresses"
+          :key="tag.id"
+          class="cafe-detail__vibe-slot"
+        >
+          <span
+            class="cafe-detail__vibe"
+            :style="{ '--tilt': index % 2 ? '1.8deg' : '-1.6deg', ...vibeTagColorStyle(tag.color) }"
+          >
+            <component :is="tag.icon" :size="13" :stroke-width="2.25" aria-hidden="true" />
+            {{ tag.label }}
+          </span>
         </li>
       </ul>
 
@@ -373,6 +393,7 @@
 
 <script lang="ts" setup>
 import { Armchair, BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import CafeOwnerCard from '~/components/cafe/CafeOwnerCard.vue'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
@@ -592,6 +613,22 @@ const pressFacts = computed(() => {
   return [...amenityFacts.value, ...seating, ...payments]
 })
 
+const pressAria = computed(() => 'WiFi, outlets, seating, and payments')
+
+const vibePresses = computed(() =>
+  (props.cafe.vibeTags ?? []).map((tag) => ({
+    id: tag.id,
+    label: tag.label,
+    color: tag.color,
+    icon: vibeTagLucideComponent(tag.lucideIcon),
+  })),
+)
+
+const vibeAria = computed(() => {
+  const names = vibePresses.value.map((tag) => tag.label)
+  return names.length ? `Vibe: ${names.join(', ')}` : 'Vibe stamps'
+})
+
 const mapsHref = computed(() => googleMapsDirectionsUrl(props.cafe.lat, props.cafe.lng))
 
 watch(
@@ -664,9 +701,10 @@ const selectPhoto = (index: number) => {
 .cafe-detail--page .cafe-detail__address { order: 1; }
 .cafe-detail--page .cafe-detail__actions { order: 2; }
 .cafe-detail--page .cafe-detail__presses { order: 3; }
-.cafe-detail--page .cafe-detail__crowd-block { order: 4; }
-.cafe-detail--page .cafe-detail__rating { order: 5; }
-.cafe-detail--page .cafe-detail__page-actions { order: 6; }
+.cafe-detail--page .cafe-detail__vibes { order: 4; }
+.cafe-detail--page .cafe-detail__crowd-block { order: 5; }
+.cafe-detail--page .cafe-detail__rating { order: 6; }
+.cafe-detail--page .cafe-detail__page-actions { order: 7; }
 
 .cafe-detail--page .cafe-detail__title-row {
   display: grid;
@@ -968,6 +1006,64 @@ const selectPhoto = (index: number) => {
 .cafe-detail__press.is-soft {
   background: #faf8f5;
   border-style: dashed;
+}
+
+.cafe-detail__vibes {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 0 8px;
+  padding: 2px 0 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  list-style: none;
+  touch-action: pan-x;
+}
+
+.cafe-detail__vibes::-webkit-scrollbar {
+  display: none;
+}
+
+.cafe-detail__vibes::after {
+  content: '';
+  flex: 0 0 10px;
+}
+
+.cafe-detail__vibe-slot {
+  display: flex;
+  flex: 0 0 auto;
+  padding: 8px 6px 10px;
+  scroll-snap-align: start;
+}
+
+.cafe-detail__vibe {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid var(--vibe-color, var(--kd-accent));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vibe-color, var(--kd-accent)) 22%, #faf8f5);
+  color: var(--kd-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform: rotate(var(--tilt, -1.6deg));
+  transform-origin: 30% 80%;
+}
+
+.cafe-detail__vibe :deep(svg) {
+  color: var(--vibe-color, var(--kd-accent));
+  flex-shrink: 0;
 }
 
 .cafe-detail__press-seal {
@@ -1543,7 +1639,8 @@ const selectPhoto = (index: number) => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cafe-detail__press {
+  .cafe-detail__press,
+  .cafe-detail__vibe {
     animation: none;
     transform: rotate(var(--tilt, 0deg));
   }

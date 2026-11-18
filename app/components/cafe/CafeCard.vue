@@ -32,7 +32,7 @@
           <span class="bag__hours-key">Hours</span>
           <span class="bag__hours-time">{{ hoursLine }}</span>
         </span>
-        <span class="bag__marks" aria-label="WiFi, outlets, seats, and payments">
+        <span class="bag__marks" :aria-label="stampAria">
           <span
             v-for="(row, index) in stampMarks"
             :key="row.kind"
@@ -46,7 +46,26 @@
               <component :is="row.icon" :size="15" :stroke-width="2.25" aria-hidden="true" />
               {{ row.noun }}
             </span>
-            <span class="bag__mark-word">{{ row.words }}</span>
+            <span v-if="row.words" class="bag__mark-word">{{ row.words }}</span>
+          </span>
+        </span>
+        <span
+          v-if="vibeMarks.length"
+          class="bag__vibes"
+          :aria-label="vibeAria"
+        >
+          <span
+            v-for="(tag, index) in vibeMarks"
+            :key="tag.id"
+            class="bag__vibe-slot"
+          >
+            <span
+              class="bag__vibe"
+              :style="{ '--tilt': index % 2 ? '1.6deg' : '-1.4deg', ...vibeTagColorStyle(tag.color) }"
+            >
+              <component :is="tag.icon" :size="13" :stroke-width="2.25" aria-hidden="true" />
+              {{ tag.label }}
+            </span>
           </span>
         </span>
         <span v-if="teamPress" class="bag__press">
@@ -80,6 +99,7 @@
 
 <script lang="ts" setup>
 import { Armchair, BadgeCheck, Clock, Heart, Navigation, Plug, Unplug, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import type { Cafe } from '~/types/cafe'
 import {
@@ -97,7 +117,7 @@ import { paymentCard, paymentTeamPress } from '~/utils/cafe-payment'
 import { seatingBagAria, seatingBagValue, seatingStamp } from '~/utils/cafe-seating'
 
 const props = defineProps<{
-  cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment' | 'seating' | 'badges'>
+  cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment' | 'seating' | 'badges' | 'vibeTags'>
   selected?: boolean
   distanceLabel?: string
   surface?: CardSurface
@@ -167,6 +187,22 @@ const stampMarks = computed(() => {
       }]
     : []
   return [...amenities, ...seating, ...payments]
+})
+
+const stampAria = computed(() => 'WiFi, outlets, seats, and payments')
+
+const vibeMarks = computed(() =>
+  (props.cafe.vibeTags ?? []).map((tag) => ({
+    id: tag.id,
+    label: tag.label,
+    color: tag.color,
+    icon: vibeTagLucideComponent(tag.lucideIcon),
+  })),
+)
+
+const vibeAria = computed(() => {
+  const names = vibeMarks.value.map((tag) => tag.label)
+  return names.length ? `Vibe: ${names.join(', ')}` : 'Vibe stamps'
 })
 
 const hoursLine = computed(() => {
@@ -403,6 +439,62 @@ onBeforeUnmount(() => {
   border-style: dashed;
 }
 
+.bag__vibes {
+  display: flex;
+  flex-wrap: nowrap;
+  align-self: stretch;
+  gap: 2px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 0 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.bag__vibes::-webkit-scrollbar {
+  display: none;
+}
+
+.bag__vibes::after {
+  content: '';
+  flex: 0 0 8px;
+}
+
+.bag__vibe-slot {
+  display: flex;
+  flex: 0 0 auto;
+  padding: 6px 5px 8px;
+  scroll-snap-align: start;
+}
+
+.bag__vibe {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid var(--vibe-color, #d9793b);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vibe-color, #d9793b) 22%, #faf8f5);
+  color: #1c1917;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform: rotate(var(--tilt, -1.4deg));
+  transform-origin: 30% 80%;
+}
+
+.bag__vibe :deep(svg) {
+  color: var(--vibe-color, #d9793b);
+  flex-shrink: 0;
+}
+
 .bag__mark-noun {
   display: inline-flex;
   align-items: center;
@@ -514,6 +606,10 @@ onBeforeUnmount(() => {
   .bag,
   .bag__lines {
     animation: none;
+  }
+
+  .bag__vibe {
+    transform: none;
   }
 
   .bag__save-fill {

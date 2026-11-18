@@ -17,6 +17,16 @@
         @update:logoFile="onLogoFile"
         @update:logoObjectKey="onLogoObjectKey"
       />
+      <CafeVibeTagPicker
+        v-if="shop"
+        class="admin-span"
+        v-model="draft.vibeTagIds"
+        :tags="enabledTags"
+        :hidden-count="hiddenCount"
+        :issue="issues.vibeTags"
+        :status="pickerStatus"
+        @issue="issues.vibeTags = $event"
+      />
       <CafeDetailsStep
         :key="`details-${resetStamp}`"
         :phone="draft.phone"
@@ -124,6 +134,7 @@
 
 <script lang="ts" setup>
 import AdminBusyLabel from '~/components/admin/AdminBusyLabel.vue'
+import CafeVibeTagPicker from '~/components/cafe/CafeVibeTagPicker.vue'
 import CafeIdentityStep from '~/components/submit/CafeIdentityStep.vue'
 import CafeDetailsStep from '~/components/submit/CafeDetailsStep.vue'
 import CafeLocationPicker from '~/components/submit/CafeLocationPicker.client.vue'
@@ -145,6 +156,7 @@ import {
   SHOP_GALLERY_MAX,
   type ShopPosterRow,
 } from '~/utils/owner-ads'
+import { enabledVibeTags, vibeTagCountError } from '~/utils/admin-vibe-tags'
 import { optionalPhone } from '~/utils/phone'
 import { publicObjectUrl } from '~/utils/shop-mapper'
 import { DAY_KEYS } from '~/types/shop'
@@ -181,6 +193,7 @@ const emit = defineEmits<{
     galleryFiles?: File[]
     galleryObjectKeys?: string[]
     posterFile?: File | null
+    vibeTagIds?: string[]
   }]
   takeDownPoster: [poster: ShopPosterRow]
 }>()
@@ -214,6 +227,7 @@ const emptyIssues = () => ({
   hours: null as string | null,
   poster: null as string | null,
   gallery: null as string | null,
+  vibeTags: null as string | null,
   form: null as string | null,
 })
 
@@ -232,6 +246,7 @@ const emptyDraft = () => {
     openTime: hours.openTime,
     closeTime: hours.closeTime,
     weekly: hours.weekly,
+    vibeTagIds: [] as string[],
   }
 }
 
@@ -260,6 +275,7 @@ const draft = reactive({
   closeTime: initial.closeTime,
   weekly: initial.weekly,
   posterFile: null as File | null,
+  vibeTagIds: [] as string[],
 })
 
 const issues = reactive(emptyIssues())
@@ -389,6 +405,34 @@ const removePhoto = (key: string) => {
   issues.gallery = null
 }
 
+const assignedForShop = () => {
+  const shopId = props.shop?.id
+  if (!shopId) return []
+  return admin.shopVibeTags.value.filter((row) => row.shop_id === shopId)
+}
+const enabledTags = computed(() => enabledVibeTags(admin.vibeTagNames.value))
+const selectedEnabledIds = () => {
+  const enabled = new Set(enabledTags.value.map((tag) => tag.id))
+  return assignedForShop().flatMap((row) => enabled.has(row.tag_id) ? [row.tag_id] : [])
+}
+const hiddenCount = computed(() => {
+  const enabled = new Set(enabledTags.value.map((tag) => tag.id))
+  return assignedForShop().filter((row) => !enabled.has(row.tag_id)).length
+})
+const pickerStatus = computed(() => {
+  if (admin.status.value === 'error' || admin.status.value === 'forbidden') return 'error' as const
+  if (admin.status.value === 'loading' || admin.status.value === 'idle') return 'loading' as const
+  return 'ready' as const
+})
+
+watch(
+  () => [props.shop?.id, admin.shopVibeTags.value.map((row) => `${row.shop_id}:${row.tag_id}`).join('|')].join('|'),
+  () => {
+    draft.vibeTagIds = selectedEnabledIds()
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
   if (admin.status.value === 'idle') void admin.load()
 })
@@ -417,8 +461,9 @@ const onSubmit = () => {
     ? featuredPhotoCountError(galleryItems.value.length)
     : null
   const posterIssue = posterFileError(draft.posterFile, false)
-  Object.assign(issues, { ...next, gallery: galleryIssue, poster: posterIssue, form: null })
-  if (Object.values(next).some(Boolean) || galleryIssue || posterIssue || draft.lat == null || draft.lng == null) return
+  const vibeIssue = props.shop ? vibeTagCountError(draft.vibeTagIds.length, hiddenCount.value) : null
+  Object.assign(issues, { ...next, gallery: galleryIssue, poster: posterIssue, vibeTags: vibeIssue, form: null })
+  if (Object.values(next).some(Boolean) || galleryIssue || posterIssue || vibeIssue || draft.lat == null || draft.lng == null) return
   emit('save', {
     name: normalizeCafeName(draft.name),
     address: normalizeAddress(draft.address),
@@ -433,11 +478,18 @@ const onSubmit = () => {
       ? galleryItems.value.flatMap((item) => item.file ? [] : (item.objectKey ? [item.objectKey] : []))
       : undefined,
     posterFile: props.shop ? draft.posterFile : undefined,
+    vibeTagIds: props.shop && pickerStatus.value === 'ready' ? draft.vibeTagIds : undefined,
   })
 }
 </script>
 
 <style scoped>
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .admin-map {
   min-height: 420px;
 }

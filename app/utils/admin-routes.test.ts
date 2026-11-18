@@ -15,6 +15,7 @@ describe('admin routes', () => {
       '/admin/ads',
       '/admin/events',
       '/admin/badges',
+      '/admin/vibe-tags',
       '/admin/users',
       '/admin/moderation',
     ])
@@ -36,6 +37,8 @@ describe('admin routes', () => {
     expect(adminNavIdFromPath('/admin/events/new')).toBe('events')
     expect(adminNavIdFromPath('/admin/badges')).toBe('badges')
     expect(adminNavIdFromPath('/admin/badges/new')).toBe('badges')
+    expect(adminNavIdFromPath('/admin/vibe-tags')).toBe('vibe-tags')
+    expect(adminNavIdFromPath('/admin/vibe-tags/new')).toBe('vibe-tags')
     expect(adminNavIdFromPath('/admin')).toBe('dashboard')
   })
 
@@ -97,6 +100,15 @@ describe('admin routes', () => {
     })
   })
 
+  test('nested vibe tag pages return to the vibe tags index', () => {
+    expect(adminBackNav('/admin/vibe-tags')).toBeNull()
+    expect(adminBackNav('/admin/vibe-tags/new')).toEqual({ to: '/admin/vibe-tags', label: 'Vibe tags' })
+    expect(adminBackNav('/admin/vibe-tags/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toEqual({
+      to: '/admin/vibe-tags',
+      label: 'Vibe tags',
+    })
+  })
+
   test('section indexes do not grow a back control', () => {
     expect(adminBackNav('/admin')).toBeNull()
     expect(adminBackNav('/admin/requests')).toBeNull()
@@ -104,6 +116,7 @@ describe('admin routes', () => {
     expect(adminBackNav('/admin/users')).toBeNull()
     expect(adminBackNav('/admin/events')).toBeNull()
     expect(adminBackNav('/admin/badges')).toBeNull()
+    expect(adminBackNav('/admin/vibe-tags')).toBeNull()
     expect(adminBackNav('/admin/verifications')).toBeNull()
   })
 })

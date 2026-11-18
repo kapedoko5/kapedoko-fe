@@ -210,11 +210,16 @@ export function mapShopToCafe(
     payment: payment ?? null,
     seating: seating ?? null,
     badges: [],
+    vibeTags: [],
   }
 }
 
 export function withCafeBadges(cafe: Cafe, badges: CafeBadge[]): Cafe {
   return { ...cafe, badges }
+}
+
+export function withCafeVibeTags(cafe: Cafe, vibeTags: Cafe['vibeTags']): Cafe {
+  return { ...cafe, vibeTags }
 }
 
 export function withCafeReviews(cafe: Cafe, reviews: CafeReview[]): Cafe {
