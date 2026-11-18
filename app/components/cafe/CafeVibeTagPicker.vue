@@ -96,6 +96,7 @@ const toggle = (id: string) => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .vibe-picker__head {
@@ -142,8 +143,8 @@ const toggle = (id: string) => {
 .vibe-picker__sheet {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 12px;
-  padding: 6px 2px 4px;
+  gap: 8px 12px;
+  padding: 4px 2px 8px;
 }
 
 .vibe-picker__stamp {
@@ -154,11 +155,13 @@ const toggle = (id: string) => {
   border: 1px solid var(--vibe-color, #d9793b);
   border-radius: 8px;
   background: color-mix(in srgb, var(--vibe-color, #d9793b) 10%, #faf8f5);
-  color: #1c1917;
+  color: var(--kd-ink);
   transform: rotate(var(--tilt, -1.4deg));
   transform-origin: 30% 80%;
   cursor: pointer;
-  transition: background-color 220ms ease, transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms ease;
+  transition:
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .vibe-picker__stamp:hover,
@@ -167,19 +170,18 @@ const toggle = (id: string) => {
 }
 
 .vibe-picker__stamp:focus-visible {
-  outline: 2px solid #1f6f6b;
-  outline-offset: 3px;
+  outline: 2px solid var(--kd-primary);
+  outline-offset: 2px;
 }
 
 .vibe-picker__stamp.is-on {
   background: color-mix(in srgb, var(--vibe-color, #d9793b) 28%, #faf8f5);
   border-color: var(--vibe-color, #d9793b);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #1c1917 18%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--kd-ink) 18%, transparent);
 }
 
 .vibe-picker__stamp:active:not(:disabled) {
   transform: rotate(var(--tilt, -1.4deg)) scale(0.98);
-  box-shadow: inset 0 2px 0 color-mix(in srgb, #1c1917 22%, transparent);
 }
 
 .vibe-picker__stamp.is-muted {
@@ -203,11 +205,15 @@ const toggle = (id: string) => {
 @media (prefers-reduced-motion: reduce) {
   .vibe-picker__stamp {
     transform: none;
-    transition: background-color 160ms ease, border-color 160ms ease;
+    transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .vibe-picker__stamp:active:not(:disabled) {
     transform: none;
   }
+}
+
+:root.is-android .vibe-picker__stamp {
+  min-height: 48px;
 }
 </style>

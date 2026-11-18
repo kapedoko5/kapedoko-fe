@@ -9,18 +9,18 @@
       :nav-role="navRole"
     >
       <article v-if="row" class="admin-card proof-detail">
-        <p class="admin-status" :class="`admin-status--${row.status}`">
-          {{ verificationStatusWord(row.status) }}
-        </p>
+        <div class="proof-detail__mast">
+          <p class="admin-status" :class="`admin-status--${row.status}`">
+            {{ verificationStatusWord(row.status) }}
+          </p>
+          <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/cafes/${row.shop_id}`">Open cafe</NuxtLink>
+        </div>
         <p class="admin-meta">{{ row.owner_name || 'Cafe owner' }} · sent {{ formatAdminDate(row.created_at) }}</p>
         <p v-if="row.reviewed_at" class="admin-meta">Reviewed {{ formatAdminDate(row.reviewed_at) }}</p>
         <aside v-if="row.rejection_reason" class="proof-note" role="status">
           <p class="proof-note__stamp">Rejection</p>
           <p class="proof-note__copy">{{ row.rejection_reason }}</p>
         </aside>
-        <p>
-          <NuxtLink class="admin-link" :to="`/admin/cafes/${row.shop_id}`">Open cafe</NuxtLink>
-        </p>
 
         <section v-if="row.include_wifi" class="proof-block">
           <h2>WiFi speed</h2>
@@ -77,12 +77,12 @@
           <p class="proof-count-line">{{ rejectReason.trim().length }} / 280</p>
           <p v-if="rejectIssue" class="admin-error" role="alert">{{ rejectIssue }}</p>
           <div class="admin-row-actions">
-            <button type="submit" class="admin-btn" :disabled="Boolean(savingId)" :aria-busy="Boolean(savingId) || undefined">
+            <button type="submit" class="admin-btn admin-btn--danger" :disabled="Boolean(savingId)" :aria-busy="Boolean(savingId) || undefined">
               <AdminBusyLabel :busy="Boolean(savingId)">
                 {{ savingId ? 'Sending…' : 'Send rejection' }}
               </AdminBusyLabel>
             </button>
-            <button type="button" class="admin-btn admin-btn--quiet" :disabled="Boolean(savingId)" @click="rejecting = false">
+            <button type="button" class="admin-btn admin-btn--ghost" :disabled="Boolean(savingId)" @click="rejecting = false">
               Cancel
             </button>
           </div>
@@ -251,7 +251,15 @@ onIonViewWillEnter(() => {
 .proof-block {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+}
+
+.proof-detail__mast {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
 }
 
 .proof-detail h2,
@@ -262,8 +270,8 @@ onIonViewWillEnter(() => {
 .proof-photo {
   width: min(100%, 420px);
   height: auto;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 18%, transparent);
-  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border-radius: 16px;
 }
 
 .proof-note {

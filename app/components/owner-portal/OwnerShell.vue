@@ -436,59 +436,18 @@ watch(() => route.path, (path) => {
 .owner-shell__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .owner-shell__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   padding: 20px 20px 36px;
 }
 
-.owner-shell :deep(.owner-btn) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--kd-accent);
-  border-radius: 16px;
-  background: var(--kd-accent);
-  color: var(--kd-ink);
-  font: inherit;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.owner-shell :deep(.owner-btn--ghost) {
-  border-color: color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  background: transparent;
-}
-
-.owner-shell :deep(.owner-btn:disabled) {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.owner-shell :deep(.owner-chip) {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  border-radius: 16px;
-  background: transparent;
-  color: var(--kd-ink);
-  font: inherit;
-  font-size: 0.7875rem;
-  cursor: pointer;
-}
-
-.owner-shell :deep(.owner-chip.is-active) {
-  border-color: var(--kd-accent);
-  background: var(--kd-accent);
-  font-weight: 700;
+.owner-shell__body > .owner-shell__state {
+  margin: 0;
 }
 
 .owner-shell :deep(.owner-search) {
@@ -505,8 +464,6 @@ watch(() => route.path, (path) => {
   caret-color: var(--kd-primary);
 }
 
-.owner-shell :deep(.owner-btn:focus-visible),
-.owner-shell :deep(.owner-chip:focus-visible),
 .owner-shell :deep(.owner-search:focus-visible),
 .owner-shell__link:focus-visible,
 .owner-shell__menu:focus-visible,
@@ -593,9 +550,7 @@ watch(() => route.path, (path) => {
 
 :root.is-android .owner-shell__menu,
 :root.is-android .owner-shell__close,
-:root.is-android .owner-shell__signout,
-:root.is-android .owner-shell :deep(.owner-btn),
-:root.is-android .owner-shell :deep(.owner-chip) {
+:root.is-android .owner-shell__signout {
   min-height: 48px;
 }
 </style>

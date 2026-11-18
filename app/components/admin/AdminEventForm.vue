@@ -1,17 +1,17 @@
 <template>
   <form class="admin-form event-form" @submit.prevent="onSubmit">
-    <div class="admin-panel">
+    <div class="admin-panel event-form__fields">
       <label class="admin-field">
         Event name
         <input v-model="draft.name" maxlength="80" required placeholder="Coffee Fest Manila" />
       </label>
-      <p v-if="issues.name" class="admin-error">{{ issues.name }}</p>
+      <p v-if="issues.name" class="admin-error admin-span">{{ issues.name }}</p>
 
       <label class="admin-field">
         Organizer name
         <input v-model="draft.organizerName" maxlength="80" required placeholder="Kape Guild" />
       </label>
-      <p v-if="issues.organizerName" class="admin-error">{{ issues.organizerName }}</p>
+      <p v-if="issues.organizerName" class="admin-error admin-span">{{ issues.organizerName }}</p>
 
       <label class="admin-field">
         Organizer contact name
@@ -21,13 +21,13 @@
         Organizer contact number
         <input v-model="draft.organizerContactNumber" maxlength="24" placeholder="Optional, 0917 123 4567" />
       </label>
-      <p v-if="issues.organizerContactNumber" class="admin-error">{{ issues.organizerContactNumber }}</p>
+      <p v-if="issues.organizerContactNumber" class="admin-error admin-span">{{ issues.organizerContactNumber }}</p>
 
       <label class="admin-field admin-span">
         About this event
         <textarea v-model="draft.description" rows="4" maxlength="2000" placeholder="Optional" />
       </label>
-      <p v-if="issues.description" class="admin-error">{{ issues.description }}</p>
+      <p v-if="issues.description" class="admin-error admin-span">{{ issues.description }}</p>
     </div>
 
     <div class="admin-panel admin-map">
@@ -45,7 +45,7 @@
       </ClientOnly>
     </div>
 
-    <div class="admin-panel">
+    <div class="admin-panel event-form__fields">
       <label class="admin-field">
         Event starts
         <input v-model="draft.eventStartsAt" type="datetime-local" required />
@@ -77,17 +77,17 @@
       <p v-if="event && !draft.posterFile" class="admin-meta admin-span">
         Using the current poster. Choose a file only to replace it.
       </p>
-      <p v-if="issues.poster" class="admin-error">{{ issues.poster }}</p>
+      <p v-if="issues.poster" class="admin-error admin-span">{{ issues.poster }}</p>
 
       <label class="admin-field admin-span">
         Additional images
         <input type="file" accept="image/jpeg,image/png,image/webp" multiple @change="onGallery" />
       </label>
-      <p v-if="issues.gallery" class="admin-error">{{ issues.gallery }}</p>
+      <p v-if="issues.gallery" class="admin-error admin-span">{{ issues.gallery }}</p>
       <ul v-if="galleryPreviews.length" class="event-form__gallery">
         <li v-for="item in galleryPreviews" :key="item.key">
           <img :src="item.src" alt="" width="96" height="96" />
-          <button type="button" class="admin-link" @click="removeGallery(item.key)">Remove</button>
+          <button type="button" class="admin-btn admin-btn--danger" @click="removeGallery(item.key)">Remove</button>
         </li>
       </ul>
     </div>
@@ -322,6 +322,22 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.event-form__fields {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .event-form__fields {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .event-form__fields > .admin-span {
+    grid-column: 1 / -1;
+  }
+}
+
 .event-form__poster {
   display: block;
   max-width: min(100%, 280px);
@@ -344,8 +360,8 @@ onBeforeUnmount(() => {
 .event-form__gallery li {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  width: 96px;
+  gap: 8px;
+  width: 132px;
 }
 
 .event-form__gallery img {

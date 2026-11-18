@@ -56,7 +56,7 @@
 
           <fieldset v-else-if="cafes.length > 1" class="owner-ads__cafes">
             <legend>Cafes</legend>
-            <button type="button" class="owner-ads__all" @click="toggleAll">
+            <button type="button" class="owner-btn owner-btn--ghost" @click="toggleAll">
               {{ allSelected ? 'Clear all' : 'Select all' }}
             </button>
             <label v-for="shop in cafes" :key="shop.id" class="owner-ads__check">
@@ -81,8 +81,8 @@
 
         <section class="owner-ads__live" aria-labelledby="owner-ads-live">
           <h2 id="owner-ads-live">Live posters</h2>
-          <p v-if="cafes.length === 0" class="owner-ads__empty">{{ ownerAdsNoCafesCopy() }}</p>
-          <p v-else-if="posters.length === 0" class="owner-ads__empty">{{ ownerAdsEmptyCopy() }}</p>
+          <p v-if="cafes.length === 0" class="owner-empty">{{ ownerAdsNoCafesCopy() }}</p>
+          <p v-else-if="posters.length === 0" class="owner-empty">{{ ownerAdsEmptyCopy() }}</p>
           <ul v-else class="owner-ads__list">
             <li v-for="(row, index) in posters" :key="row.id" :style="{ '--enter': String(index) }">
               <article class="owner-ads__bag">
@@ -100,7 +100,7 @@
                 </div>
                 <button
                   type="button"
-                  class="owner-btn owner-btn--ghost"
+                  class="owner-btn owner-btn--danger"
                   :disabled="endingId === row.id || saving"
                   :aria-busy="endingId === row.id || undefined"
                   @click="onTakeDown(row)"
@@ -323,7 +323,6 @@ onBeforeUnmount(() => {
 .owner-ads__live h2,
 .owner-ads__bag h3,
 .owner-ads__hint,
-.owner-ads__empty,
 .owner-ads__reprint,
 .owner-ads__warn,
 .owner-ads__error,
@@ -344,7 +343,6 @@ onBeforeUnmount(() => {
 }
 
 .owner-ads__hint,
-.owner-ads__empty,
 .owner-ads__bag p,
 .owner-ads__reprint {
   color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
@@ -396,7 +394,7 @@ onBeforeUnmount(() => {
 .owner-ads__cafes {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -431,17 +429,8 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-.owner-ads__all {
+.owner-ads__cafes .owner-btn {
   align-self: flex-start;
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--kd-primary);
-  font: inherit;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .owner-ads__warn,
@@ -481,8 +470,7 @@ onBeforeUnmount(() => {
 
 .owner-ads__file input:focus-visible,
 .owner-ads__select select:focus-visible,
-.owner-ads__check input:focus-visible,
-.owner-ads__all:focus-visible {
+.owner-ads__check input:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;
 }
@@ -506,8 +494,7 @@ onBeforeUnmount(() => {
 
 :root.is-android .owner-ads__file input,
 :root.is-android .owner-ads__select select,
-:root.is-android .owner-ads__check,
-:root.is-android .owner-ads__all {
+:root.is-android .owner-ads__check {
   min-height: 48px;
 }
 

@@ -81,7 +81,7 @@
             </li>
             <li v-if="visible.length < filtered.length" ref="sentinelRef" class="admin-picker__sentinel" aria-hidden="true" />
           </ul>
-          <button type="button" class="admin-picker__cancel" @click="closeDialog">Cancel</button>
+          <button type="button" class="admin-btn admin-btn--ghost" @click="closeDialog">Cancel</button>
         </form>
       </dialog>
     </Teleport>

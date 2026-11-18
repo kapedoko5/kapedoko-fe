@@ -35,7 +35,7 @@
         </div>
       </div>
 
-      <p v-if="visible.length === 0" class="admin-meta">{{ emptyCopy }}</p>
+      <p v-if="visible.length === 0" class="admin-empty">{{ emptyCopy }}</p>
 
       <ol v-else class="request-list">
         <li v-for="shop in visible" :key="shop.id">
@@ -104,12 +104,12 @@
               </p>
               <p v-if="rejectIssue" class="admin-error" role="alert">{{ rejectIssue }}</p>
               <div class="request-stamps">
-                <button type="submit" class="request-btn request-btn--reject" :disabled="busy" :aria-busy="savingId === shop.id || undefined">
+                <button type="submit" class="admin-btn admin-btn--danger" :disabled="busy" :aria-busy="savingId === shop.id || undefined">
                   <AdminBusyLabel :busy="savingId === shop.id">
                     {{ savingId === shop.id ? 'Rejecting…' : 'Send rejection' }}
                   </AdminBusyLabel>
                 </button>
-                <button type="button" class="admin-btn admin-btn--quiet" :disabled="busy" @click="cancelReject">
+                <button type="button" class="admin-btn admin-btn--ghost" :disabled="busy" @click="cancelReject">
                   Cancel
                 </button>
               </div>
@@ -118,7 +118,7 @@
             <div v-else-if="shop.status === 'pending'" class="request-stamps" role="group" :aria-label="`Stamp ${shop.name}`">
               <button
                 type="button"
-                class="request-btn request-btn--approve"
+                class="admin-btn"
                 :disabled="busy"
                 :aria-busy="savingId === shop.id || undefined"
                 @click="onApprove(shop)"
@@ -129,17 +129,17 @@
               </button>
               <button
                 type="button"
-                class="request-btn request-btn--reject"
+                class="admin-btn admin-btn--danger"
                 :disabled="busy"
                 @click="startReject(shop.id)"
               >
                 Reject
               </button>
-              <NuxtLink class="request-open" :to="`/admin/cafes/${shop.id}`">Open cafe</NuxtLink>
+              <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/cafes/${shop.id}`">Open cafe</NuxtLink>
             </div>
 
             <p v-else class="request-done">
-              <NuxtLink class="request-open" :to="`/admin/cafes/${shop.id}`">Open cafe</NuxtLink>
+              <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/cafes/${shop.id}`">Open cafe</NuxtLink>
             </p>
           </article>
         </li>
@@ -154,7 +154,7 @@
                 {{ busy ? bulkProgress : bulkApproveCopy(queue.length) }}
               </AdminBusyLabel>
             </button>
-            <button type="button" class="admin-btn admin-btn--quiet" :disabled="busy" @click="cancelBulk">
+            <button type="button" class="admin-btn admin-btn--ghost" :disabled="busy" @click="cancelBulk">
               Cancel
             </button>
           </div>
@@ -177,12 +177,12 @@
             </p>
             <p v-if="rejectIssue" class="admin-error" role="alert">{{ rejectIssue }}</p>
             <div class="request-dock__actions">
-              <button type="submit" class="request-btn request-btn--reject" :disabled="busy" :aria-busy="busy || undefined">
+              <button type="submit" class="admin-btn admin-btn--danger" :disabled="busy" :aria-busy="busy || undefined">
                 <AdminBusyLabel :busy="busy">
                   {{ busy ? bulkProgress : bulkRejectCopy(queue.length) }}
                 </AdminBusyLabel>
               </button>
-              <button type="button" class="admin-btn admin-btn--quiet" :disabled="busy" @click="cancelBulk">
+              <button type="button" class="admin-btn admin-btn--ghost" :disabled="busy" @click="cancelBulk">
                 Cancel
               </button>
             </div>
@@ -454,7 +454,7 @@ onMounted(() => {
 }
 
 .request-notice {
-  margin: 0 0 16px;
+  margin: 0;
   color: var(--kd-ink);
   font-size: 0.7875rem;
   font-weight: 700;
@@ -464,14 +464,13 @@ onMounted(() => {
 .request-toolbar {
   display: grid;
   gap: 12px;
-  margin-bottom: 16px;
 }
 
 .request-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .request-count {
@@ -481,7 +480,7 @@ onMounted(() => {
 
 .request-list {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   margin: 0;
   padding: 0 0 96px;
   list-style: none;
@@ -623,72 +622,12 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   margin-top: 12px;
 }
 
-.request-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 88px;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 16px;
-  font: inherit;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.request-btn--approve {
-  border: 1px solid var(--kd-accent);
-  background: var(--kd-accent);
-  color: var(--kd-ink);
-}
-
-.request-ticket.is-pending .request-btn--approve:not(:disabled) {
+.request-ticket.is-pending .request-stamps .admin-btn:not(.admin-btn--ghost):not(.admin-btn--danger):not(:disabled) {
   transform: rotate(-1.5deg);
-}
-
-.request-btn--reject {
-  border: 1px solid var(--kd-primary);
-  background: transparent;
-  color: var(--kd-primary);
-}
-
-.request-btn:hover:not(:disabled) {
-  filter: brightness(0.97);
-}
-
-.request-btn:focus-visible,
-.request-open:focus-visible {
-  outline: 2px solid var(--kd-primary);
-  outline-offset: 2px;
-}
-
-.request-btn:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.request-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.request-open {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--kd-primary);
-  font-size: 0.7875rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.request-open:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 .request-done {
@@ -736,7 +675,7 @@ onMounted(() => {
 .request-dock__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .request-dock__reject {
@@ -746,16 +685,14 @@ onMounted(() => {
 }
 
 @media (max-width: 767px) {
-  .request-stamps .request-btn,
-  .request-dock__actions .admin-btn,
-  .request-dock__actions .request-btn {
+  .request-stamps .admin-btn,
+  .request-dock__actions .admin-btn {
     flex: 1 1 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .request-ticket.is-pending .request-btn--approve:not(:disabled),
-  .request-btn:active:not(:disabled) {
+  .request-ticket.is-pending .request-stamps .admin-btn:not(.admin-btn--ghost):not(.admin-btn--danger):not(:disabled) {
     transform: none;
   }
 }

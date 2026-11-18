@@ -11,9 +11,9 @@
         <NuxtLink class="admin-btn" :to="`/admin/audits/new?shop=${shopId}`">New audit</NuxtLink>
       </template>
 
-      <p v-if="visits.length === 0" class="visit-empty">
-        No team visits for this cafe yet. File the first one with
-        <NuxtLink class="visit-inline" :to="`/admin/audits/new?shop=${shopId}`">New audit</NuxtLink>.
+      <p v-if="visits.length === 0" class="admin-empty admin-empty--actions">
+        No team visits for this cafe yet.
+        <NuxtLink class="admin-btn" :to="`/admin/audits/new?shop=${shopId}`">New audit</NuxtLink>
       </p>
 
       <div v-else class="visit-log">
@@ -91,7 +91,7 @@
 
           <div class="visit-actions">
             <NuxtLink
-              class="admin-link"
+              class="admin-btn admin-btn--ghost"
               :to="`/admin/audits/new?shop=${shopId}&corrects=${visit.id}`"
               :aria-label="`Correct visit on ${visit.when}`"
             >
@@ -116,9 +116,11 @@
 
       <section v-if="seedReports.length" class="admin-panel visit-seeds" aria-labelledby="visit-seeds-heading">
         <h2 id="visit-seeds-heading">Seed reports</h2>
-        <ul>
-          <li v-for="report in seedReports" :key="report.id">
-            {{ report.label }} · {{ report.result }} · {{ report.when }}
+        <ul class="visit-seeds__list">
+          <li v-for="report in seedReports" :key="report.id" class="visit-seeds__row">
+            <span class="visit-seeds__label">{{ report.label }}</span>
+            <span class="admin-status" :class="seedTone(report.result)">{{ report.result }}</span>
+            <span class="visit-seeds__when">{{ report.when }}</span>
           </li>
         </ul>
       </section>
@@ -191,6 +193,11 @@ const visits = computed(() => presentAuditHistory({
   voids: voids.value,
 }))
 const seedReports = computed(() => presentSeedReports(reports.value))
+const seedTone = (result: string) => {
+  if (result === 'Available') return 'admin-status--approved'
+  if (result === 'Unavailable') return 'admin-status--rejected'
+  return 'admin-status--pending'
+}
 const toneClass = (tone: AuditHistoryTone) => {
   if (tone === 'ok') return 'visit-fact--ok'
   if (tone === 'no') return 'visit-fact--no'
@@ -545,31 +552,44 @@ const onVoid = async (id: string) => {
   margin-top: 24px;
 }
 
-.visit-seeds ul {
+.visit-seeds__list {
   display: grid;
-  gap: 6px;
-  margin: 10px 0 0;
+  gap: 10px;
+  margin: 12px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.visit-seeds li {
+.visit-seeds__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 14%, transparent);
+  border-radius: 16px;
+  background: #faf8f5;
+}
+
+.visit-seeds__label {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.visit-seeds__when {
   color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.7875rem;
-  line-height: 1.3;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.visit-inline:focus-visible,
-.visit-actions :deep(.admin-link:focus-visible),
-.visit-actions :deep(.admin-btn:focus-visible) {
-  outline: 2px solid var(--kd-primary);
-  outline-offset: 2px;
-}
+@media (max-width: 767px) {
+  .visit-seeds__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 
-@media (hover: hover) and (pointer: fine) {
-  .visit-inline:hover {
-    color: var(--kd-ink);
+  .visit-seeds__when {
+    grid-column: 1 / -1;
   }
 }
 

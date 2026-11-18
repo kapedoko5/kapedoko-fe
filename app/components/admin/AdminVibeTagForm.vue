@@ -1,10 +1,10 @@
 <template>
   <form class="admin-panel admin-form" @submit.prevent="onSubmit">
-    <label class="admin-field">
+    <label class="admin-field admin-span">
       Tag name
       <input v-model="draft.label" maxlength="40" required placeholder="Quiet" />
     </label>
-    <p v-if="issues.label" class="admin-error">{{ issues.label }}</p>
+    <p v-if="issues.label" class="admin-error admin-span">{{ issues.label }}</p>
     <p class="admin-meta admin-span">Slug {{ slugPreview || '—' }}</p>
 
     <fieldset class="admin-field admin-span">
@@ -22,7 +22,7 @@
         />
       </div>
     </fieldset>
-    <p v-if="issues.color" class="admin-error">{{ issues.color }}</p>
+    <p v-if="issues.color" class="admin-error admin-span">{{ issues.color }}</p>
 
     <fieldset class="admin-field admin-span">
       <legend>Icon</legend>
@@ -47,7 +47,7 @@
       </div>
     </fieldset>
 
-    <label v-if="tag" class="admin-field">
+    <label v-if="tag" class="admin-field admin-span">
       <input v-model="draft.enabled" type="checkbox" />
       Enabled
     </label>
@@ -152,6 +152,11 @@ watch(
 </script>
 
 <style scoped>
+.admin-field legend {
+  padding: 0;
+  margin: 0 0 8px;
+}
+
 .vibe-color {
   display: flex;
   flex-wrap: wrap;
@@ -207,7 +212,7 @@ watch(
   border: 1px solid var(--vibe-color, #d9793b);
   border-radius: 8px;
   background: color-mix(in srgb, var(--vibe-color, #d9793b) 22%, #faf8f5);
-  color: #1c1917;
+  color: var(--kd-ink);
   transform: rotate(-1.4deg);
 }
 

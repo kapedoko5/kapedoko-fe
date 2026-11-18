@@ -37,7 +37,7 @@
     </div>
     <div class="owner-bag__actions">
       <NuxtLink
-        class="owner-bag__edit"
+        class="owner-btn"
         :to="editTo"
         :aria-label="`Edit listing for ${shop.name}`"
         @click="onEdit"
@@ -45,7 +45,7 @@
         Edit listing
       </NuxtLink>
       <NuxtLink
-        class="owner-bag__edit owner-bag__edit--ghost"
+        class="owner-btn owner-btn--ghost"
         :to="verifyTo"
         :aria-label="`Verify amenities for ${shop.name}`"
         @click="onVerify"
@@ -217,33 +217,7 @@ const onVerify = (event: MouseEvent) => goOwner(event, verifyTo.value)
 .owner-bag__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-}
-
-.owner-bag__edit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: flex-start;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--kd-accent);
-  border-radius: 16px;
-  background: var(--kd-accent);
-  color: #1c1917;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.owner-bag__edit--ghost {
-  background: transparent;
-  border-color: rgba(28, 25, 23, 0.34);
-}
-
-.owner-bag__edit:focus-visible {
-  outline: 2px solid var(--kd-primary);
-  outline-offset: 2px;
+  gap: 12px;
 }
 
 @keyframes owner-bag-settle {
@@ -264,7 +238,4 @@ const onVerify = (event: MouseEvent) => goOwner(event, verifyTo.value)
   }
 }
 
-:root.is-android .owner-bag__edit {
-  min-height: 48px;
-}
 </style>
