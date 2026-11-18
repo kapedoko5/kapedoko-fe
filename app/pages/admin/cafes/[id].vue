@@ -269,7 +269,7 @@ watch(
 .cafe-editor {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
   caret-color: var(--kd-primary);
 }
 

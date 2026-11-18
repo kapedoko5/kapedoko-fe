@@ -4,12 +4,14 @@ export const ADMIN_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/admin' },
   { id: 'cafes', label: 'Cafes', href: '/admin/cafes' },
   { id: 'audits', label: 'Audits', href: '/admin/audits' },
+  { id: 'verifications', label: 'Proofs', href: '/admin/verifications' },
   { id: 'requests', label: 'Requests', href: '/admin/requests' },
   { id: 'claims', label: 'Claims', href: '/admin/claims' },
   { id: 'partnerships', label: 'Partnerships', href: '/admin/partnerships' },
   { id: 'ads', label: 'Ads', href: '/admin/ads' },
   { id: 'events', label: 'Events', href: '/admin/events' },
   { id: 'badges', label: 'Badges', href: '/admin/badges' },
+  { id: 'vibe-tags', label: 'Vibe tags', href: '/admin/vibe-tags' },
   { id: 'users', label: 'Users', href: '/admin/users' },
   { id: 'moderation', label: 'Moderation', href: '/admin/moderation' },
 ] as const
@@ -55,6 +57,10 @@ export function adminBackNav(
     return { to: '/admin/audits', label: 'Audits' }
   }
 
+  if (current.startsWith('/admin/verifications/') && current !== '/admin/verifications/') {
+    return { to: '/admin/verifications', label: 'Proofs' }
+  }
+
   if (current.startsWith('/admin/cafes/') && current !== '/admin/cafes/') {
     return { to: '/admin/cafes', label: 'Cafes' }
   }
@@ -67,15 +73,20 @@ export function adminBackNav(
     return { to: '/admin/badges', label: 'Badges' }
   }
 
+  if (current.startsWith('/admin/vibe-tags/') && current !== '/admin/vibe-tags/') {
+    return { to: '/admin/vibe-tags', label: 'Vibe tags' }
+  }
+
   return null
 }
 
 export function staffNav(role: 'admin' | 'auditor' | string | null | undefined) {
-  if (role === 'auditor') return ADMIN_NAV.filter((item) => item.id === 'audits')
+  if (role === 'auditor') return ADMIN_NAV.filter((item) => item.id === 'audits' || item.id === 'verifications')
   return [...ADMIN_NAV]
 }
 
 export function adminNavIdFromPath(path: string): (typeof ADMIN_NAV)[number]['id'] {
+  if (path.includes('/verifications')) return 'verifications'
   if (path.includes('/audits')) return 'audits'
   if (path.startsWith('/admin/cafes')) return 'cafes'
   if (path.startsWith('/admin/requests')) return 'requests'
@@ -84,6 +95,7 @@ export function adminNavIdFromPath(path: string): (typeof ADMIN_NAV)[number]['id
   if (path.startsWith('/admin/ads')) return 'ads'
   if (path.startsWith('/admin/events')) return 'events'
   if (path.startsWith('/admin/badges')) return 'badges'
+  if (path.startsWith('/admin/vibe-tags')) return 'vibe-tags'
   if (path.startsWith('/admin/users')) return 'users'
   if (path.startsWith('/admin/moderation')) return 'moderation'
   return 'dashboard'

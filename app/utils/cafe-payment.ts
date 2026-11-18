@@ -8,6 +8,7 @@ export interface ShopPaymentRow {
   accepts_card: string | null
   accepts_cash: string | null
   source_at: string | null
+  source?: string | null
 }
 
 export const PAYMENT_KINDS: Array<{ id: PaymentKind; noun: string }> = [
@@ -28,6 +29,7 @@ export function paymentFromRow(row?: ShopPaymentRow | null): CafePayment | null 
     card: asResult(row.accepts_card),
     cash: asResult(row.accepts_cash),
     sourceAt: row.source_at,
+    source: row.source === 'owner' ? 'owner' : row.source === 'team' ? 'team' : 'team',
   }
 }
 
@@ -57,7 +59,7 @@ export function paymentDateLabel(payment?: CafePayment | null): string | null {
 export function paymentTeamPress(payment?: CafePayment | null): string | null {
   if (!paymentKnown(payment)) return null
   const date = paymentDateLabel(payment)
-  return ['Verified by KapeDoko team', date].filter(Boolean).join(' · ')
+  return ['Verified', date].filter(Boolean).join(' · ')
 }
 
 export function paymentCardLabel(payment?: CafePayment | null): string {
@@ -78,7 +80,7 @@ export function paymentCardAria(payment?: CafePayment | null): string {
 
 export function paymentCard(payment?: CafePayment | null): {
   label: string
-  stamp: 'team' | 'unknown'
+  stamp: 'team' | 'owner' | 'unknown'
   unavailable: boolean
   aria: string
 } | null {
@@ -87,7 +89,7 @@ export function paymentCard(payment?: CafePayment | null): {
   const unavailable = label === 'None'
   return {
     label,
-    stamp: label === 'Unknown' ? 'unknown' : 'team',
+    stamp: label === 'Unknown' ? 'unknown' : payment.source === 'owner' ? 'owner' : 'team',
     unavailable,
     aria: paymentCardAria(payment),
   }

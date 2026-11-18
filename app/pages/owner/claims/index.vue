@@ -31,7 +31,7 @@
           role="tabpanel"
           :aria-labelledby="`owner-claim-tab-${activeFilter}`"
         >
-          <p v-if="visible.length === 0" class="owner-claims__empty">
+          <p v-if="visible.length === 0" class="owner-empty">
             {{ ownerClaimsEmptyCopy(activeFilter) }}
           </p>
           <div v-else class="owner-claims__list">
@@ -124,24 +124,17 @@ onMounted(async () => {
 .owner-claims {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
 .owner-claims__filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .owner-claims__count {
   font-variant-numeric: tabular-nums;
-}
-
-.owner-claims__empty {
-  margin: 0;
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.7875rem;
-  line-height: 1.3;
 }
 
 .owner-claims__list {

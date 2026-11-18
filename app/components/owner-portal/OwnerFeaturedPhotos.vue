@@ -20,14 +20,14 @@
     <ul v-if="items.length" class="featured__grid">
       <li v-for="item in items" :key="item.key">
         <img :src="item.src" alt="" width="120" height="120" />
-        <button type="button" class="featured__remove" @click="remove(item.key)">
+        <button type="button" class="owner-btn owner-btn--danger" @click="remove(item.key)">
           Remove
         </button>
       </li>
     </ul>
 
     <div class="featured__actions">
-      <button type="button" class="featured__add" :disabled="items.length >= max" @click="pick">
+      <button type="button" class="owner-btn owner-btn--ghost" :disabled="items.length >= max" @click="pick">
         {{ items.length ? 'Add photos' : 'Choose photos' }}
       </button>
       <p class="featured__count">{{ items.length }} of {{ max }}</p>
@@ -205,25 +205,6 @@ onBeforeUnmount(() => {
   background: #faf8f5;
 }
 
-.featured__remove,
-.featured__add {
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--kd-primary);
-  font: inherit;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
-}
-
-.featured__add:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .featured__actions {
   display: flex;
   flex-wrap: wrap;
@@ -234,18 +215,6 @@ onBeforeUnmount(() => {
 .featured__error {
   color: var(--kd-destructive);
   font-weight: 700;
-}
-
-.featured__add:focus-visible,
-.featured__remove:focus-visible {
-  outline: 2px solid var(--kd-primary);
-  outline-offset: 2px;
-  border-radius: 8px;
-}
-
-:root.is-android .featured__remove,
-:root.is-android .featured__add {
-  min-height: 48px;
 }
 
 ::selection {

@@ -56,19 +56,19 @@
             <button
               v-if="tally.duplicates > 0"
               type="button"
-              class="admin-btn admin-btn--quiet"
+              class="admin-btn admin-btn--ghost"
               :disabled="saving"
               @click="skipDuplicates"
             >
               Skip already listed
             </button>
-            <button type="button" class="admin-btn admin-btn--quiet" @click="resetCrate">
+            <button type="button" class="admin-btn admin-btn--ghost" @click="resetCrate">
               Choose another file
             </button>
           </div>
         </div>
 
-        <p v-if="visible.length === 0" class="admin-meta">No cafes in that slice.</p>
+        <p v-if="visible.length === 0" class="admin-empty">No cafes in that slice.</p>
 
         <ol v-else class="crate-list">
           <li v-for="ticket in visible" :key="ticket.key">
@@ -387,7 +387,6 @@ onMounted(() => {
 .crate-toolbar {
   display: grid;
   gap: 12px;
-  margin-bottom: 12px;
 }
 
 .crate-progress {
@@ -400,7 +399,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .crate-count {
@@ -410,7 +409,7 @@ onMounted(() => {
 
 .crate-list {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   margin: 0;
   padding: 0 0 88px;
   list-style: none;
@@ -482,7 +481,7 @@ onMounted(() => {
 .crate-ticket__stamps {
   display: flex;
   flex: 0 0 auto;
-  gap: 8px;
+  gap: 12px;
 }
 
 .crate-stamp {

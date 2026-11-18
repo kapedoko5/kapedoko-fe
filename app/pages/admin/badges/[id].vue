@@ -36,7 +36,7 @@
             :invalid="Boolean(awardIssues.shops)"
           />
         </label>
-        <p v-if="awardIssues.shops" class="admin-error">{{ awardIssues.shops }}</p>
+        <p v-if="awardIssues.shops" class="admin-error admin-span">{{ awardIssues.shops }}</p>
         <label class="admin-field">
           Starts
           <input v-model="awardDraft.startsAt" type="datetime-local" required />
@@ -56,7 +56,7 @@
           <button
             v-if="editingAwardId"
             type="button"
-            class="admin-btn admin-btn--quiet"
+            class="admin-btn admin-btn--ghost"
             :disabled="savingAward"
             @click="resetAwardDraft"
           >
@@ -65,7 +65,9 @@
         </div>
       </form>
 
-      <div v-if="badge" class="admin-table-wrap">
+      <p v-if="badge && awards.length === 0" class="admin-empty">No awards yet. Award this badge to approved cafes above.</p>
+
+      <div v-else-if="badge" class="admin-table-wrap">
         <table class="admin-table">
           <thead>
             <tr>
@@ -77,15 +79,19 @@
           </thead>
           <tbody>
             <tr v-for="row in awards" :key="row.id">
-              <td>{{ formatAdminDate(row.starts_at) }} – {{ formatAdminDate(row.ends_at) }}</td>
+              <td>
+                <span class="admin-range">{{ formatAdminDate(row.starts_at) }} – {{ formatAdminDate(row.ends_at) }}</span>
+              </td>
               <td>{{ cafeCopy(row.id) }}</td>
-              <td>{{ badgeAwardLifecycle(row) }}</td>
+              <td>
+                <span class="admin-status" :class="`admin-status--${badgeAwardLifecycle(row)}`">{{ badgeAwardLifecycle(row) }}</span>
+              </td>
               <td>
                 <div class="admin-row-actions">
                   <button
                     v-if="badgeAwardLifecycle(row) !== 'ended'"
                     type="button"
-                    class="admin-link"
+                    class="admin-btn admin-btn--ghost"
                     @click="startEditAward(row)"
                   >
                     Edit
@@ -93,7 +99,7 @@
                   <button
                     v-if="row.enabled && !row.cancelled_at"
                     type="button"
-                    class="admin-btn admin-btn--quiet"
+                    class="admin-btn admin-btn--danger"
                     :disabled="endingId === row.id || savingAward"
                     :aria-busy="endingId === row.id || undefined"
                     @click="onEndAward(row)"
@@ -109,18 +115,18 @@
         </table>
       </div>
 
-      <p v-if="badge && awards.length === 0" class="admin-meta">No awards yet.</p>
-
-      <div v-if="badge" class="admin-cards">
+      <div v-if="badge && awards.length" class="admin-cards">
         <article v-for="row in awards" :key="row.id" class="admin-card">
-          <h2>{{ formatAdminDate(row.starts_at) }} – {{ formatAdminDate(row.ends_at) }}</h2>
+          <h2 class="admin-range">{{ formatAdminDate(row.starts_at) }} – {{ formatAdminDate(row.ends_at) }}</h2>
           <p>{{ cafeCopy(row.id) }}</p>
-          <p>{{ badgeAwardLifecycle(row) }}</p>
+          <p>
+            <span class="admin-status" :class="`admin-status--${badgeAwardLifecycle(row)}`">{{ badgeAwardLifecycle(row) }}</span>
+          </p>
           <div class="admin-row-actions">
             <button
               v-if="badgeAwardLifecycle(row) !== 'ended'"
               type="button"
-              class="admin-link"
+              class="admin-btn admin-btn--ghost"
               @click="startEditAward(row)"
             >
               Edit
@@ -128,7 +134,7 @@
             <button
               v-if="row.enabled && !row.cancelled_at"
               type="button"
-              class="admin-btn admin-btn--quiet"
+              class="admin-btn admin-btn--danger"
               :disabled="endingId === row.id || savingAward"
               :aria-busy="endingId === row.id || undefined"
               @click="onEndAward(row)"

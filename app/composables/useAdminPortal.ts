@@ -7,6 +7,9 @@ import type {
   BadgeAwardShopRow,
   BadgeLucideId,
   BadgeNameRow,
+  ShopVibeTagRow,
+  VibeTagLucideId,
+  VibeTagNameRow,
 } from '~/types/admin'
 import { isBadgeAwardActive } from '~/utils/admin-badges'
 import type { EventRow } from '~/types/event'
@@ -28,6 +31,7 @@ import { effectiveMarkerTier } from '~/utils/marker-tier'
 import { parseProfileRole } from '~/utils/profile-role'
 import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, type AdminSearchUserRow } from '~/utils/admin-users'
 import { withReportedReviewText, type ReportedReviewSource } from '~/utils/moderation'
+import { uploadPresignedImage } from '~/utils/presign-upload'
 
 type AdminDatabase = {
   public: {
@@ -60,16 +64,7 @@ export async function requireAdminUserId(): Promise<string> {
 }
 
 export async function uploadAdminAsset(file: File, purpose: 'shop-logo' | 'shop-photo' | 'shop-poster' | 'ad-banner' | 'event-image' | 'badge-icon'): Promise<string> {
-  const supabase = useSupabaseClient<AdminDatabase>()
-  const form = new FormData()
-  form.append('file', file)
-  form.append('purpose', purpose)
-  const { data, error } = await supabase.functions.invoke('presign-upload', { body: form })
-  const payload = (data ?? null) as { objectKey?: string; error?: string } | null
-  if (error || !payload?.objectKey) {
-    throw new Error(payload?.error || 'Could not upload that file. Try again.')
-  }
-  return payload.objectKey
+  return uploadPresignedImage(file, purpose)
 }
 
 export async function deleteAdminAssets(objectKeys: string[]): Promise<void> {
@@ -91,6 +86,8 @@ export function useAdminData() {
   const badgeNames = useState<BadgeNameRow[]>('kd-admin-badge-names', () => [])
   const badgeAwards = useState<BadgeAwardRow[]>('kd-admin-badge-awards', () => [])
   const badgeAwardShops = useState<BadgeAwardShopRow[]>('kd-admin-badge-award-shops', () => [])
+  const vibeTagNames = useState<VibeTagNameRow[]>('kd-admin-vibe-tag-names', () => [])
+  const shopVibeTags = useState<ShopVibeTagRow[]>('kd-admin-shop-vibe-tags', () => [])
   const claims = useState<ShopClaimRow[]>('kd-admin-claims', () => [])
   const checkIns30d = useState('kd-admin-checkins-30d', () => 0)
   const status = useState<'idle' | 'loading' | 'ready' | 'forbidden' | 'error'>('kd-admin-status', () => 'idle')
@@ -116,6 +113,7 @@ export function useAdminData() {
     claims.value = claims.value.filter((row) => row.shop_id !== shopId)
     reports.value = reports.value.filter((row) => row.shop_id !== shopId)
     dropLiveBadgeAwardShop(shopId)
+    shopVibeTags.value = shopVibeTags.value.filter((row) => row.shop_id !== shopId)
   }
 
   const dropLiveBadgeAwardShop = (shopId: string) => {
@@ -236,6 +234,36 @@ export function useAdminData() {
     }
   }
 
+  const loadVibeTags = async () => {
+    const [names, assigned] = await Promise.all([
+      supabase.from('vibe_tag_names').select('*').order('label', { ascending: true }),
+      supabase.from('shop_vibe_tags').select('*'),
+    ])
+    if (names.error) {
+      vibeTagNames.value = []
+    } else {
+      vibeTagNames.value = (names.data ?? []) as VibeTagNameRow[]
+    }
+    if (assigned.error) {
+      shopVibeTags.value = []
+    } else {
+      shopVibeTags.value = (assigned.data ?? []) as ShopVibeTagRow[]
+    }
+  }
+
+  const putShopVibeTags = (shopId: string, enabledIds: string[]) => {
+    const hidden = shopVibeTags.value.filter((row) => {
+      if (row.shop_id !== shopId) return false
+      const name = vibeTagNames.value.find((item) => item.id === row.tag_id)
+      return Boolean(name && !name.enabled)
+    })
+    shopVibeTags.value = [
+      ...shopVibeTags.value.filter((row) => row.shop_id !== shopId),
+      ...hidden,
+      ...enabledIds.map((tag_id) => ({ shop_id: shopId, tag_id })),
+    ]
+  }
+
   const putBadgeAward = (row: BadgeAwardRow, shopIds: string[]) => {
     const exists = badgeAwards.value.some((item) => item.id === row.id)
     badgeAwards.value = exists
@@ -302,7 +330,7 @@ export function useAdminData() {
       }
       const applied = await loadShops(seq)
       if (!applied) return
-      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadEvents(), loadBadgeCatalog(), loadClaims(), loadCheckIns()])
+      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadEvents(), loadBadgeCatalog(), loadVibeTags(), loadClaims(), loadCheckIns()])
       if (seq !== loadSeq.value) return
       status.value = 'ready'
     } catch (err) {
@@ -571,6 +599,7 @@ export function useAdminData() {
       galleryFiles?: File[]
       galleryObjectKeys?: string[]
       posterFile?: File | null
+      vibeTagIds?: string[]
     },
   ) => {
     let logoKey = adminLogoPayload({
@@ -595,6 +624,7 @@ export function useAdminData() {
       p_logo_object_key: logoKey,
     }
     if (extraKeys) payload.p_gallery_object_keys = extraKeys
+    if (input.vibeTagIds) payload.p_vibe_tag_ids = input.vibeTagIds
     const { data, error: rpcError } = await supabase.rpc('update_admin_shop', payload)
     if (rpcError || !data) {
       throw new Error(
@@ -605,6 +635,7 @@ export function useAdminData() {
     }
     const updated = (Array.isArray(data) ? data[0] : data) as ShopRow
     putShop(updated)
+    if (input.vibeTagIds) putShopVibeTags(shopId, input.vibeTagIds)
     return updated
   }
 
@@ -996,6 +1027,77 @@ export function useAdminData() {
     if (row.icon_object_key) await deleteAdminAssets([row.icon_object_key])
   }
 
+  const saveVibeTag = async (payload: {
+    id?: string
+    label: string
+    lucide_icon: VibeTagLucideId
+    color: string
+    enabled: boolean
+  }) => {
+    const row = {
+      label: payload.label.trim(),
+      lucide_icon: payload.lucide_icon,
+      color: payload.color,
+      enabled: payload.enabled,
+    }
+    let saved: VibeTagNameRow
+    if (payload.id) {
+      const { data, error: updateError } = await supabase
+        .from('vibe_tag_names')
+        .update(row)
+        .eq('id', payload.id)
+        .select()
+        .single()
+      if (updateError || !data) throw new Error(updateError?.message || 'Could not save this vibe tag.')
+      saved = data as VibeTagNameRow
+      vibeTagNames.value = vibeTagNames.value.map((item) => (item.id === payload.id ? saved : item))
+    } else {
+      const { data, error: insertError } = await supabase.from('vibe_tag_names').insert(row).select().single()
+      if (insertError || !data) throw new Error(insertError?.message || 'Could not save this vibe tag.')
+      saved = data as VibeTagNameRow
+      vibeTagNames.value = [saved, ...vibeTagNames.value].sort((a, b) => a.label.localeCompare(b.label))
+    }
+    return saved
+  }
+
+  const fetchVibeTag = async (tagId: string): Promise<VibeTagNameRow | null> => {
+    const { data, error: tagError } = await supabase
+      .from('vibe_tag_names')
+      .select('*')
+      .eq('id', tagId)
+      .maybeSingle()
+    if (tagError) throw tagError
+    const row = (data ?? vibeTagNames.value.find((item) => item.id === tagId) ?? null) as VibeTagNameRow | null
+    if (row) {
+      vibeTagNames.value = vibeTagNames.value.some((item) => item.id === row.id)
+        ? vibeTagNames.value.map((item) => (item.id === row.id ? row : item))
+        : [row, ...vibeTagNames.value].sort((a, b) => a.label.localeCompare(b.label))
+    }
+    return row
+  }
+
+  const disableVibeTag = async (id: string, enabled: boolean) => {
+    const { data, error: updateError } = await supabase
+      .from('vibe_tag_names')
+      .update({ enabled })
+      .eq('id', id)
+      .select()
+      .single()
+    if (updateError || !data) throw new Error(updateError?.message || 'Could not update this vibe tag.')
+    const saved = data as VibeTagNameRow
+    vibeTagNames.value = vibeTagNames.value.map((item) => (item.id === id ? saved : item))
+    return saved
+  }
+
+  const deleteVibeTag = async (row: VibeTagNameRow) => {
+    if (shopVibeTags.value.some((item) => item.tag_id === row.id)) {
+      throw new Error('Unassign this tag from every cafe before deleting it.')
+    }
+    const { error: deleteError } = await supabase.from('vibe_tag_names').delete().eq('id', row.id)
+    if (deleteError) throw new Error(deleteError.message || 'Could not delete this vibe tag.')
+    vibeTagNames.value = vibeTagNames.value.filter((item) => item.id !== row.id)
+  }
+
   const saveBadgeAward = async (payload: {
     id?: string
     badge_id: string
@@ -1077,6 +1179,8 @@ export function useAdminData() {
     badgeNames,
     badgeAwards,
     badgeAwardShops,
+    vibeTagNames,
+    shopVibeTags,
     claims,
     counts,
     status,
@@ -1091,6 +1195,7 @@ export function useAdminData() {
     loadAds,
     loadEvents,
     loadBadgeCatalog,
+    loadVibeTags,
     loadClaims,
     markerTierFor,
     moderate,
@@ -1115,6 +1220,10 @@ export function useAdminData() {
     deleteBadgeName,
     saveBadgeAward,
     endBadgeAward,
+    saveVibeTag,
+    fetchVibeTag,
+    disableVibeTag,
+    deleteVibeTag,
     moderateClaim,
   }
 }

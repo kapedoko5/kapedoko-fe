@@ -1,26 +1,21 @@
-import type { ShopClaimRow, ShopOwnerPublic, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
+import type { ShopVibeTagRow, VibeTagNameRow } from '~/types/admin'
+import type { ShopAmenityVerificationRow, ShopClaimRow, ShopOwnerPublic, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import { authUserId } from '~/utils/auth'
 import { missingOwnerMediaSqlCopy, type ShopPosterRow } from '~/utils/owner-ads'
+import { uploadPresignedImage } from '~/utils/presign-upload'
+import type { OwnerVerifyDraft } from '~/utils/owner-verify'
+import { ownerVerifySubmitPayload } from '~/utils/owner-verify'
 import { adminCannotOwnCopy, missingShopOwnerSqlCopy } from '~/utils/shop-claims'
 
-type OwnerUploadPurpose = 'shop-logo' | 'shop-poster' | 'shop-photo'
+type OwnerUploadPurpose = 'shop-logo' | 'shop-poster' | 'shop-photo' | 'amenity-proof'
 
 type ListedClaimRow = ShopClaimRow & { shop_name?: string | null }
 
 let loadSeq = 0
 
 async function uploadOwnerMedia(file: File, purpose: OwnerUploadPurpose): Promise<string> {
-  const supabase = useSupabaseClient()
-  const form = new FormData()
-  form.append('file', file)
-  form.append('purpose', purpose)
-  const { data, error } = await supabase.functions.invoke('presign-upload', { body: form })
-  const payload = (data ?? null) as { objectKey?: string; error?: string } | null
-  if (error || !payload?.objectKey) {
-    throw new Error(payload?.error || 'Could not upload that file. Try again.')
-  }
-  return payload.objectKey
+  return uploadPresignedImage(file, purpose)
 }
 
 function ownerWriteError(err: unknown, fallback: string): string {
@@ -57,6 +52,9 @@ export function useShopOwnership() {
   const verifiedOwnerByShop = useState<Record<string, boolean>>('kd-shop-verified-owner', () => ({}))
   const shopOwnerByShop = useState<Record<string, ShopOwnerPublic>>('kd-shop-owner', () => ({}))
   const posters = useState<ShopPosterRow[]>('kd-owner-posters', () => [])
+  const vibeTagNames = useState<VibeTagNameRow[]>('kd-owner-vibe-tag-names', () => [])
+  const shopVibeTags = useState<ShopVibeTagRow[]>('kd-owner-shop-vibe-tags', () => [])
+  const verifications = useState<ShopAmenityVerificationRow[]>('kd-owner-verifications', () => [])
   const status = useState<'idle' | 'loading' | 'ready' | 'error'>('kd-owner-status', () => 'idle')
   const error = useState('kd-owner-error', () => '')
   const saving = useState('kd-owner-saving', () => false)
@@ -80,6 +78,7 @@ export function useShopOwnership() {
   const loadOwnedShops = async (verifiedIds: string[]) => {
     if (!verifiedIds.length) {
       ownedShops.value = []
+      await loadVibeTags([])
       return
     }
     const { data: shops, error: shopsError } = await supabase
@@ -89,6 +88,18 @@ export function useShopOwnership() {
       .order('name', { ascending: true })
     if (shopsError) throw shopsError
     ownedShops.value = (shops ?? []) as ShopRow[]
+    await loadVibeTags(verifiedIds)
+  }
+
+  const loadVibeTags = async (shopIds: string[]) => {
+    const [names, assigned] = await Promise.all([
+      supabase.from('vibe_tag_names').select('*').eq('enabled', true).order('label', { ascending: true }),
+      shopIds.length
+        ? supabase.from('shop_vibe_tags').select('*').in('shop_id', shopIds)
+        : Promise.resolve({ data: [], error: null }),
+    ])
+    vibeTagNames.value = names.error ? [] : ((names.data ?? []) as VibeTagNameRow[])
+    shopVibeTags.value = assigned.error ? [] : ((assigned.data ?? []) as ShopVibeTagRow[])
   }
 
   const loadViaTable = async (uid: string) => {
@@ -119,6 +130,8 @@ export function useShopOwnership() {
       claims.value = []
       ownedShops.value = []
       claimShopNames.value = {}
+      vibeTagNames.value = []
+      shopVibeTags.value = []
       status.value = 'ready'
       error.value = ''
       return
@@ -340,6 +353,7 @@ export function useShopOwnership() {
       logoObjectKey: string | null
       galleryFiles?: File[]
       galleryObjectKeys?: string[]
+      vibeTagIds?: string[]
     },
   ) => {
     saving.value = true
@@ -364,12 +378,24 @@ export function useShopOwnership() {
         p_contact_number: input.contact_number,
         p_logo_object_key: logoKey,
         p_gallery_object_keys: extraKeys,
+        ...(input.vibeTagIds ? { p_vibe_tag_ids: input.vibeTagIds } : {}),
       })
       const updated = (Array.isArray(data) ? data[0] : data) as ShopRow | null
       if (rpcError || !updated) {
         throw new Error(ownerWriteError(rpcError?.message || 'Could not save this cafe.', 'Could not save this cafe.'))
       }
       ownedShops.value = ownedShops.value.map((item) => (item.id === shopId ? updated : item))
+      if (input.vibeTagIds) {
+        const hidden = shopVibeTags.value.filter((row) => {
+          if (row.shop_id !== shopId) return false
+          return !vibeTagNames.value.some((item) => item.id === row.tag_id)
+        })
+        shopVibeTags.value = [
+          ...shopVibeTags.value.filter((row) => row.shop_id !== shopId),
+          ...hidden,
+          ...input.vibeTagIds.map((tag_id) => ({ shop_id: shopId, tag_id })),
+        ]
+      }
       if (updated.name) {
         claimShopNames.value = { ...claimShopNames.value, [shopId]: updated.name }
       }
@@ -431,11 +457,69 @@ export function useShopOwnership() {
     }
   }
 
+  const loadVerifications = async () => {
+    const { data, error: rpcError } = await supabase.rpc('list_my_shop_amenity_verifications')
+    if (rpcError) throw new Error(ownerWriteError(rpcError.message, 'Could not load amenity proofs.'))
+    verifications.value = (data ?? []) as ShopAmenityVerificationRow[]
+    return verifications.value
+  }
+
+  const submitAmenityVerification = async (shopId: string, draft: OwnerVerifyDraft) => {
+    saving.value = true
+    error.value = ''
+    try {
+      const payload = ownerVerifySubmitPayload(draft)
+      let wifiKey = draft.wifiKey
+      let seatingKey = draft.seatingKey
+      let outletsKey = draft.outletsKey
+      if (payload.includeWifi && draft.wifiFile) {
+        wifiKey = await uploadOwnerMedia(draft.wifiFile, 'amenity-proof')
+      }
+      if (payload.includeSeating && draft.seatingFile) {
+        seatingKey = await uploadOwnerMedia(draft.seatingFile, 'amenity-proof')
+      }
+      if (payload.includeOutlets && draft.outletsFile) {
+        outletsKey = await uploadOwnerMedia(draft.outletsFile, 'amenity-proof')
+      }
+      const { data, error: rpcError } = await supabase.rpc('submit_shop_amenity_verification', {
+        p_shop_id: shopId,
+        p_include_wifi: payload.includeWifi,
+        p_wifi_screenshot_object_key: payload.includeWifi ? wifiKey : null,
+        p_wifi_download_mbps: payload.wifiMbps,
+        p_include_seating: payload.includeSeating,
+        p_seating_photo_object_key: payload.includeSeating ? seatingKey : null,
+        p_seating_capacity: payload.seatingCapacity,
+        p_include_outlets: payload.includeOutlets,
+        p_outlets_photo_object_key: payload.includeOutlets ? outletsKey : null,
+        p_include_payment: payload.includePayment,
+        p_accepts_qr: payload.acceptsQr,
+        p_accepts_card: payload.acceptsCard,
+        p_accepts_cash: payload.acceptsCash,
+      })
+      const saved = (Array.isArray(data) ? data[0] : data) as ShopAmenityVerificationRow | null
+      if (rpcError || !saved) {
+        throw new Error(ownerWriteError(rpcError?.message || 'Could not send this proof.', 'Could not send this proof.'))
+      }
+      verifications.value = [
+        saved,
+        ...verifications.value.filter((row) => row.id !== saved.id),
+      ]
+      return saved
+    } catch (err) {
+      error.value = ownerWriteError(err, 'Could not send this proof.')
+      throw new Error(error.value)
+    } finally {
+      saving.value = false
+    }
+  }
+
   return {
     claims,
     ownedShops,
     claimShopNames,
     posters,
+    vibeTagNames,
+    shopVibeTags,
     status,
     error,
     saving,
@@ -457,5 +541,8 @@ export function useShopOwnership() {
     loadPosters,
     publishPoster,
     endPoster,
+    verifications,
+    loadVerifications,
+    submitAmenityVerification,
   }
 }

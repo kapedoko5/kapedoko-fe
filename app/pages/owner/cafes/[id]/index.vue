@@ -2,7 +2,7 @@
   <IonPage>
     <OwnerShell
       :title="shop?.name || 'Edit listing'"
-      lede="Hours, contact, identity, logo, and featured photos. WiFi and outlets still come from visitor reviews."
+      lede="Hours, contact, identity, logo, featured photos, and up to five vibe stamps. Verify WiFi, outlets, seating, and payment from Desk."
       :status="shellStatus"
       :error="pageError"
       :claim-count="waitingClaims.length"
@@ -164,7 +164,7 @@ onBeforeUnmount(() => {
 .owner-edit {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .owner-edit__live,

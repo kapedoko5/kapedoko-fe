@@ -18,7 +18,11 @@
         <button type="button" class="admin-btn" @click="load(query, 1)">Search</button>
       </div>
 
-      <div class="admin-ledger user-board">
+      <p v-if="users.length === 0" class="admin-empty">
+        {{ query.trim() ? 'No people match that search.' : 'No accounts yet.' }}
+      </p>
+
+      <div v-else class="admin-ledger user-board">
         <div class="admin-table-wrap">
           <table class="admin-table">
             <thead>
@@ -68,7 +72,8 @@
                   <div class="user-actions">
                     <button
                       type="button"
-                      :class="user.banned ? 'user-restore' : 'user-warn'"
+                      class="admin-btn"
+                      :class="user.banned ? 'admin-btn--ghost' : 'admin-btn--danger'"
                       :disabled="savingId === user.id || user.id === me"
                       :aria-busy="savingId === user.id && savingKind === 'account' || undefined"
                       :aria-label="accountAction(user)"
@@ -116,7 +121,8 @@
             <div class="user-actions">
               <button
                 type="button"
-                :class="user.banned ? 'user-restore' : 'user-warn'"
+                class="admin-btn"
+                :class="user.banned ? 'admin-btn--ghost' : 'admin-btn--danger'"
                 :disabled="savingId === user.id || user.id === me"
                 :aria-busy="savingId === user.id && savingKind === 'account' || undefined"
                 :aria-label="accountAction(user)"
@@ -388,75 +394,16 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.user-restore,
-.user-warn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 16px;
-  font: inherit;
-  font-size: 0.7875rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.user-restore {
-  border: 1px solid var(--kd-primary);
-  background: transparent;
-  color: var(--kd-primary);
-}
-
-.user-warn {
-  border: 1px solid var(--kd-destructive);
-  background: var(--kd-destructive);
-  color: var(--kd-white);
-}
-
-.user-restore:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--kd-primary) 10%, #faf8f5);
-}
-
-.user-warn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--kd-destructive) 88%, #1c1917);
-}
-
-.user-restore:focus-visible,
-.user-warn:focus-visible {
-  outline: 2px solid var(--kd-primary);
-  outline-offset: 2px;
-}
-
-.user-restore:active:not(:disabled),
-.user-warn:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.user-restore:disabled,
-.user-warn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 @media (max-width: 767px) {
   .user-actions {
     justify-content: stretch;
   }
 
-  .user-restore,
-  .user-warn,
+  .user-actions .admin-btn,
   .user-role,
   .user-role select {
     width: 100%;
     max-width: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .user-restore:active:not(:disabled),
-  .user-warn:active:not(:disabled) {
-    transform: none;
   }
 }
 </style>

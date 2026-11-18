@@ -2,6 +2,7 @@ import type { ShopInsert, ShopRow } from '~/types/shop'
 import { normalizeAddress, normalizeCafeName } from '~/utils/identity'
 import { optionalPhone } from '~/utils/phone'
 import { isAllowedLogo } from '~/utils/logo'
+import { uploadPresignedImage } from '~/utils/presign-upload'
 import { authUserId } from '~/utils/auth'
 import type { WeeklyHours } from '~/types/shop'
 
@@ -15,12 +16,6 @@ interface SubmitShopInput {
   logoFile: File | null
 }
 
-interface UploadLogoResponse {
-  objectKey?: string
-  publicUrl?: string | null
-  error?: string
-}
-
 export function useShopSubmission() {
   const supabase = useSupabaseClient()
   const user = useSupabaseUser()
@@ -31,19 +26,11 @@ export function useShopSubmission() {
   const uploadLogo = async (file: File): Promise<string | null> => {
     if (!isAllowedLogo(file)) return null
 
-    const form = new FormData()
-    form.append('file', file)
-
-    const { data, error: fnError } = await supabase.functions.invoke('presign-upload', {
-      body: form,
-    })
-
-    const payload = (data ?? null) as UploadLogoResponse | null
-    if (fnError || !payload?.objectKey) {
-      throw new Error(friendlyUploadError(fnError?.message, payload?.error))
+    try {
+      return await uploadPresignedImage(file, 'shop-logo')
+    } catch (err) {
+      throw new Error(friendlyUploadError(err instanceof Error ? err.message : '', undefined))
     }
-
-    return payload.objectKey
   }
 
   const submitShop = async (input: SubmitShopInput): Promise<ShopRow> => {

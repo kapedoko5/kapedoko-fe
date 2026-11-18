@@ -1,5 +1,5 @@
 import type { CafeBadge } from '../types/admin'
-import type { Amenity, Cafe, CafePayment, CafeReview } from '../types/cafe'
+import type { Amenity, Cafe, CafePayment, CafeReview, CafeSeating } from '../types/cafe'
 import type {
   CafeWorkFacts,
   MarkerTier,
@@ -168,6 +168,7 @@ export function mapShopToCafe(
   markerTier: MarkerTier = 'standard',
   amenityRows?: ShopAmenityResolutionRow[] | null,
   payment?: CafePayment | null,
+  seating?: CafeSeating | null,
 ): Cafe {
   const image = shopImageUrl(shop, publicBase)
   const gallery = (shop.gallery_object_keys ?? [])
@@ -207,12 +208,18 @@ export function mapShopToCafe(
     markerTier,
     source: shop.source ?? null,
     payment: payment ?? null,
+    seating: seating ?? null,
     badges: [],
+    vibeTags: [],
   }
 }
 
 export function withCafeBadges(cafe: Cafe, badges: CafeBadge[]): Cafe {
   return { ...cafe, badges }
+}
+
+export function withCafeVibeTags(cafe: Cafe, vibeTags: Cafe['vibeTags']): Cafe {
+  return { ...cafe, vibeTags }
 }
 
 export function withCafeReviews(cafe: Cafe, reviews: CafeReview[]): Cafe {

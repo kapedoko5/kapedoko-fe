@@ -10,72 +10,86 @@
         <NuxtLink class="admin-btn" to="/admin/badges/new">Add badge</NuxtLink>
       </template>
 
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Badge</th>
-              <th>Live cafes</th>
-              <th>Window</th>
-              <th>State</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in badgeNames" :key="row.id">
-              <td>
-                <CafeBadgeChip :badge="chipFor(row)" />
-              </td>
-              <td>{{ liveCafeCount(row.id) }}</td>
-              <td>{{ windowCopy(row.id) }}</td>
-              <td>{{ row.enabled ? nameState(row.id) : 'disabled' }}</td>
-              <td>
-                <div class="admin-row-actions">
-                  <NuxtLink class="admin-link" :to="`/admin/badges/${row.id}`">Edit</NuxtLink>
-                  <button
-                    type="button"
-                    class="admin-btn admin-btn--quiet"
-                    :disabled="togglingId === row.id"
-                    :aria-busy="togglingId === row.id || undefined"
-                    @click="onToggle(row)"
-                  >
-                    <AdminBusyLabel :busy="togglingId === row.id">
-                      {{ togglingId === row.id ? 'Saving…' : (row.enabled ? 'Disable' : 'Enable') }}
-                    </AdminBusyLabel>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <p v-if="status === 'ready' && badgeNames.length === 0" class="admin-empty">No badges yet. Add one to award it to cafes.</p>
 
-      <p v-if="status === 'ready' && badgeNames.length === 0" class="admin-meta">No badges yet.</p>
+      <template v-else>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Badge</th>
+                <th>Live cafes</th>
+                <th>Window</th>
+                <th>State</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in badgeNames" :key="row.id">
+                <td>
+                  <CafeBadgeChip :badge="chipFor(row)" />
+                </td>
+                <td>{{ liveCafeCount(row.id) }}</td>
+                <td>
+                  <span class="admin-range">{{ windowCopy(row.id) }}</span>
+                </td>
+                <td>
+                  <span class="admin-status" :class="`admin-status--${row.enabled ? nameState(row.id) : 'disabled'}`">
+                    {{ row.enabled ? nameState(row.id) : 'disabled' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="admin-row-actions">
+                    <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/badges/${row.id}`">Edit</NuxtLink>
+                    <button
+                      type="button"
+                      class="admin-btn"
+                      :class="row.enabled ? 'admin-btn--danger' : 'admin-btn--ghost'"
+                      :disabled="togglingId === row.id"
+                      :aria-busy="togglingId === row.id || undefined"
+                      @click="onToggle(row)"
+                    >
+                      <AdminBusyLabel :busy="togglingId === row.id">
+                        {{ togglingId === row.id ? 'Saving…' : (row.enabled ? 'Disable' : 'Enable') }}
+                      </AdminBusyLabel>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div class="admin-cards">
-        <article v-for="row in badgeNames" :key="row.id" class="admin-card">
-          <h2>
-            <CafeBadgeChip :badge="chipFor(row)" />
-          </h2>
-          <p>{{ liveCafeCount(row.id) }} live cafes</p>
-          <p>{{ windowCopy(row.id) }}</p>
-          <p>{{ row.enabled ? nameState(row.id) : 'disabled' }}</p>
-          <div class="admin-row-actions">
-            <NuxtLink class="admin-link" :to="`/admin/badges/${row.id}`">Edit</NuxtLink>
-            <button
-              type="button"
-              class="admin-btn admin-btn--quiet"
-              :disabled="togglingId === row.id"
-              :aria-busy="togglingId === row.id || undefined"
-              @click="onToggle(row)"
-            >
-              <AdminBusyLabel :busy="togglingId === row.id">
-                {{ togglingId === row.id ? 'Saving…' : (row.enabled ? 'Disable' : 'Enable') }}
-              </AdminBusyLabel>
-            </button>
-          </div>
-        </article>
-      </div>
+        <div class="admin-cards">
+          <article v-for="row in badgeNames" :key="row.id" class="admin-card">
+            <h2>
+              <CafeBadgeChip :badge="chipFor(row)" />
+            </h2>
+            <p>{{ liveCafeCount(row.id) }} live cafes</p>
+            <p class="admin-range">{{ windowCopy(row.id) }}</p>
+            <p>
+              <span class="admin-status" :class="`admin-status--${row.enabled ? nameState(row.id) : 'disabled'}`">
+                {{ row.enabled ? nameState(row.id) : 'disabled' }}
+              </span>
+            </p>
+            <div class="admin-row-actions">
+              <NuxtLink class="admin-btn admin-btn--ghost" :to="`/admin/badges/${row.id}`">Edit</NuxtLink>
+              <button
+                type="button"
+                class="admin-btn"
+                :class="row.enabled ? 'admin-btn--danger' : 'admin-btn--ghost'"
+                :disabled="togglingId === row.id"
+                :aria-busy="togglingId === row.id || undefined"
+                @click="onToggle(row)"
+              >
+                <AdminBusyLabel :busy="togglingId === row.id">
+                  {{ togglingId === row.id ? 'Saving…' : (row.enabled ? 'Disable' : 'Enable') }}
+                </AdminBusyLabel>
+              </button>
+            </div>
+          </article>
+        </div>
+      </template>
     </AdminShell>
   </IonPage>
 </template>

@@ -36,8 +36,12 @@
             {{ item.label }}
             <span v-if="item.id === 'requests' && pendingCount > 0" class="admin-shell__badge">{{ pendingCount }}</span>
             <span v-if="item.id === 'claims' && claimCount > 0" class="admin-shell__badge">{{ claimCount }}</span>
+            <span v-if="item.id === 'verifications' && proofCount > 0" class="admin-shell__badge">{{ proofCount }}</span>
           </NuxtLink>
         </nav>
+        <button type="button" class="admin-shell__signout" :disabled="signingOut" @click="onSignOut">
+          {{ signingOut ? 'Signing out…' : 'Sign out' }}
+        </button>
         <NuxtLink to="/app" class="admin-shell__back" @click.prevent="backToApp">Back to app</NuxtLink>
       </aside>
 
@@ -107,6 +111,7 @@ const props = withDefaults(
     error?: string
     pendingCount?: number
     claimCount?: number
+    proofCount?: number
     navRole?: 'admin' | 'auditor'
     layout?: 'cafe'
     /**
@@ -120,6 +125,7 @@ const props = withDefaults(
   {
     pendingCount: 0,
     claimCount: 0,
+    proofCount: 0,
     navRole: 'admin',
   },
 )
@@ -129,6 +135,8 @@ const ionRouter = useIonRouter()
 const navOpen = ref(false)
 const desktop = ref(true)
 const shellEl = ref<HTMLElement | null>(null)
+const signingOut = ref(false)
+const { signOut } = useAuth()
 const feedbackOwnerId = useId()
 const feedbackHostId = useState<string | null>('kd-admin-feedback-host', () => null)
 let feedbackReleased = false
@@ -225,6 +233,20 @@ const backToApp = async () => {
   ionRouter.navigate('/app', 'root', 'replace')
 }
 
+const onSignOut = async () => {
+  if (signingOut.value) return
+  signingOut.value = true
+  navOpen.value = false
+  try {
+    await signOut()
+    hideOwnedPage()
+    revealAppTabBar('/login')
+    await navigateTo('/login')
+  } finally {
+    signingOut.value = false
+  }
+}
+
 watch(() => route.path, (path) => {
   if (pendingPath.value && adminNavIdFromPath(path) === adminNavIdFromPath(pendingPath.value)) {
     pendingPath.value = null
@@ -297,9 +319,8 @@ watch(() => route.path, (path) => {
   line-height: 1.3;
 }
 
-.admin-shell__close {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+.admin-shell__close,
+.admin-shell__signout {
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
@@ -312,6 +333,11 @@ watch(() => route.path, (path) => {
   cursor: pointer;
 }
 
+.admin-shell__close {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
 .admin-shell__nav nav {
   display: grid;
   gap: 4px;
@@ -320,6 +346,7 @@ watch(() => route.path, (path) => {
 .admin-shell__link,
 .admin-shell__back,
 .admin-shell__menu,
+.admin-shell__signout,
 .admin-btn,
 .admin-chip {
   font-family: inherit;
@@ -369,11 +396,15 @@ watch(() => route.path, (path) => {
   transform: translateY(-50%) scaleY(1);
 }
 
+.admin-shell__signout {
+  margin-top: auto;
+  text-align: left;
+}
+
 .admin-shell__back {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin-top: auto;
   color: var(--kd-primary);
   font-size: 0.7875rem;
   font-weight: 700;
@@ -463,11 +494,18 @@ watch(() => route.path, (path) => {
 .admin-shell__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .admin-shell__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   padding: 16px;
+}
+
+.admin-shell__body > .admin-shell__state {
+  margin: 0;
 }
 
 .admin-shell :deep(.admin-grid) {
@@ -520,8 +558,8 @@ watch(() => route.path, (path) => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin: 0;
 }
 
 .admin-shell :deep(.admin-search) {
@@ -553,125 +591,42 @@ watch(() => route.path, (path) => {
   font-size: 0.95rem;
 }
 
+.admin-shell :deep(.admin-field input[type='checkbox']) {
+  width: 20px;
+  min-height: 20px;
+  padding: 0;
+  accent-color: var(--kd-primary);
+}
+
+.admin-shell :deep(.admin-field:has(> input[type='checkbox'])) {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7875rem;
+}
+
 .admin-shell :deep(.admin-search::placeholder),
 .admin-shell :deep(.admin-field input::placeholder) {
   color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
 }
 
-.admin-shell :deep(.admin-chip) {
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid transparent;
-  border-radius: 16px;
-  background: transparent;
-  color: var(--kd-ink);
-  font-size: 0.7875rem;
-  font-weight: 400;
-  cursor: pointer;
-}
-
-.admin-shell :deep(.admin-chip.is-active) {
-  background: var(--kd-accent);
-  font-weight: 700;
-}
-
-.admin-shell :deep(.admin-btn) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 16px;
-  background: var(--kd-accent);
-  color: var(--kd-ink);
-  font-size: 0.7875rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.admin-shell :deep(.admin-btn--ghost) {
-  border: 1px solid var(--kd-primary);
-  background: transparent;
-  color: var(--kd-primary);
-}
-
-.admin-shell :deep(.admin-btn--quiet) {
-  border: 0;
-  background: transparent;
-  color: var(--kd-ink);
-  font-weight: 400;
-}
-
-.admin-shell :deep(.admin-btn--danger) {
-  background: var(--kd-destructive);
-  color: var(--kd-white);
-}
-
-.admin-shell :deep(.admin-btn:disabled) {
+.admin-shell__signout:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.admin-shell :deep(.admin-table-wrap) {
-  overflow-x: auto;
-}
-
-.admin-shell :deep(.admin-table) {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.7875rem;
+.admin-shell :deep(.admin-range) {
   font-variant-numeric: tabular-nums;
 }
 
-.admin-shell :deep(.admin-table th),
-.admin-shell :deep(.admin-table td) {
-  padding: 12px 12px 12px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--kd-ink) 14%, transparent);
-  text-align: left;
-  vertical-align: top;
+.admin-shell :deep(.admin-table .admin-range) {
+  white-space: nowrap;
 }
 
-.admin-shell :deep(.admin-table th) {
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.admin-shell :deep(.admin-table td:first-child) {
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
-.admin-shell :deep(.admin-status) {
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--kd-ink);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.admin-shell :deep(.admin-status--approved),
-.admin-shell :deep(.admin-status--current),
-.admin-shell :deep(.admin-status--admin),
-.admin-shell :deep(.admin-status--cafe-owner),
-.admin-shell :deep(.admin-status--verified) {
-  color: var(--kd-primary);
-}
-
-.admin-shell :deep(.admin-status--pending),
-.admin-shell :deep(.admin-status--scheduled) {
-  color: var(--kd-ink);
-}
-
-.admin-shell :deep(.admin-status--rejected),
-.admin-shell :deep(.admin-status--ended),
-.admin-shell :deep(.admin-status--banned) {
-  color: var(--kd-destructive);
+.admin-shell :deep(.admin-card .admin-range) {
+  display: block;
+  white-space: normal;
 }
 
 .admin-shell :deep(.admin-facts) {
@@ -693,7 +648,7 @@ watch(() => route.path, (path) => {
 }
 
 .admin-shell :deep(.admin-rail) {
-  margin: 0 0 20px;
+  margin: 0;
 }
 
 .admin-shell :deep(.admin-rail__head) {
@@ -764,11 +719,12 @@ watch(() => route.path, (path) => {
   background: #faf8f5;
 }
 
-.admin-shell :deep(.admin-cards) {
-  display: none;
+.admin-shell :deep(.admin-form) {
+  display: grid;
+  gap: 16px;
 }
 
-.admin-shell :deep(.admin-form) {
+.admin-shell :deep(.admin-form > .admin-panel) {
   display: grid;
   gap: 16px;
 }
@@ -791,7 +747,7 @@ watch(() => route.path, (path) => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .admin-shell :deep(.admin-label) {
@@ -827,20 +783,6 @@ watch(() => route.path, (path) => {
   font-weight: 700;
 }
 
-.admin-shell :deep(.admin-link) {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--kd-primary);
-  font: inherit;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-
 @keyframes admin-stamp {
   from {
     opacity: 0;
@@ -857,13 +799,8 @@ watch(() => route.path, (path) => {
     background: color-mix(in srgb, var(--kd-ink) 6%, #faf8f5);
   }
 
-  .admin-shell__back:hover {
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
-  .admin-shell :deep(.admin-btn--quiet:hover),
-  .admin-shell :deep(.admin-link:hover) {
+  .admin-shell__back:hover,
+  .admin-shell__signout:hover:not(:disabled) {
     text-decoration: underline;
     text-underline-offset: 3px;
   }
@@ -894,15 +831,6 @@ watch(() => route.path, (path) => {
     border: 0;
     background: transparent;
   }
-
-  .admin-shell :deep(.admin-table-wrap) {
-    display: none;
-  }
-
-  .admin-shell :deep(.admin-cards) {
-    display: grid;
-    gap: 12px;
-  }
 }
 
 @media (min-width: 768px) {
@@ -915,7 +843,8 @@ watch(() => route.path, (path) => {
     align-items: start;
   }
 
-  .admin-shell :deep(.admin-form > .admin-span) {
+  .admin-shell :deep(.admin-form > .admin-span),
+  .admin-shell :deep(.admin-form > .admin-panel) {
     grid-column: 1 / -1;
   }
 }
@@ -974,8 +903,6 @@ watch(() => route.path, (path) => {
   }
 }
 
-.admin-shell :deep(.admin-btn:focus-visible),
-.admin-shell :deep(.admin-chip:focus-visible),
 .admin-shell :deep(.admin-search:focus-visible),
 .admin-shell :deep(.admin-field input:focus-visible),
 .admin-shell :deep(.admin-field select:focus-visible),
@@ -985,6 +912,7 @@ watch(() => route.path, (path) => {
 .admin-shell__link:focus-visible,
 .admin-shell__menu:focus-visible,
 .admin-shell__close:focus-visible,
+.admin-shell__signout:focus-visible,
 .admin-shell__back:focus-visible,
 .admin-shell :deep(.admin-back:focus-visible) {
   outline: 2px solid var(--kd-primary);
@@ -1008,5 +936,11 @@ watch(() => route.path, (path) => {
   .admin-shell--cafe .admin-shell__body {
     padding: 28px 32px 48px;
   }
+}
+
+:root.is-android .admin-shell__close,
+:root.is-android .admin-shell__menu,
+:root.is-android .admin-shell__signout {
+  min-height: 48px;
 }
 </style>

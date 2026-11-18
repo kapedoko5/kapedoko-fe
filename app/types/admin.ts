@@ -4,12 +4,14 @@ export type AdminNavId =
   | 'dashboard'
   | 'cafes'
   | 'audits'
+  | 'verifications'
   | 'requests'
   | 'claims'
   | 'partnerships'
   | 'ads'
   | 'events'
   | 'badges'
+  | 'vibe-tags'
   | 'users'
   | 'moderation'
 
@@ -104,6 +106,64 @@ export interface ActiveShopBadgeRow {
 }
 
 export type BadgeAwardLifecycle = 'scheduled' | 'live' | 'ended'
+
+export type VibeTagLucideId =
+  | 'coffee'
+  | 'leaf'
+  | 'heart'
+  | 'flame'
+  | 'sparkles'
+  | 'sun'
+  | 'moon'
+  | 'music'
+  | 'headphones'
+  | 'book-open'
+  | 'users'
+  | 'volume-x'
+  | 'volume-2'
+  | 'lamp'
+  | 'camera'
+  | 'wind'
+  | 'cat'
+  | 'sofa'
+  | 'palmtree'
+  | 'landmark'
+
+export interface CafeVibeTag {
+  id: string
+  slug: string
+  label: string
+  lucideIcon: VibeTagLucideId
+  color: string
+}
+
+export interface VibeTagNameRow {
+  id: string
+  label: string
+  slug: string
+  lucide_icon: string
+  color: string
+  enabled: boolean
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ShopVibeTagRow {
+  shop_id: string
+  tag_id: string
+  created_at?: string
+}
+
+export interface ActiveShopVibeTagRow {
+  shop_id: string
+  tag_id: string
+  slug: string
+  label: string
+  lucide_icon: string
+  color: string
+}
 
 export interface AdCampaignRow {
   id: string

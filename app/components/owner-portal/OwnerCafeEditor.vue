@@ -12,6 +12,14 @@
       @update:name="draft.name = $event"
       @update:logoFile="onLogoFile"
     />
+    <CafeVibeTagPicker
+      v-model="draft.vibeTagIds"
+      :tags="enabledTags"
+      :hidden-count="hiddenCount"
+      :issue="issues.vibeTags"
+      :status="pickerStatus"
+      @issue="issues.vibeTags = $event"
+    />
     <OwnerFeaturedPhotos
       :object-keys="draft.galleryObjectKeys"
       :issue="issues.gallery"
@@ -59,12 +67,14 @@
 </template>
 
 <script lang="ts" setup>
+import CafeVibeTagPicker from '~/components/cafe/CafeVibeTagPicker.vue'
 import CafeIdentityStep from '~/components/submit/CafeIdentityStep.vue'
 import CafeDetailsStep from '~/components/submit/CafeDetailsStep.vue'
 import CafeLocationPicker from '~/components/submit/CafeLocationPicker.client.vue'
 import OwnerBusyLabel from '~/components/owner-portal/OwnerBusyLabel.vue'
 import OwnerFeaturedPhotos from '~/components/owner-portal/OwnerFeaturedPhotos.vue'
 import type { ShopRow, WeeklyHours } from '~/types/shop'
+import { enabledVibeTags, vibeTagCountError } from '~/utils/admin-vibe-tags'
 import { DAY_KEYS } from '~/types/shop'
 import { allDayEveryDay, isValidWeeklyHours, sameHoursEveryDay } from '~/utils/hours'
 import { normalizeAddress, normalizeCafeName } from '~/utils/identity'
@@ -96,6 +106,7 @@ const emit = defineEmits<{
     logoObjectKey: string | null
     galleryFiles: File[]
     galleryObjectKeys: string[]
+    vibeTagIds?: string[]
   }]
 }>()
 
@@ -115,7 +126,13 @@ const hoursFromShop = (hours: WeeklyHours | null | undefined) => {
 
 const config = useRuntimeConfig()
 const publicBase = String(config.public.r2PublicBaseUrl || '')
+const ownership = useShopOwnership()
 const initial = hoursFromShop(props.shop.hours)
+const assignedForShop = () => ownership.shopVibeTags.value.filter((row) => row.shop_id === props.shop.id)
+const selectedEnabledIds = () => {
+  const enabled = new Set(enabledVibeTags(ownership.vibeTagNames.value).map((tag) => tag.id))
+  return assignedForShop().flatMap((row) => enabled.has(row.tag_id) ? [row.tag_id] : [])
+}
 const draft = reactive({
   name: props.shop.name,
   logoFile: null as File | null,
@@ -126,6 +143,7 @@ const draft = reactive({
   phone: props.shop.contact_number ?? '',
   galleryFiles: [] as File[],
   galleryObjectKeys: [...(props.shop.gallery_object_keys ?? [])],
+  vibeTagIds: selectedEnabledIds(),
   sameEveryDay: initial.sameEveryDay,
   allDay: initial.allDay,
   openTime: initial.openTime,
@@ -141,6 +159,7 @@ const issues = reactive({
   phone: null as string | null,
   hours: null as string | null,
   gallery: null as string | null,
+  vibeTags: null as string | null,
   form: null as string | null,
 })
 
@@ -165,11 +184,29 @@ const onGallery = (payload: { files: File[]; objectKeys: string[] }) => {
   issues.gallery = featuredPhotoCountError(payload.files.length + payload.objectKeys.length)
 }
 
+const enabledTags = computed(() => enabledVibeTags(ownership.vibeTagNames.value))
+const hiddenCount = computed(() => {
+  const enabled = new Set(enabledTags.value.map((tag) => tag.id))
+  return assignedForShop().filter((row) => !enabled.has(row.tag_id)).length
+})
+const pickerStatus = computed(() => {
+  if (ownership.status.value === 'error') return 'error' as const
+  if (ownership.status.value === 'loading' || ownership.status.value === 'idle') return 'loading' as const
+  return 'ready' as const
+})
+
 watch(
   () => (props.shop.gallery_object_keys ?? []).join('|'),
   () => {
     draft.galleryFiles = []
     draft.galleryObjectKeys = [...(props.shop.gallery_object_keys ?? [])]
+  },
+)
+
+watch(
+  () => [props.shop.id, ownership.shopVibeTags.value.map((row) => `${row.shop_id}:${row.tag_id}`).join('|')].join('|'),
+  () => {
+    draft.vibeTagIds = selectedEnabledIds()
   },
 )
 
@@ -187,8 +224,9 @@ const onSubmit = () => {
     logoFile: draft.logoFile,
   })
   const galleryIssue = featuredPhotoCountError(draft.galleryFiles.length + draft.galleryObjectKeys.length)
-  Object.assign(issues, { ...next, gallery: galleryIssue, form: null })
-  if (Object.values(next).some(Boolean) || galleryIssue || draft.lat == null || draft.lng == null) return
+  const vibeIssue = vibeTagCountError(draft.vibeTagIds.length, hiddenCount.value)
+  Object.assign(issues, { ...next, gallery: galleryIssue, vibeTags: vibeIssue, form: null })
+  if (Object.values(next).some(Boolean) || galleryIssue || vibeIssue || draft.lat == null || draft.lng == null) return
   emit('save', {
     name: normalizeCafeName(draft.name),
     address: normalizeAddress(draft.address),
@@ -200,6 +238,7 @@ const onSubmit = () => {
     logoObjectKey: draft.logoObjectKey,
     galleryFiles: draft.galleryFiles,
     galleryObjectKeys: draft.galleryObjectKeys,
+    vibeTagIds: pickerStatus.value === 'ready' ? draft.vibeTagIds : undefined,
   })
 }
 </script>
@@ -208,7 +247,7 @@ const onSubmit = () => {
 .owner-editor {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .owner-editor__map {
@@ -221,7 +260,7 @@ const onSubmit = () => {
 .owner-editor__actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .owner-editor__error {

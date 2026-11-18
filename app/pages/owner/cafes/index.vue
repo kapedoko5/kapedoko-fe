@@ -16,7 +16,7 @@
           placeholder="Search cafe name or address"
           aria-label="Search cafe name or address"
         />
-        <p v-if="visible.length === 0" class="owner-cafes__empty">
+        <p v-if="visible.length === 0" class="owner-empty">
           {{ ownedShops.length === 0 ? ownerCafesEmptyCopy() : 'No cafes match that search.' }}
         </p>
         <div v-else class="owner-cafes__labels">
@@ -73,14 +73,7 @@ onMounted(() => {
 .owner-cafes {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.owner-cafes__empty {
-  margin: 0;
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.7875rem;
-  line-height: 1.3;
+  gap: 20px;
 }
 
 .owner-cafes__labels {

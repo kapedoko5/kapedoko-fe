@@ -2,7 +2,7 @@
   <article class="owner-claim" :class="[`is-${claim.status}`, { 'is-fresh': fresh }]">
     <div class="owner-claim__mast">
       <h2>{{ shopName }}</h2>
-      <p class="owner-claim__status">{{ claimStatusWord(claim.status) }}</p>
+      <p class="admin-status" :class="`admin-status--${claim.status}`">{{ claimStatusWord(claim.status) }}</p>
     </div>
     <p class="owner-claim__copy">{{ claimStatusCopy(claim.status, claim.rejection_reason) }}</p>
     <dl class="owner-claim__facts">
@@ -35,7 +35,7 @@
       <button
         v-else-if="canWithdrawClaim(claim.status)"
         type="button"
-        class="owner-btn owner-btn--ghost"
+        class="owner-btn owner-btn--danger"
         :disabled="withdrawing"
         :aria-busy="withdrawing || undefined"
         @click="emit('withdraw', claim.id)"
@@ -79,7 +79,7 @@ const onEdit = (event: MouseEvent) => {
 .owner-claim {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: 16px;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
@@ -98,7 +98,6 @@ const onEdit = (event: MouseEvent) => {
 }
 
 .owner-claim h2,
-.owner-claim__status,
 .owner-claim__copy {
   margin: 0;
 }
@@ -108,23 +107,6 @@ const onEdit = (event: MouseEvent) => {
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
-}
-
-.owner-claim__status {
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.owner-claim.is-pending .owner-claim__status {
-  color: var(--kd-primary);
-}
-
-.owner-claim.is-verified .owner-claim__status {
-  color: var(--kd-primary);
-}
-
-.owner-claim.is-rejected .owner-claim__status {
-  color: #8c3a2f;
 }
 
 .owner-claim__copy {
@@ -152,6 +134,6 @@ const onEdit = (event: MouseEvent) => {
 .owner-claim__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 </style>

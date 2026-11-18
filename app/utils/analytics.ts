@@ -24,6 +24,7 @@ export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTIC
 
 export type ConfidenceBucket =
   | 'team_verified'
+  | 'owner_verified'
   | 'community_confirmed'
   | 'reported'
   | 'mixed'
@@ -152,7 +153,8 @@ const CONFIDENCE_RANK: Record<ConfidenceBucket, number> = {
   mixed: 1,
   reported: 2,
   community_confirmed: 3,
-  team_verified: 4,
+  owner_verified: 4,
+  team_verified: 5,
 }
 
 const DETAIL_SOURCES = new Set<DetailSource>(['feed', 'map', 'search', 'favorites', 'promotion'])
@@ -219,6 +221,7 @@ export function confidenceBucketFromStatus(status?: CafeAmenityStatus | null): C
   if (status.availability === 'mixed') return 'mixed'
   if (
     status.confidence === 'team_verified'
+    || status.confidence === 'owner_verified'
     || status.confidence === 'community_confirmed'
     || status.confidence === 'reported'
     || status.confidence === 'unknown'
