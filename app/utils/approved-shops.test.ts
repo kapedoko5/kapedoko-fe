@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { ShopRow } from '../types/shop'
 import type { ShopAmenityResolutionRow } from './amenity-status'
 import type { ShopPaymentRow } from './cafe-payment'
+import type { ShopSeatingRow } from './cafe-seating'
 import {
   APPROVED_SHOP_COLUMNS,
   chunkIds,
@@ -143,6 +144,12 @@ describe('approved shop catalog fetch', () => {
         amenityRow(shopId(89), 'outlets', 'available'),
       ],
       payments: [paymentRow(shopId(89))],
+      seating: [{
+        shop_id: shopId(89),
+        seating_capacity: 24,
+        source: 'owner',
+        source_at: '2026-11-18T00:00:00.000Z',
+      }],
     })
     expect(sidecars.amenityById.get(shopId(89))).toEqual([
       expect.objectContaining({ availability: 'available', confidence: 'team_verified' }),
@@ -152,6 +159,10 @@ describe('approved shop catalog fetch', () => {
       qr: 'available',
       card: 'available',
       cash: 'available',
+    })
+    expect(sidecars.seatingById.get(shopId(89))).toMatchObject({
+      count: 24,
+      source: 'owner',
     })
   })
 
@@ -173,6 +184,7 @@ describe('approved shop catalog fetch', () => {
       confidence: 'team_verified',
     })
     expect(audited?.payment).toMatchObject({ qr: 'available', card: 'available', cash: 'available' })
+    expect(audited?.seating).toMatchObject({ count: 24, source: 'team' })
     expect(audited?.badges).toEqual([
       expect.objectContaining({ slug: 'hidden-gem', label: 'Hidden Gem', lucideIcon: 'gem' }),
     ])
@@ -263,6 +275,18 @@ describe('approved shop catalog fetch', () => {
       confidence: 'team_verified',
     })
     expect(cafes[0]?.payment).toMatchObject({ qr: 'available' })
+    expect(cafes[0]?.seating).toMatchObject({ count: 24, source: 'team' })
+  })
+
+  test('fills seating from the public view when the rpc omits it', async () => {
+    const shops = [shopRow(89)]
+    const sidecarInChunks: number[] = []
+    const cafes = await fetchApprovedCafes(
+      mockCatalog(shops, { sidecarInChunks, omitSeating: true }),
+      '',
+    )
+    expect(sidecarInChunks.length).toBeGreaterThan(0)
+    expect(cafes[0]?.seating).toMatchObject({ count: 24, source: 'team' })
   })
 
   test('retries shop catalog without gallery keys when the column is missing', async () => {
@@ -376,6 +400,15 @@ function paymentRow(id: string): ShopPaymentRow {
   }
 }
 
+function seatingRow(id: string): ShopSeatingRow {
+  return {
+    shop_id: id,
+    seating_capacity: 24,
+    source: 'team',
+    source_at: '2026-10-02T00:00:00.000Z',
+  }
+}
+
 function mockCatalog(
   shops: ShopRow[],
   options: {
@@ -384,6 +417,7 @@ function mockCatalog(
     rpcError?: boolean
     amenityError?: boolean
     inErrorOver?: number
+    omitSeating?: boolean
   } = {},
 ) {
   const amenityRows = shops.flatMap((shop) => {
@@ -397,6 +431,9 @@ function mockCatalog(
   const paymentRows = shops
     .filter((shop) => shop.id === shopId(89))
     .map((shop) => paymentRow(shop.id))
+  const seatingRows = shops
+    .filter((shop) => shop.id === shopId(89))
+    .map((shop) => seatingRow(shop.id))
 
   return {
     async rpc(fn: string, args: { p_shop_ids?: string[] }) {
@@ -409,6 +446,9 @@ function mockCatalog(
         data: {
           amenities: amenityRows.filter((row) => ids.includes(row.shop_id)),
           payments: paymentRows.filter((row) => ids.includes(row.shop_id)),
+          ...(options.omitSeating
+            ? {}
+            : { seating: seatingRows.filter((row) => ids.includes(row.shop_id)) }),
           stats: [],
           tiers: [],
           badges: ids.includes(shopId(89))
@@ -469,7 +509,7 @@ function mockCatalog(
           if (amenityDown || tooManyIds) {
             return Promise.resolve({ data: null, error: { message: 'request failed' } }).then(resolve, reject)
           }
-          return Promise.resolve(loadTable(table, shops, amenityRows, paymentRows, query)).then(resolve, reject)
+          return Promise.resolve(loadTable(table, shops, amenityRows, paymentRows, seatingRows, query)).then(resolve, reject)
         },
       })
       return builder
@@ -482,6 +522,7 @@ function loadTable(
   shops: ShopRow[],
   amenityRows: ShopAmenityResolutionRow[],
   paymentRows: ShopPaymentRow[],
+  seatingRows: ShopSeatingRow[],
   query: { ids: string[]; from: number; to: number; limit: number | null },
 ): { data: unknown; error: unknown } {
   if (table === 'shops') {
@@ -499,6 +540,12 @@ function loadTable(
     const rows = query.ids.length
       ? paymentRows.filter((row) => query.ids.includes(row.shop_id))
       : paymentRows
+    return { data: rows.slice(query.from, query.to + 1), error: null }
+  }
+  if (table === 'shop_seating_public') {
+    const rows = query.ids.length
+      ? seatingRows.filter((row) => query.ids.includes(row.shop_id))
+      : seatingRows
     return { data: rows.slice(query.from, query.to + 1), error: null }
   }
   return { data: [], error: null }

@@ -35,14 +35,24 @@
         <span class="owner-bag__hours-time">{{ phone }}</span>
       </p>
     </div>
-    <NuxtLink
-      class="owner-bag__edit"
-      :to="editTo"
-      :aria-label="`Edit listing for ${shop.name}`"
-      @click="onEdit"
-    >
-      Edit listing
-    </NuxtLink>
+    <div class="owner-bag__actions">
+      <NuxtLink
+        class="owner-bag__edit"
+        :to="editTo"
+        :aria-label="`Edit listing for ${shop.name}`"
+        @click="onEdit"
+      >
+        Edit listing
+      </NuxtLink>
+      <NuxtLink
+        class="owner-bag__edit owner-bag__edit--ghost"
+        :to="verifyTo"
+        :aria-label="`Verify amenities for ${shop.name}`"
+        @click="onVerify"
+      >
+        Verify your cafe
+      </NuxtLink>
+    </div>
   </article>
 </template>
 
@@ -50,7 +60,7 @@
 import { Clock, Phone } from 'lucide-vue-next'
 import type { ShopRow } from '~/types/shop'
 import { cafeDisplayLogo, isKapedokoMark } from '~/utils/logo'
-import { ownerCafeEditPath, settleOwnerIonPages } from '~/utils/owner-nav'
+import { ownerCafeEditPath, ownerCafeVerifyPath, settleOwnerIonPages } from '~/utils/owner-nav'
 import { ownerCafeIsClosed, ownerHoursLine, ownerLiveCopy } from '~/utils/owner-portal'
 import { shopImageUrl } from '~/utils/shop-mapper'
 
@@ -77,15 +87,19 @@ const hoursLine = computed(() => ownerHoursLine(props.shop.hours))
 const liveCopy = computed(() => ownerLiveCopy(props.shop))
 const phone = computed(() => props.shop.contact_number?.trim() || '')
 const editTo = computed(() => ownerCafeEditPath(props.shop.id))
+const verifyTo = computed(() => ownerCafeVerifyPath(props.shop.id))
 
-const onEdit = (event: MouseEvent) => {
+const goOwner = (event: MouseEvent, to: string) => {
   if (event.defaultPrevented) return
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   event.preventDefault()
-  void navigateTo(editTo.value).then(() => {
+  void navigateTo(to).then(() => {
     if (import.meta.client) requestAnimationFrame(settleOwnerIonPages)
   })
 }
+
+const onEdit = (event: MouseEvent) => goOwner(event, editTo.value)
+const onVerify = (event: MouseEvent) => goOwner(event, verifyTo.value)
 </script>
 
 <style scoped>
@@ -200,6 +214,12 @@ const onEdit = (event: MouseEvent) => {
   font-weight: 700;
 }
 
+.owner-bag__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .owner-bag__edit {
   display: inline-flex;
   align-items: center;
@@ -214,6 +234,11 @@ const onEdit = (event: MouseEvent) => {
   font-size: 0.7875rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.owner-bag__edit--ghost {
+  background: transparent;
+  border-color: rgba(28, 25, 23, 0.34);
 }
 
 .owner-bag__edit:focus-visible {

@@ -7,10 +7,19 @@ export type Amenity = 'wifi' | 'plug'
 export type PaymentKind = 'qr' | 'card' | 'cash'
 export type PaymentResult = 'available' | 'unavailable' | 'unknown'
 
+export type CafeFactSource = 'team' | 'owner'
+
 export interface CafePayment {
   qr: PaymentResult
   card: PaymentResult
   cash: PaymentResult
+  sourceAt: string | null
+  source?: CafeFactSource | null
+}
+
+export interface CafeSeating {
+  count: number
+  source: CafeFactSource
   sourceAt: string | null
 }
 
@@ -64,6 +73,7 @@ export interface Cafe {
   markerTier: MarkerTier
   source?: 'openstreetmap' | 'user' | 'admin' | null
   payment?: CafePayment | null
+  seating?: CafeSeating | null
   badges: CafeBadge[]
   vibeTags: CafeVibeTag[]
 }

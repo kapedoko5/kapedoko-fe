@@ -392,7 +392,7 @@
 </template>
 
 <script lang="ts" setup>
-import { BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import { Armchair, BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
 import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import CafeOwnerCard from '~/components/cafe/CafeOwnerCard.vue'
@@ -415,6 +415,7 @@ import {
 } from '~/utils/analytics'
 import { fetchOwnShopReview, isShopId } from '~/utils/approved-shops'
 import { BUSYNESS_METER_SEATS, busynessMeterFill, monthCheckInCopy } from '~/utils/cafe-review'
+import { seatingDateLabel, seatingPressLabel } from '~/utils/cafe-seating'
 
 const props = withDefaults(
   defineProps<{
@@ -547,7 +548,7 @@ const onHeroError = () => {
 }
 
 const stampIcon = (kind: AmenityStampKind) => {
-  if (kind === 'team') return BadgeCheck
+  if (kind === 'team' || kind === 'owner') return BadgeCheck
   if (kind === 'community') return Users
   if (kind === 'reported') return MessageCircle
   if (kind === 'recheck') return BadgeAlert
@@ -586,7 +587,7 @@ const pressFacts = computed(() => {
         noun: 'Pay',
         icon: Wallet,
         stamp: pay.stamp,
-        stampIcon: pay.stamp === 'team' ? BadgeCheck : CircleHelp,
+        stampIcon: pay.stamp === 'unknown' ? CircleHelp : BadgeCheck,
         label: pay.label,
         meta: paymentDateLabel(props.cafe.payment),
         aria: pay.aria,
@@ -594,10 +595,25 @@ const pressFacts = computed(() => {
         unavailable: pay.unavailable,
       }]
     : []
-  return [...amenityFacts.value, ...payments]
+  const seatingLabel = seatingPressLabel(props.cafe.seating)
+  const seating = seatingLabel && props.cafe.seating
+    ? [{
+        kind: 'seating' as const,
+        noun: 'Seats',
+        icon: Armchair,
+        stamp: props.cafe.seating.source,
+        stampIcon: BadgeCheck,
+        label: seatingLabel,
+        meta: seatingDateLabel(props.cafe.seating) ?? 'Verified',
+        aria: `Seats, ${seatingLabel}`,
+        soft: false,
+        unavailable: false,
+      }]
+    : []
+  return [...amenityFacts.value, ...seating, ...payments]
 })
 
-const pressAria = computed(() => 'WiFi, outlets, and payments')
+const pressAria = computed(() => 'WiFi, outlets, seating, and payments')
 
 const vibePresses = computed(() =>
   (props.cafe.vibeTags ?? []).map((tag) => ({

@@ -36,6 +36,7 @@
             {{ item.label }}
             <span v-if="item.id === 'requests' && pendingCount > 0" class="admin-shell__badge">{{ pendingCount }}</span>
             <span v-if="item.id === 'claims' && claimCount > 0" class="admin-shell__badge">{{ claimCount }}</span>
+            <span v-if="item.id === 'verifications' && proofCount > 0" class="admin-shell__badge">{{ proofCount }}</span>
           </NuxtLink>
         </nav>
         <NuxtLink to="/app" class="admin-shell__back" @click.prevent="backToApp">Back to app</NuxtLink>
@@ -107,6 +108,7 @@ const props = withDefaults(
     error?: string
     pendingCount?: number
     claimCount?: number
+    proofCount?: number
     navRole?: 'admin' | 'auditor'
     layout?: 'cafe'
     /**
@@ -120,6 +122,7 @@ const props = withDefaults(
   {
     pendingCount: 0,
     claimCount: 0,
+    proofCount: 0,
     navRole: 'admin',
   },
 )

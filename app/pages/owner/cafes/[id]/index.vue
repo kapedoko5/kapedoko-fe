@@ -2,7 +2,7 @@
   <IonPage>
     <OwnerShell
       :title="shop?.name || 'Edit listing'"
-      lede="Hours, contact, identity, logo, featured photos, and up to five vibe stamps. WiFi and outlets still come from visitor reviews."
+      lede="Hours, contact, identity, logo, featured photos, and up to five vibe stamps. Verify WiFi, outlets, seating, and payment from Desk."
       :status="shellStatus"
       :error="pageError"
       :claim-count="waitingClaims.length"

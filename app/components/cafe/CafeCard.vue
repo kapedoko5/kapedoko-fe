@@ -98,7 +98,7 @@
 </template>
 
 <script lang="ts" setup>
-import { BadgeCheck, Clock, Heart, Navigation, Plug, Unplug, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import { Armchair, BadgeCheck, Clock, Heart, Navigation, Plug, Unplug, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
 import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import type { Cafe } from '~/types/cafe'
@@ -114,9 +114,10 @@ import { watchImpression } from '~/utils/analytics-impression'
 import { cafeDisplayLogo, isKapedokoMark, KAPEDOKO_APP_LOGO_SRC } from '~/utils/logo'
 import { amenityAriaLabel, amenityBagPress, amenityBagValue, amenitySoft, amenityStampKind } from '~/utils/amenity-status'
 import { paymentCard, paymentTeamPress } from '~/utils/cafe-payment'
+import { seatingBagAria, seatingBagValue, seatingStamp } from '~/utils/cafe-seating'
 
 const props = defineProps<{
-  cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment' | 'badges' | 'vibeTags'>
+  cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment' | 'seating' | 'badges' | 'vibeTags'>
   selected?: boolean
   distanceLabel?: string
   surface?: CardSurface
@@ -159,8 +160,21 @@ const stampMarks = computed(() => {
         : (status?.availability === 'unavailable' ? Unplug : Plug),
     }
   })
+  const seats = seatingBagValue(props.cafe.seating)
+  const seating = seats
+    ? [{
+        kind: 'seating' as const,
+        noun: 'Seats',
+        words: seats,
+        stamp: seatingStamp(props.cafe.seating) ?? 'team',
+        soft: false,
+        unavailable: false,
+        aria: seatingBagAria(props.cafe.seating),
+        icon: Armchair,
+      }]
+    : []
   const pay = paymentCard(props.cafe.payment)
-  const paid = pay
+  const payments = pay
     ? [{
         kind: 'pay' as const,
         noun: 'Pay',
@@ -172,10 +186,10 @@ const stampMarks = computed(() => {
         icon: Wallet,
       }]
     : []
-  return [...amenities, ...paid]
+  return [...amenities, ...seating, ...payments]
 })
 
-const stampAria = computed(() => 'WiFi, outlets, and payments')
+const stampAria = computed(() => 'WiFi, outlets, seats, and payments')
 
 const vibeMarks = computed(() =>
   (props.cafe.vibeTags ?? []).map((tag) => ({

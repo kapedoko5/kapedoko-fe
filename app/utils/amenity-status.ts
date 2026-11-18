@@ -67,9 +67,15 @@ export interface AmenitySeedInput {
   observedAt: string
 }
 
+export interface AmenityOwnerProofInput {
+  reviewedAt: string
+  wifiDownloadMbps?: number | null
+}
+
 /** Test mirror of shop_amenity_resolutions. Postgres remains the source of truth. */
 export function resolveAmenity(input: {
   audit?: AmenityAuditInput | null
+  owner?: AmenityOwnerProofInput | null
   votes?: AmenityVoteInput[]
   seed?: AmenitySeedInput | null
   now?: Date
@@ -90,6 +96,29 @@ export function resolveAmenity(input: {
   }, null)
 
   const audit = input.audit
+  const owner = input.owner
+  const auditDecided = Boolean(audit && (audit.result === 'available' || audit.result === 'unavailable'))
+  const ownerWins = Boolean(
+    owner
+    && (!auditDecided || owner.reviewedAt > (audit?.auditedAt ?? '')),
+  )
+  if (owner && ownerWins) {
+    const reviewedAt = new Date(owner.reviewedAt)
+    const staleMs = config.staleAfterDays * 24 * 60 * 60 * 1000
+    return {
+      availability: 'available',
+      confidence: 'owner_verified',
+      sourceAt: owner.reviewedAt,
+      isStale: now.getTime() - reviewedAt.getTime() > staleMs,
+      needsRecheck: false,
+      decidedCount,
+      yesCount,
+      noCount,
+      wifiSpeed: speedFromMbps(owner.wifiDownloadMbps, config.fastDownloadMbps),
+      wifiTimeLimit: null,
+      outletReliability: null,
+    }
+  }
   if (audit && (audit.result === 'available' || audit.result === 'unavailable')) {
     const auditedAt = new Date(audit.auditedAt)
     const staleMs = config.staleAfterDays * 24 * 60 * 60 * 1000
@@ -252,13 +281,21 @@ export function statusesFromLegacyWork(work: Omit<CafeWorkFacts, 'wifiStatus' | 
 
 export function trustedPositive(status: CafeAmenityStatus): boolean {
   return status.availability === 'available'
-    && (status.confidence === 'team_verified' || status.confidence === 'community_confirmed')
+    && (
+      status.confidence === 'team_verified'
+      || status.confidence === 'owner_verified'
+      || status.confidence === 'community_confirmed'
+    )
     && !status.needsRecheck
 }
 
 export function trustedNegative(status: CafeAmenityStatus): boolean {
   return status.availability === 'unavailable'
-    && (status.confidence === 'team_verified' || status.confidence === 'community_confirmed')
+    && (
+      status.confidence === 'team_verified'
+      || status.confidence === 'owner_verified'
+      || status.confidence === 'community_confirmed'
+    )
     && !status.needsRecheck
 }
 
@@ -275,7 +312,7 @@ export function amenityCardLabel(kind: 'wifi' | 'outlets', status: CafeAmenitySt
   if (status.availability === 'unavailable') {
     return kind === 'wifi' ? 'No WiFi' : 'No outlets'
   }
-  if (status.confidence === 'team_verified') return 'KapeDoko team'
+  if (status.confidence === 'team_verified' || status.confidence === 'owner_verified') return 'Verified'
   return 'KapéBeans'
 }
 
@@ -291,30 +328,34 @@ export function amenityPressLabel(kind: 'wifi' | 'outlets', status: CafeAmenityS
   if (status.availability === 'unavailable') {
     return kind === 'wifi' ? 'No WiFi' : 'No outlets'
   }
-  if (status.confidence === 'team_verified') return 'KapeDoko team'
+  if (status.confidence === 'team_verified' || status.confidence === 'owner_verified') return 'Verified'
   return 'KapéBeans'
 }
 
 export function amenityDateLabel(status: CafeAmenityStatus): string | null {
-  if (status.confidence !== 'team_verified' || !status.sourceAt) return null
+  if (
+    (status.confidence !== 'team_verified' && status.confidence !== 'owner_verified')
+    || !status.sourceAt
+  ) return null
   const date = formatAmenityDate(status.sourceAt)
   if (!date) return null
   return status.isStale ? `Last verified ${date}` : date
 }
 
-export type AmenityStampKind = 'team' | 'community' | 'reported' | 'recheck' | 'mixed' | 'unknown'
+export type AmenityStampKind = 'team' | 'owner' | 'community' | 'reported' | 'recheck' | 'mixed' | 'unknown'
 
 export function amenityStampKind(status: CafeAmenityStatus): AmenityStampKind {
   if (status.needsRecheck) return 'recheck'
   if (status.availability === 'mixed') return 'mixed'
   if (status.confidence === 'team_verified') return 'team'
+  if (status.confidence === 'owner_verified') return 'owner'
   if (status.confidence === 'community_confirmed') return 'community'
   if (status.confidence === 'reported') return 'reported'
   return 'unknown'
 }
 
 export function amenityEvidenceLabel(status: CafeAmenityStatus): string | null {
-  if (status.needsRecheck || status.confidence === 'team_verified') return null
+  if (status.needsRecheck || status.confidence === 'team_verified' || status.confidence === 'owner_verified') return null
   if (status.availability === 'mixed' && status.decidedCount > 0) {
     return `${status.yesCount} yes · ${status.noCount} no`
   }
@@ -348,10 +389,13 @@ export function amenityBagPress(
   outlets?: CafeAmenityStatus | null,
 ): string | null {
   const rows = [wifi, outlets].filter((row): row is CafeAmenityStatus => Boolean(row))
-  const team = rows.filter((row) => amenityStampKind(row) === 'team')
-  if (team.length) {
-    const dates = [...new Set(team.map((row) => amenityDateLabel(row)).filter(Boolean))]
-    return ['Verified by KapeDoko team', dates[0] ?? null].filter(Boolean).join(' · ')
+  const verified = rows.filter((row) => {
+    const stamp = amenityStampKind(row)
+    return stamp === 'team' || stamp === 'owner'
+  })
+  if (verified.length) {
+    const dates = [...new Set(verified.map((row) => amenityDateLabel(row)).filter(Boolean))]
+    return ['Verified', dates[0] ?? null].filter(Boolean).join(' · ')
   }
   if (rows.some((row) => amenityStampKind(row) === 'community')) return 'KapéBeans'
   return null
@@ -410,7 +454,7 @@ export function amenityInsight(kind: 'wifi' | 'outlets', status: CafeAmenityStat
       body: 'This is an early signal. It is not community-confirmed or team-verified.',
     }
   }
-  if (status.confidence === 'team_verified') {
+  if (status.confidence === 'team_verified' || status.confidence === 'owner_verified') {
     const date = formatAmenityDate(status.sourceAt)
     return {
       count,
@@ -419,7 +463,9 @@ export function amenityInsight(kind: 'wifi' | 'outlets', status: CafeAmenityStat
         : (kind === 'wifi' ? 'No WiFi on this visit' : 'No outlets on this visit'),
       body: status.isStale
         ? `Last verified ${date ?? 'earlier'}. Amenities can change.`
-        : `Verified ${date ?? 'on a staff visit'}.`,
+        : date
+          ? `Verified ${date}.`
+          : 'Verified.',
     }
   }
   if (status.availability === 'unavailable') {
@@ -452,7 +498,7 @@ export function formatAmenityDate(value: string | null | undefined): string | nu
 
 export function amenityFilterHint(filter: string): string | null {
   if (filter === 'wifi' || filter === 'plugs' || filter === 'long-stay' || filter === 'fast-wifi' || filter === 'reliable-outlets') {
-    return 'Filters include team-verified and community-confirmed cafes.'
+    return 'Filters include team-verified, owner-verified, and community-confirmed cafes.'
   }
   return null
 }
@@ -505,7 +551,13 @@ function asAvailability(value: string | null | undefined): AmenityAvailability {
 }
 
 function asConfidence(value: string | null | undefined): AmenityConfidence {
-  if (value === 'team_verified' || value === 'community_confirmed' || value === 'reported' || value === 'unknown') {
+  if (
+    value === 'team_verified'
+    || value === 'owner_verified'
+    || value === 'community_confirmed'
+    || value === 'reported'
+    || value === 'unknown'
+  ) {
     return value
   }
   return 'unknown'

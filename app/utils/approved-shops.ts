@@ -25,6 +25,7 @@ import {
   withCafeVibeTags,
 } from './shop-mapper'
 import { paymentFromRow, type CafePayment, type ShopPaymentRow } from './cafe-payment'
+import { seatingFromRow, type ShopSeatingRow } from './cafe-seating'
 import {
   amenityFilterSpec,
   amenityRowMatchesFilter,
@@ -128,7 +129,8 @@ export type PickerShopRow = Pick<ShopRow, 'id' | 'name' | 'address' | 'status'>
 
 const AMENITY_RESOLUTION_COLUMNS =
   'shop_id,amenity_key,availability,confidence,source_at,decided_count,yes_count,no_count,is_stale,needs_recheck,wifi_speed,wifi_time_limit,outlet_reliability'
-const PAYMENT_COLUMNS = 'shop_id,accepts_qr,accepts_card,accepts_cash,source_at'
+const PAYMENT_COLUMNS = 'shop_id,accepts_qr,accepts_card,accepts_cash,source_at,source'
+const SEATING_COLUMNS = 'shop_id,seating_capacity,source,source_at'
 
 type PageResult<T> = { data: T[] | null; error: unknown }
 
@@ -208,6 +210,7 @@ type ShopClient = {
 interface ShopCardSidecarsPayload {
   amenities?: ShopAmenityResolutionRow[] | null
   payments?: ShopPaymentRow[] | null
+  seating?: ShopSeatingRow[] | null
   stats?: ShopReviewStatsRow[] | null
   tiers?: ShopMarkerTierRow[] | null
   badges?: ActiveShopBadgeRow[] | null
@@ -230,10 +233,12 @@ export interface CafeSidecars {
   tierById: Map<string, MarkerTier>
   amenityById: Map<string, ShopAmenityResolutionRow[]>
   paymentById: Map<string, CafePayment>
+  seatingById: Map<string, Cafe['seating']>
   badgesById: Map<string, ActiveShopBadgeRow[]>
   vibesById: Map<string, ActiveShopVibeTagRow[]>
   amenitiesLoaded: boolean
   paymentsLoaded: boolean
+  seatingLoaded: boolean
 }
 
 export function sidecarsFromPayload(payload?: ShopCardSidecarsPayload | null): CafeSidecars {
@@ -242,6 +247,11 @@ export function sidecarsFromPayload(payload?: ShopCardSidecarsPayload | null): C
     const payment = paymentFromRow(row)
     if (payment) paymentById.set(row.shop_id, payment)
   }
+  const seatingById = new Map<string, Cafe['seating']>()
+  for (const row of payload?.seating ?? []) {
+    const seating = seatingFromRow(row)
+    if (seating) seatingById.set(row.shop_id, seating)
+  }
   return {
     statsById: new Map((payload?.stats ?? []).map((row) => [row.shop_id, row])),
     tierById: new Map(
@@ -249,10 +259,12 @@ export function sidecarsFromPayload(payload?: ShopCardSidecarsPayload | null): C
     ),
     amenityById: groupAmenityRows(payload?.amenities ?? []),
     paymentById,
+    seatingById,
     badgesById: groupBadgeRows(payload?.badges ?? []),
     vibesById: groupVibeRows(payload?.vibes ?? []),
     amenitiesLoaded: Array.isArray(payload?.amenities),
     paymentsLoaded: Array.isArray(payload?.payments),
+    seatingLoaded: Array.isArray(payload?.seating),
   }
 }
 
@@ -283,6 +295,7 @@ export function mergeSidecars(target: CafeSidecars, extra: CafeSidecars): CafeSi
     target.amenityById.set(id, [...(target.amenityById.get(id) ?? []), ...rows])
   }
   for (const [id, row] of extra.paymentById) target.paymentById.set(id, row)
+  for (const [id, row] of extra.seatingById) target.seatingById.set(id, row)
   for (const [id, rows] of extra.badgesById) {
     target.badgesById.set(id, [...(target.badgesById.get(id) ?? []), ...rows])
   }
@@ -291,6 +304,7 @@ export function mergeSidecars(target: CafeSidecars, extra: CafeSidecars): CafeSi
   }
   target.amenitiesLoaded = target.amenitiesLoaded || extra.amenitiesLoaded
   target.paymentsLoaded = target.paymentsLoaded || extra.paymentsLoaded
+  target.seatingLoaded = target.seatingLoaded || extra.seatingLoaded
   return target
 }
 
@@ -306,7 +320,7 @@ async function loadCafeSidecarsByIn(supabase: ShopClient, ids: string[]): Promis
   const unique = [...new Set(ids)]
   if (!unique.length) return sidecarsFromPayload()
 
-  const [amenities, stats, tiers, payments, badges, vibes] = await Promise.all([
+  const [amenities, stats, tiers, payments, seating, badges, vibes] = await Promise.all([
     rowsOrNull(fetchByShopIds<ShopAmenityResolutionRow>(unique, (chunk, from, to) =>
       supabase
         .from('shop_amenity_resolutions_public')
@@ -323,6 +337,9 @@ async function loadCafeSidecarsByIn(supabase: ShopClient, ids: string[]): Promis
     rowsOrNull(fetchByShopIds<ShopPaymentRow>(unique, (chunk, from, to) =>
       supabase.from('shop_payment_public').select(PAYMENT_COLUMNS).in('shop_id', chunk).range(from, to),
     )),
+    rowsOrNull(fetchByShopIds<ShopSeatingRow>(unique, (chunk, from, to) =>
+      supabase.from('shop_seating_public').select(SEATING_COLUMNS).in('shop_id', chunk).range(from, to),
+    )),
     rowsOrNull(fetchByShopIds<ActiveShopBadgeRow>(unique, (chunk, from, to) =>
       supabase.from('active_shop_badges').select('*').in('shop_id', chunk).range(from, to),
     )),
@@ -331,7 +348,7 @@ async function loadCafeSidecarsByIn(supabase: ShopClient, ids: string[]): Promis
     )),
   ])
 
-  return sidecarsFromPayload({ amenities, stats, tiers, payments, badges, vibes })
+  return sidecarsFromPayload({ amenities, stats, tiers, payments, seating, badges, vibes })
 }
 
 async function loadCafeSidecarsByRpc(supabase: ShopClient, ids: string[]): Promise<CafeSidecars | null> {
@@ -365,7 +382,13 @@ async function rpcSidecarPayload(
 export async function loadCafeSidecars(supabase: ShopClient, ids: string[]): Promise<CafeSidecars> {
   const unique = [...new Set(ids.filter(Boolean))]
   if (!unique.length) return sidecarsFromPayload()
-  return await loadCafeSidecarsByRpc(supabase, unique) ?? await loadCafeSidecarsByIn(supabase, unique)
+  const fromRpc = await loadCafeSidecarsByRpc(supabase, unique)
+  if (!fromRpc) return await loadCafeSidecarsByIn(supabase, unique)
+  if (fromRpc.seatingLoaded) return fromRpc
+  const viaIn = await loadCafeSidecarsByIn(supabase, unique)
+  for (const [id, row] of viaIn.seatingById) fromRpc.seatingById.set(id, row)
+  fromRpc.seatingLoaded = viaIn.seatingLoaded
+  return fromRpc
 }
 
 export async function fetchAmenityRowsForShopIds(
@@ -426,6 +449,7 @@ function cafeFromApprovedShop(
     sidecars.tierById.get(shop.id) ?? 'standard',
     sidecars.amenitiesLoaded ? sidecars.amenityById.get(shop.id) ?? [] : undefined,
     sidecars.paymentById.get(shop.id) ?? null,
+    sidecars.seatingById.get(shop.id) ?? null,
   )
   return withCafeVibeTags(
     withCafeBadges(cafe, cafeBadgesFromRows(sidecars.badgesById.get(shop.id), publicBase)),
@@ -646,7 +670,7 @@ export async function fetchFilterShopIds(
       .select(AMENITY_RESOLUTION_COLUMNS)
       .eq('amenity_key', spec.key)
       .eq('availability', 'available')
-      .in('confidence', ['team_verified', 'community_confirmed'])
+      .in('confidence', ['team_verified', 'owner_verified', 'community_confirmed'])
       .order('shop_id')
       .range(from, to)
     if (spec.wifiSpeed) request = request.eq('wifi_speed', spec.wifiSpeed)
