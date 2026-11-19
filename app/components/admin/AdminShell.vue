@@ -1,5 +1,5 @@
 <template>
-  <IonContent class="admin-shell-content">
+  <IonContent :scroll-y="false" class="admin-shell-content">
     <div ref="shellEl" class="admin-shell" :class="{ 'is-nav-open': navOpen, 'admin-shell--cafe': layout === 'cafe' }">
       <div
         v-if="navOpen"
@@ -269,15 +269,27 @@ watch(() => route.path, (path) => {
 <style scoped>
 .admin-shell-content {
   --background: #f2f2f2;
+  --overflow: hidden;
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
   --padding-bottom: 0;
 }
 
+.admin-shell-content :deep(.inner-scroll),
+.admin-shell-content :deep(.scroll-y),
+.admin-shell-content :deep(.overscroll) {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
 .admin-shell {
   display: grid;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: #f2f2f2;
   color: var(--kd-ink);
   scrollbar-color: color-mix(in srgb, var(--kd-ink) 28%, transparent) #f2f2f2;
@@ -291,6 +303,7 @@ watch(() => route.path, (path) => {
   display: none;
   flex-direction: column;
   gap: 18px;
+  min-height: 0;
   padding: 24px 18px;
   background: #faf8f5;
   border-right: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
@@ -298,6 +311,7 @@ watch(() => route.path, (path) => {
 
 .admin-shell__brand {
   display: grid;
+  flex-shrink: 0;
   grid-template-columns: 1fr auto;
   gap: 4px 12px;
   align-items: center;
@@ -340,7 +354,15 @@ watch(() => route.path, (path) => {
 
 .admin-shell__nav nav {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
   gap: 4px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-color: color-mix(in srgb, var(--kd-ink) 28%, transparent) #faf8f5;
 }
 
 .admin-shell__link,
@@ -397,12 +419,14 @@ watch(() => route.path, (path) => {
 }
 
 .admin-shell__signout {
+  flex-shrink: 0;
   margin-top: auto;
   text-align: left;
 }
 
 .admin-shell__back {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   min-height: 44px;
   color: var(--kd-primary);
@@ -426,6 +450,9 @@ watch(() => route.path, (path) => {
 
 .admin-shell__main {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .admin-shell__top {
@@ -856,9 +883,9 @@ watch(() => route.path, (path) => {
 
   .admin-shell__nav {
     display: flex;
-    position: sticky;
-    top: 0;
-    height: 100vh;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
   }
 
   .admin-shell__menu {
@@ -896,7 +923,7 @@ watch(() => route.path, (path) => {
     width: min(280px, 86vw);
     height: auto;
     max-height: 100dvh;
-    overflow: auto;
+    overflow: hidden;
     padding-top: max(24px, env(safe-area-inset-top));
     padding-bottom: max(24px, env(safe-area-inset-bottom));
     padding-left: max(18px, env(safe-area-inset-left));
