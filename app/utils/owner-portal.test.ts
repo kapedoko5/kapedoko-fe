@@ -8,7 +8,9 @@ import {
   ownerClaimsEmptyCopy,
   ownerDeskCafesEmptyCopy,
   ownerHoursLine,
+  ownerEditorLede,
   ownerLiveCopy,
+  ownerLiveStatusWord,
   ownerLoginDeniedCopy,
   ownerStaffRedirect,
   unmarkedWaitingClaims,
@@ -76,6 +78,11 @@ describe('owner cafe facts', () => {
   test('says when a listing is actually on the map', () => {
     expect(ownerLiveCopy({ status: 'approved' })).toBe('On Home and Map')
     expect(ownerLiveCopy({ status: 'hidden' })).toMatch(/Unpublished/)
+    expect(ownerLiveStatusWord({ status: 'approved' })).toBe('Live')
+    expect(ownerLiveStatusWord({ status: 'hidden' })).toBe('Unpublished')
+    expect(ownerLiveStatusWord({ status: 'pending' })).toBe('Pending review')
+    expect(ownerLiveStatusWord({ status: 'rejected' })).toBe('Not listed')
+    expect(ownerEditorLede()).toMatch(/print on the bag/)
   })
 })
 

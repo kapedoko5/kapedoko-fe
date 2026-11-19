@@ -8,7 +8,13 @@
       :claim-count="waitingClaims.length"
     >
       <div v-if="shop && pageStatus === 'ready'" class="owner-edit">
-        <p class="owner-edit__live">{{ ownerLiveCopy(shop) }}</p>
+        <p class="owner-edit__status" :class="`owner-edit__status--${shop.status}`">
+          <span class="owner-edit__status-mark" aria-hidden="true">
+            <span class="owner-edit__status-dot" />
+          </span>
+          <span class="owner-edit__status-label">Listing</span>
+          <span class="owner-edit__status-word">{{ ownerLiveStatusWord(shop) }}</span>
+        </p>
         <p v-if="formError" class="owner-edit__error" role="alert">{{ formError }}</p>
         <OwnerCafeEditor
           :key="shop.id"
@@ -32,7 +38,7 @@ import OwnerShell from '~/components/owner-portal/OwnerShell.vue'
 import type { ShopRow } from '~/types/shop'
 import { isShopId, resolveLiveShopId } from '~/utils/approved-shops'
 import { settleOwnerIonPages } from '~/utils/owner-nav'
-import { ownerLiveCopy } from '~/utils/owner-portal'
+import { ownerLiveStatusWord } from '~/utils/owner-portal'
 
 definePageMeta({
   middleware: ['owner'],
@@ -164,10 +170,99 @@ onBeforeUnmount(() => {
 .owner-edit {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 20px;
 }
 
-.owner-edit__live,
+.owner-edit :deep(.owner-editor) {
+  width: 100%;
+}
+
+.owner-edit__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 6px 14px 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border-radius: 16px;
+  background: #faf8f5;
+  color: var(--kd-ink);
+  line-height: 1.2;
+}
+
+.owner-edit__status-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid currentColor;
+  border-radius: 16px;
+  flex: 0 0 auto;
+}
+
+.owner-edit__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 16px;
+  background: currentColor;
+}
+
+.owner-edit__status-label {
+  color: var(--kd-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.owner-edit__status-word {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.owner-edit__status--approved {
+  border-color: color-mix(in srgb, var(--kd-primary) 48%, #faf8f5);
+  background: color-mix(in srgb, var(--kd-primary) 10%, #faf8f5);
+  color: var(--kd-primary);
+}
+
+.owner-edit__status--approved .owner-edit__status-word {
+  color: var(--kd-primary);
+}
+
+.owner-edit__status--pending {
+  border-color: color-mix(in srgb, var(--kd-accent) 62%, #faf8f5);
+  background: color-mix(in srgb, var(--kd-accent) 16%, #faf8f5);
+  color: var(--kd-accent);
+}
+
+.owner-edit__status--pending .owner-edit__status-word {
+  color: var(--kd-ink);
+}
+
+.owner-edit__status--hidden {
+  border-color: color-mix(in srgb, var(--kd-ink) 28%, #faf8f5);
+  background: color-mix(in srgb, var(--kd-ink) 8%, #faf8f5);
+  color: color-mix(in srgb, var(--kd-ink) 78%, #faf8f5);
+}
+
+.owner-edit__status--hidden .owner-edit__status-word {
+  color: var(--kd-ink);
+}
+
+.owner-edit__status--rejected {
+  border-color: color-mix(in srgb, var(--kd-destructive) 48%, #faf8f5);
+  background: color-mix(in srgb, var(--kd-destructive) 10%, #faf8f5);
+  color: var(--kd-destructive);
+}
+
+.owner-edit__status--rejected .owner-edit__status-word {
+  color: var(--kd-destructive);
+}
+
 .owner-edit__error,
 .owner-edit__empty p {
   margin: 0;
@@ -185,5 +280,10 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+}
+
+.owner-edit ::selection {
+  background: var(--kd-accent);
+  color: var(--kd-ink);
 }
 </style>

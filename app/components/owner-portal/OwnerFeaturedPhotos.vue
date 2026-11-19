@@ -140,10 +140,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  background: #faf8f5;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
-  border-radius: 16px;
 }
 
 .featured__intro {
@@ -154,9 +150,9 @@ onBeforeUnmount(() => {
 
 .featured h2 {
   margin: 0;
-  font-size: 1.325rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.2;
   letter-spacing: -0.03em;
 }
 

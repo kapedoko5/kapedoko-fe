@@ -23,7 +23,10 @@
         <dd>{{ formatOwnerDate(claim.reviewed_at) }}</dd>
       </div>
     </dl>
-    <div class="owner-claim__actions">
+    <div
+      v-if="claim.status === 'verified' || canWithdrawClaim(claim.status)"
+      class="owner-claim__actions"
+    >
       <NuxtLink
         v-if="claim.status === 'verified'"
         class="owner-btn"
@@ -33,7 +36,7 @@
         Edit listing
       </NuxtLink>
       <button
-        v-else-if="canWithdrawClaim(claim.status)"
+        v-else
         type="button"
         class="owner-btn owner-btn--danger"
         :disabled="withdrawing"
@@ -77,10 +80,10 @@ const onEdit = (event: MouseEvent) => {
 
 <style scoped>
 .owner-claim {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 20px;
+  padding: 20px;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
   background: #faf8f5;
@@ -93,8 +96,9 @@ const onEdit = (event: MouseEvent) => {
 .owner-claim__mast {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 8px 12px;
+  min-width: 0;
 }
 
 .owner-claim h2,
@@ -103,37 +107,82 @@ const onEdit = (event: MouseEvent) => {
 }
 
 .owner-claim h2 {
-  font-size: 1.325rem;
+  min-width: 0;
+  font-size: 0.95rem;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.2;
   letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
 }
 
 .owner-claim__copy {
+  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
   font-size: 0.7875rem;
   line-height: 1.3;
 }
 
 .owner-claim__facts {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  grid-column: 1 / -1;
   margin: 0;
 }
 
+.owner-claim__facts > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .owner-claim__facts dt {
-  color: color-mix(in srgb, var(--kd-ink) 62%, #faf8f5);
+  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
   font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .owner-claim__facts dd {
-  margin: 2px 0 0;
+  margin: 0;
   font-size: 0.7875rem;
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .owner-claim__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
   gap: 12px;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.owner-claim ::selection {
+  background: var(--kd-accent);
+  color: var(--kd-ink);
+}
+
+@media (max-width: 639px) {
+  .owner-claim {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .owner-claim__facts {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .owner-claim__actions {
+    justify-content: flex-start;
+  }
+}
+
+:root.is-android .owner-claim__actions .owner-btn {
+  min-height: 48px;
 }
 </style>
