@@ -59,19 +59,14 @@ import {
   isShopId,
   shopIdFromRoute,
 } from '~/utils/approved-shops'
-import {
-  ANALYTICS_EVENTS,
-  confidenceBucketFromStatus,
-  detailViewKey,
-  takeDetailSource,
-} from '~/utils/analytics'
+import { takeTrafficSurface } from '~/utils/shop-traffic'
 useAppTabBar('hide')
 
 const route = useRoute()
 const ionRouter = useIonRouter()
 const supabase = useSupabaseClient()
 const config = useRuntimeConfig()
-const { track, once, consent } = useAnalytics()
+const { record } = useShopTrafficCapture()
 
 const { upsertCafe } = useApprovedShops()
 const cafe = ref<Cafe | null>(null)
@@ -133,13 +128,7 @@ const onCheckIn = async () => {
 }
 
 const trackCafeDetail = (next: Cafe) => {
-  if (!once(detailViewKey(next.id))) return
-  track(ANALYTICS_EVENTS.CAFE_DETAIL_VIEWED, {
-    cafe_id: next.id,
-    wifi_confidence: confidenceBucketFromStatus(next.work.wifiStatus),
-    outlet_confidence: confidenceBucketFromStatus(next.work.outletsStatus),
-    source: takeDetailSource(route.query.from),
-  })
+  record(next.id, 'detail_view', takeTrafficSurface(route.query.from))
 }
 
 const onHardwareBack = (event: Event) => {
@@ -203,12 +192,6 @@ watch(
   },
   { immediate: true },
 )
-
-watch(consent, (value) => {
-  if (value === 'granted' && cafe.value && status.value === 'ready') {
-    trackCafeDetail(cafe.value)
-  }
-})
 
 onIonViewWillEnter(() => {
   void bootstrap(resolveShopId(), true)

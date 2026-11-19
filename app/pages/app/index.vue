@@ -246,15 +246,8 @@ import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
 import EventDetailContent from '~/components/event/EventDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
 import { featuredAdCopy } from '~/utils/admin-ads'
-import {
-  ANALYTICS_EVENTS,
-  CARD_IMPRESSION_MS,
-  CARD_IMPRESSION_RATIO,
-  confidenceBucketFromCafe,
-  modalConfidenceBucket,
-  promotionViewKey,
-} from '~/utils/analytics'
 import { watchImpression } from '~/utils/analytics-impression'
+import { CARD_IMPRESSION_MS, CARD_IMPRESSION_RATIO } from '~/utils/shop-traffic'
 import { CAFE_FILTERS, type CafeFilterIcon, type CafeFilterId } from '~/utils/cafe-filters'
 import { feedCountLabel } from '~/utils/cafe-feed'
 import { fetchPlacementCafes } from '~/utils/approved-shops'
@@ -276,7 +269,7 @@ const {
   afterLeave,
   onReview,
   onCheckIn,
-} = useListDetailPane('feed')
+} = useListDetailPane('home')
 
 const filterIcons: Record<CafeFilterIcon, typeof Navigation> = {
   navigation: Navigation,
@@ -295,7 +288,8 @@ const { events: activeEvents } = useActiveEvents()
 const { status: locationStatus, location, usingFallback, requestLocation } = useDeviceLocation()
 const { radiusKm: nearbyRadiusKm, radiusMeters, hydrate: hydrateNearbyRadius } = useNearbyRadius()
 const { user, loadProfile } = useAuth()
-const { track, once, consent } = useAnalytics()
+const { consent } = useAnalytics()
+const { record } = useShopTrafficCapture()
 const supabase = useSupabaseClient()
 const runtimeConfig = useRuntimeConfig()
 const placementList = ref<Cafe[]>([])
@@ -475,34 +469,15 @@ const submitSearch = async () => {
   await navigateTo(path)
 }
 
-const trackPending = ref<CafeFilterId | null>(null)
-
-const trackFilter = (id: CafeFilterId) => {
-  track(ANALYTICS_EVENTS.FILTER_APPLIED, {
-    filter_name: id,
-    result_count: cafeTotal.value ?? pagedCafes.value.length,
-    confidence_bucket: modalConfidenceBucket(pagedCafes.value.map((cafe) => confidenceBucketFromCafe(cafe))),
-  })
-}
-
-watch(status, (value) => {
-  const id = trackPending.value
-  if (value !== 'ready' || !id) return
-  trackPending.value = null
-  trackFilter(id)
-})
-
 const setFilter = (id: CafeFilterId) => {
   if (id === activeFilter.value) return
   activeFilter.value = id
-  trackPending.value = id
 }
 
 const toggleNearby = async () => {
   if (!showNearbyTicket.value || nearbyBusy.value) return
   if (nearbyUnderFilter.value) {
     nearbyUnderFilter.value = false
-    trackPending.value = activeFilter.value
     return
   }
   if (!origin.value) {
@@ -515,7 +490,6 @@ const toggleNearby = async () => {
   }
   if (!origin.value) return
   nearbyUnderFilter.value = true
-  trackPending.value = activeFilter.value
 }
 
 const openCafe = async (id: string) => {
@@ -531,12 +505,7 @@ const openEvent = async (id: string) => {
 }
 
 const openPromotion = async (ad: { id: string; shopId: string; kind: 'ad' | 'promoted' | 'partner' }) => {
-  track(ANALYTICS_EVENTS.PROMOTION_CLICKED, {
-    promotion_id: ad.id,
-    cafe_id: ad.shopId,
-    promotion_kind: ad.kind,
-    placement: 'home_rail',
-  })
+  record(ad.shopId, 'card_click', 'promotion')
   const fallback = placementList.value.find((item) => item.id === ad.shopId)
     || pagedCafes.value.find((item) => item.id === ad.shopId)
     || null
@@ -556,13 +525,7 @@ const startPromoWatch = (id: string, node: Element) => {
     ratio: CARD_IMPRESSION_RATIO,
     dwellMs: CARD_IMPRESSION_MS,
     onView: () => {
-      if (!once(promotionViewKey(ad.id))) return
-      track(ANALYTICS_EVENTS.PROMOTION_VIEWED, {
-        promotion_id: ad.id,
-        cafe_id: ad.shopId,
-        promotion_kind: ad.kind,
-        placement: 'home_rail',
-      })
+      record(ad.shopId, 'card_impression', 'promotion')
     },
   }))
 }

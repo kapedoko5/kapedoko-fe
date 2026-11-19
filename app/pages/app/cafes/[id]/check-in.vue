@@ -110,14 +110,12 @@ import {
   parseBusynessLevelQuery,
   readCheckInAt,
 } from '~/utils/cafe-review'
-import { ANALYTICS_EVENTS, checkInStartKey } from '~/utils/analytics'
 
 useAppTabBar('hide')
 
 const route = useRoute()
 const ionRouter = useIonRouter()
 const { currentUserId, goToLogin } = useAuth()
-const { track, once, consent } = useAnalytics()
 const { loadCafe, reportBusyness, reporting } = useCafeReview()
 
 const shopId = computed(() => resolveShopId())
@@ -261,7 +259,6 @@ const onPrimary = async () => {
   try {
     const userId = await currentUserId()
     if (!userId) {
-      track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'check_in' })
       await goToLogin(checkInPath(shopId.value, level.value))
       return
     }
@@ -350,16 +347,6 @@ watch(
     void bootstrap(resolveShopId())
   },
   { immediate: true },
-)
-
-watch(
-  [status, cafe, consent],
-  () => {
-    if (consent.value !== 'granted') return
-    if (status.value !== 'ready' || !cafe.value) return
-    if (!once(checkInStartKey(cafe.value.id))) return
-    track(ANALYTICS_EVENTS.CHECK_IN_STARTED, { cafe_id: cafe.value.id })
-  },
 )
 
 onIonViewWillEnter(() => {

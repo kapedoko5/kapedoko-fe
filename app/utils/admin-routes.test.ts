@@ -6,6 +6,7 @@ describe('admin routes', () => {
     const hrefs = ADMIN_NAV.map((item) => item.href)
     expect(hrefs).toEqual([
       '/admin',
+      '/admin/analytics',
       '/admin/cafes',
       '/admin/audits',
       '/admin/verifications',
@@ -40,12 +41,16 @@ describe('admin routes', () => {
     expect(adminNavIdFromPath('/admin/vibe-tags')).toBe('vibe-tags')
     expect(adminNavIdFromPath('/admin/vibe-tags/new')).toBe('vibe-tags')
     expect(adminNavIdFromPath('/admin')).toBe('dashboard')
+    expect(adminNavIdFromPath('/admin/analytics')).toBe('analytics')
+    expect(adminNavIdFromPath('/admin/analytics/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toBe('analytics')
   })
 
   test('auditors only see audits and proofs', () => {
     expect(staffNav('auditor').map((item) => item.id)).toEqual(['audits', 'verifications'])
     expect(staffNav('admin').map((item) => item.id)).toContain('cafes')
+    expect(staffNav('admin').map((item) => item.id)).toContain('analytics')
     expect(staffNav('admin').map((item) => item.id)).toContain('verifications')
+    expect(staffNav('auditor').map((item) => item.id)).not.toContain('analytics')
   })
 
   test('nested cafe pages return to the cafes index', () => {
@@ -106,6 +111,14 @@ describe('admin routes', () => {
     expect(adminBackNav('/admin/vibe-tags/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toEqual({
       to: '/admin/vibe-tags',
       label: 'Vibe tags',
+    })
+  })
+
+  test('nested cafe analytics return to the analytics index', () => {
+    expect(adminBackNav('/admin/analytics')).toBeNull()
+    expect(adminBackNav('/admin/analytics/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toEqual({
+      to: '/admin/analytics',
+      label: 'Analytics',
     })
   })
 
