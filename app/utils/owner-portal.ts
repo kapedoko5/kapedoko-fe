@@ -119,8 +119,15 @@ export function ownerLiveCopy(shop: Pick<ShopRow, 'status'>): string {
   return 'Pending review. It stays off Home and Map until an admin approves it.'
 }
 
+export function ownerLiveStatusWord(shop: Pick<ShopRow, 'status'>): string {
+  if (shop.status === 'approved') return 'Live'
+  if (shop.status === 'hidden') return 'Unpublished'
+  if (shop.status === 'rejected') return 'Not listed'
+  return 'Pending review'
+}
+
 export function ownerEditorLede(): string {
-  return 'These details go live on Home and Map. Featured photos show on the cafe page. Vibe stamps print on the bag. Verify WiFi, outlets, seating, and payment from Desk. Publish status stays with admin.'
+  return 'Name and logo print on the bag. Stamps and photos show on the cafe page.'
 }
 
 export function unmarkedWaitingClaims(claims: ShopClaimRow[], noticedIds: readonly string[]): ShopClaimRow[] {

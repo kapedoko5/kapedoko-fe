@@ -1,6 +1,6 @@
 <template>
   <article ref="rootRef" class="bag" :class="{ 'is-selected': selected, 'is-saved': saved }">
-    <button type="button" class="bag__open" @click="emit('select', cafe.id)">
+    <button type="button" class="bag__open" @click="onOpen">
       <span class="bag__mast">
         <span class="bag__logo" aria-hidden="true">
           <img
@@ -102,15 +102,12 @@ import { Armchair, BadgeCheck, Clock, Heart, Navigation, Plug, Unplug, Wallet, W
 import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import type { Cafe } from '~/types/cafe'
+import { watchImpression } from '~/utils/analytics-impression'
 import {
-  ANALYTICS_EVENTS,
   CARD_IMPRESSION_MS,
   CARD_IMPRESSION_RATIO,
-  cardViewKey,
-  confidenceBucketFromCafe,
-  type CardSurface,
-} from '~/utils/analytics'
-import { watchImpression } from '~/utils/analytics-impression'
+  type ShopTrafficSurface,
+} from '~/utils/shop-traffic'
 import { cafeDisplayLogo, isKapedokoMark, KAPEDOKO_APP_LOGO_SRC } from '~/utils/logo'
 import { amenityAriaLabel, amenityBagPress, amenityBagValue, amenitySoft, amenityStampKind } from '~/utils/amenity-status'
 import { paymentCard, paymentTeamPress } from '~/utils/cafe-payment'
@@ -120,7 +117,7 @@ const props = defineProps<{
   cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment' | 'seating' | 'badges' | 'vibeTags'>
   selected?: boolean
   distanceLabel?: string
-  surface?: CardSurface
+  surface?: ShopTrafficSurface
 }>()
 
 const emit = defineEmits<{
@@ -128,7 +125,8 @@ const emit = defineEmits<{
 }>()
 
 const favorites = useFavorites()
-const { track, once, consent } = useAnalytics()
+const { consent } = useAnalytics()
+const { record } = useShopTrafficCapture()
 const rootRef = ref<HTMLElement | null>(null)
 const broken = ref(false)
 const saved = computed(() => favorites.isSaved(props.cafe.id))
@@ -215,6 +213,11 @@ const onSave = () => {
   void favorites.toggle(props.cafe.id)
 }
 
+const onOpen = () => {
+  if (props.surface) record(props.cafe.id, 'card_click', props.surface)
+  emit('select', props.cafe.id)
+}
+
 const onPhotoError = () => {
   if (photoSrc.value === KAPEDOKO_APP_LOGO_SRC) return
   broken.value = true
@@ -232,12 +235,7 @@ const bindImpression = () => {
     ratio: CARD_IMPRESSION_RATIO,
     dwellMs: CARD_IMPRESSION_MS,
     onView: () => {
-      if (!once(cardViewKey(props.cafe.id, surface))) return
-      track(ANALYTICS_EVENTS.CAFE_CARD_VIEWED, {
-        cafe_id: props.cafe.id,
-        surface,
-        confidence_bucket: confidenceBucketFromCafe(props.cafe),
-      })
+      record(props.cafe.id, 'card_impression', surface)
     },
   })
 }

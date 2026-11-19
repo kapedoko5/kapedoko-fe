@@ -3,6 +3,7 @@ import { isShopId } from './approved-shops'
 export const OWNER_NAV = [
   { id: 'desk', label: 'Desk', href: '/owner' },
   { id: 'cafes', label: 'Cafes', href: '/owner/cafes' },
+  { id: 'analytics', label: 'Analytics', href: '/owner/analytics' },
   { id: 'ads', label: 'Ads', href: '/owner/ads' },
   { id: 'claims', label: 'Claims', href: '/owner/claims' },
 ] as const
@@ -23,6 +24,7 @@ function ownerPathOnly(path: string): string {
 export function ownerNavIdFromPath(path: string): OwnerNavId {
   const current = ownerPathOnly(path)
   if (current.startsWith('/owner/cafes')) return 'cafes'
+  if (current.startsWith('/owner/analytics')) return 'analytics'
   if (current.startsWith('/owner/ads')) return 'ads'
   if (current.startsWith('/owner/claims')) return 'claims'
   return 'desk'
@@ -33,6 +35,9 @@ export function ownerBackNav(path: string): OwnerBackNav | null {
   const current = ownerPathOnly(path)
   if (current.startsWith('/owner/cafes/') && current !== '/owner/cafes/') {
     return { to: '/owner/cafes', label: 'Cafes' }
+  }
+  if (current.startsWith('/owner/analytics/') && current !== '/owner/analytics/') {
+    return { to: '/owner/analytics', label: 'Analytics' }
   }
   return null
 }

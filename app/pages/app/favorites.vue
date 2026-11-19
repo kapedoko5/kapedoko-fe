@@ -92,7 +92,6 @@ import AppDetailPane from '~/components/AppDetailPane.vue'
 import CafeCard from '~/components/cafe/CafeCard.vue'
 import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
-import { ANALYTICS_EVENTS } from '~/utils/analytics'
 import { fetchApprovedCafesByIds } from '~/utils/approved-shops'
 
 useAppTabBar('show')
@@ -112,7 +111,6 @@ const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 const config = useRuntimeConfig()
 const { goToLogin } = useAuth()
-const { track, once, consent } = useAnalytics()
 
 const savedCafes = ref<Cafe[]>([])
 const listStatus = ref<'loading' | 'ready' | 'error'>('loading')
@@ -174,16 +172,6 @@ const openCafe = async (id: string) => {
 const goLogin = () => {
   void goToLogin('/app/favorites')
 }
-
-watch(
-  [signedIn, savedCafes, listStatus, consent],
-  () => {
-    if (consent.value !== 'granted') return
-    if (signedIn.value || listStatus.value !== 'ready' || savedCafes.value.length === 0) return
-    if (!once('auth_prompt:favorites_sync')) return
-    track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'favorites_sync' })
-  },
-)
 
 const goBack = async () => {
   await navigateTo('/app')

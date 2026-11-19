@@ -74,6 +74,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
 }
 
 .owner-cafes__labels {

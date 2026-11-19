@@ -128,7 +128,6 @@ import { addressError, cafeNameError, normalizeAddress, normalizeCafeName } from
 import { isInCoverage } from '~/utils/geography'
 import { isValidPhone } from '~/utils/phone'
 import { logoFileError } from '~/utils/logo'
-import { ANALYTICS_EVENTS } from '~/utils/analytics'
 import type { WeeklyHours } from '~/types/shop'
 
 definePageMeta({
@@ -141,7 +140,6 @@ const ionRouter = useIonRouter()
 const route = useRoute()
 const { submitShop, submitting } = useShopSubmission()
 const { currentUserId, goToLogin } = useAuth()
-const { track } = useAnalytics()
 const allowed = ref(false)
 
 const step = ref(1)
@@ -341,7 +339,6 @@ onBeforeUnmount(() => {
 const ensureSignedIn = async () => {
   const userId = await currentUserId()
   if (!userId) {
-    track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'submit' })
     await goToLogin(route.fullPath)
     return
   }

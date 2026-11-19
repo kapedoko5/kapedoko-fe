@@ -2,6 +2,7 @@ import { isShopId } from './approved-shops'
 
 export const ADMIN_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/admin' },
+  { id: 'analytics', label: 'Analytics', href: '/admin/analytics' },
   { id: 'cafes', label: 'Cafes', href: '/admin/cafes' },
   { id: 'audits', label: 'Audits', href: '/admin/audits' },
   { id: 'verifications', label: 'Proofs', href: '/admin/verifications' },
@@ -77,6 +78,10 @@ export function adminBackNav(
     return { to: '/admin/vibe-tags', label: 'Vibe tags' }
   }
 
+  if (current.startsWith('/admin/analytics/') && current !== '/admin/analytics/') {
+    return { to: '/admin/analytics', label: 'Analytics' }
+  }
+
   return null
 }
 
@@ -86,6 +91,7 @@ export function staffNav(role: 'admin' | 'auditor' | string | null | undefined) 
 }
 
 export function adminNavIdFromPath(path: string): (typeof ADMIN_NAV)[number]['id'] {
+  if (path.startsWith('/admin/analytics')) return 'analytics'
   if (path.includes('/verifications')) return 'verifications'
   if (path.includes('/audits')) return 'audits'
   if (path.startsWith('/admin/cafes')) return 'cafes'

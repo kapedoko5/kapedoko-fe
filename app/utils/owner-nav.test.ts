@@ -14,6 +14,7 @@ describe('owner nav', () => {
     expect(ownerNavIdFromPath('/owner')).toBe('desk')
     expect(ownerNavIdFromPath('/owner/cafes')).toBe('cafes')
     expect(ownerNavIdFromPath('/owner/cafes/abc')).toBe('cafes')
+    expect(ownerNavIdFromPath('/owner/analytics')).toBe('analytics')
     expect(ownerNavIdFromPath('/owner/ads')).toBe('ads')
     expect(ownerNavIdFromPath('/owner/claims')).toBe('claims')
     expect(ownerNavIdFromPath('/owner/claims/?x=1')).toBe('claims')
@@ -29,6 +30,11 @@ describe('owner nav', () => {
     expect(ownerBackNav('/owner/cafes/11111111-1111-4111-8111-111111111111/verify')).toEqual({
       to: '/owner/cafes',
       label: 'Cafes',
+    })
+    expect(ownerBackNav('/owner/analytics')).toBeNull()
+    expect(ownerBackNav('/owner/analytics/11111111-1111-4111-8111-111111111111')).toEqual({
+      to: '/owner/analytics',
+      label: 'Analytics',
     })
   })
 

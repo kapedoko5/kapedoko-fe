@@ -8,7 +8,7 @@
           </button>
           <div class="privacy__title">
             <h1>Privacy policy</h1>
-            <p class="privacy__date">12 November 2026</p>
+            <p class="privacy__date">19 November 2026</p>
           </div>
         </header>
 
@@ -67,7 +67,6 @@
             <li>Whether you finished the short introduction.</li>
             <li>The Near You distance you pick. The default is 5 km.</li>
             <li>Your choice to allow or stop usage analytics.</li>
-            <li>A random analytics identifier, only after you allow analytics.</li>
           </ul>
           <p>
             Those stay on the device. Saved cafés sync to your account after you sign in. We do
@@ -78,8 +77,8 @@
           <p>
             A check-in stores your account, the café, how packed it felt, and the time. The public
             café page only shows a rolled-up crowd level and how many KapéBeans checked in recently.
-            It does not show who checked in. Check-ins are not sent to analytics as a completed
-            event; staff can see a 30-day count.
+            It does not show who checked in. Check-ins are not café listing traffic events; staff
+            can see a 30-day count.
           </p>
 
           <h3>Reviews</h3>
@@ -87,8 +86,8 @@
             A review stores your account, the café, your answers on Wi‑Fi, outlets, matcha, noise,
             and how long a stay fits, whether you recommend the café and would go back, an optional
             comment, and the time. On an approved café, the comment and your review name are
-            public. If you have not set a name, the review is shown as KapéBean. Staff can hide a
-            review that is reported. The words of the comment are not sent to analytics.
+            public. If you have not set a name, the review is shown as KapéBean.             Staff can hide a
+            review that is reported. Review comments are not café listing traffic events.
           </p>
 
           <h3>Cafés you submit</h3>
@@ -119,7 +118,8 @@
           <p>
             If you allow location, the app reads your position on the device to list cafés within
             the distance you set and to center the map. We do not keep a history of your
-            coordinates on your account, and we do not send exact coordinates to analytics.
+            coordinates on your account, and we do not store exact coordinates in café listing
+            traffic.
           </p>
           <p>
             A nearby or map search asks our database for cafés inside the map area on screen, so
@@ -132,10 +132,6 @@
             to that host. If you tap directions or call, your maps app or phone dialer opens. We
             do not receive the contents of that call.
           </p>
-          <p>
-            If you allow analytics, we record only whether location was granted, denied, or
-            unavailable.
-          </p>
         </section>
 
         <section aria-labelledby="privacy-analytics">
@@ -146,36 +142,30 @@
             works if you decline.
           </p>
           <p>
-            We use PostHog, hosted in the European Union, to see how the app is used nationwide:
-            whether cafés are easy to find, and whether people come back. Events
-            can include app opens, the introduction, screens, filters, café cards and café pages,
-            directions, calls, and photo taps, map opens, the location permission result, sign-in
-            prompts, starting a review, and promotion views or taps. Details are categories and
-            counts, such as a known area name or how many results came back, not the words you
-            typed.
+            When you allow it, KapéDoko stores anonymous café listing traffic in the same database
+            as the rest of the app (Supabase). We count café card views, café card taps, café page
+            opens, directions, calls, and photo taps, and which list they came from (Home, Search,
+            Map, Favorites, a promotion, or a direct link). We do not store who did it.
           </p>
-          <p>We do not send analytics your:</p>
+          <p>We do not store in analytics your:</p>
           <ul>
             <li>Email address or review name.</li>
+            <li>Account id.</li>
             <li>Review text, café submission notes, or claim notes.</li>
             <li>Wi‑Fi network names.</li>
             <li>Exact map coordinates.</li>
             <li>Words you type into search.</li>
           </ul>
           <p>
-            If you are not signed in, events are stored under a random identifier on this device.
-            After you sign in, that identifier is replaced with your account id so we can see
-            whether signed-in people return. We do not attach your email or name to those events.
-            The random id can still recognize the same device while it remains on the device.
+            Admins can see counts and a log for every café. A verified café owner can see the same
+            for cafés they manage. You can turn analytics off in Profile. We then stop recording.
+            Counts already stored stay until the retention period ends. There is no identifier on
+            this device to forget besides your Allow or Stop choice.
           </p>
           <p>
-            You can turn analytics off in Profile. We then stop sending events and forget the
-            analytics identifier on this device. Events already sent stay until the retention
-            period ends.
-          </p>
-          <p>
-            Session recordings, heatmaps, and advertising profiles are not used. Analytics data is
-            kept for PostHog’s free-tier retention, currently one year, and is not sold.
+            Session recordings, heatmaps, and advertising profiles are not used. Café listing
+            events are kept for one year in our database, then we delete them, and they are not
+            sold.
           </p>
         </section>
 
@@ -186,7 +176,7 @@
             <li>
               <strong>Consent.</strong>
               Usage analytics runs only if you allow it. You can refuse, and you can withdraw
-              consent in Profile. Withdrawing consent does not undo events sent before you stopped.
+              consent in Profile. Withdrawing consent does not undo events already recorded.
             </li>
             <li>
               <strong>A service you asked for.</strong>
@@ -213,19 +203,16 @@
           <ul>
             <li>
               <strong>Supabase</strong>
-              hosts accounts, reviews, saves, submissions, claims, and reports. People using the
-              app see public café listings and public reviews. Admins can read what they need to
-              approve a café, verify a claim, or handle a report.
+              hosts accounts, reviews, saves, submissions, claims, reports, and café listing
+              traffic if you allow analytics. People using the app see public café listings and
+              public reviews. Admins can read what they need to approve a café, verify a claim, or
+              handle a report. Verified café owners can see traffic counts for cafés they manage.
             </li>
             <li>
               <strong>Google</strong>
               is an optional sign-in host on the website. If you continue with Google, that
               company receives the sign-in request and sends us your email address and public name.
               The phone app does not offer Google Sign-In.
-            </li>
-            <li>
-              <strong>PostHog, in the European Union,</strong>
-              receives usage events only if you allow analytics.
             </li>
             <li>
               <strong>The map-tile host</strong>
@@ -237,9 +224,9 @@
             </li>
           </ul>
           <p>
-            These hosts process information for the purposes in this notice. Analytics, when you
-            allow them, are stored in the European Union. Our database and file hosts may sit
-            outside the Philippines. We use them to run the app, not to build advertising profiles.
+            These hosts process information for the purposes in this notice. Our database and file
+            hosts may sit outside the Philippines. We use them to run the app, not to build
+            advertising profiles.
           </p>
         </section>
 
@@ -252,7 +239,7 @@
             <li>On the website, a sign-in cookie can last up to about 400 days, and it ends when you sign out. In the phone app, the session is stored on the device.</li>
             <li>Reviews can remain on a café page so the Wi‑Fi and outlet record stays useful. There is no delete-account button in the app yet.</li>
             <li>Claims and reports stay while we need them to finish the check or the moderation.</li>
-            <li>Analytics events stay for the current one-year PostHog retention, then that host deletes them.</li>
+            <li>Café listing traffic stays for one year in our database, then we delete it.</li>
           </ul>
         </section>
 
