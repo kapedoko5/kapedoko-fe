@@ -1,3 +1,4 @@
+import { SHOP_ID_GET_CHUNK, chunkIds, fetchPages } from '~/utils/approved-shops'
 import {
   RECORDS_PAGE_SIZE,
   isShopTrafficKind,
@@ -81,16 +82,37 @@ export function useShopTrafficDesk() {
       names.value = owned
       return
     }
-    const { data, error: queryError } = await supabase
-      .from('shops')
-      .select('id, name')
-      .eq('status', 'approved')
-      .order('name')
-    if (queryError) throw queryError
-    names.value = ((data ?? []) as { id: string, name: string }[]).map((shop) => ({
+    const rows = await fetchPages<{ id: string, name: string }>((from, to) =>
+      supabase
+        .from('shops')
+        .select('id, name')
+        .eq('status', 'approved')
+        .order('name')
+        .order('id')
+        .range(from, to),
+    )
+    names.value = rows.map((shop) => ({
       id: shop.id,
       name: shop.name,
     }))
+  }
+
+  const mergeNames = async (shopIds: string[]) => {
+    const have = new Set(names.value.map((shop) => shop.id))
+    const missing = [...new Set(shopIds)].filter((id) => id && !have.has(id))
+    if (missing.length === 0) return
+    const extra: ShopTrafficName[] = []
+    for (const chunk of chunkIds(missing, SHOP_ID_GET_CHUNK)) {
+      const { data, error: queryError } = await supabase
+        .from('shops')
+        .select('id, name')
+        .in('id', chunk)
+      if (queryError) throw queryError
+      for (const shop of (data ?? []) as { id: string, name: string }[]) {
+        extra.push({ id: shop.id, name: shop.name })
+      }
+    }
+    if (extra.length) names.value = [...names.value, ...extra]
   }
 
   const loadName = async (shopId: string) => {
@@ -121,15 +143,22 @@ export function useShopTrafficDesk() {
         await loadNames(owned)
       }
       const fromDay = trafficRangeStartDay(days)
-      let query = supabase
-        .from('shop_traffic_daily')
-        .select('shop_id, kind, surface, day, hits')
-        .gte('day', fromDay)
-      if (shopId) query = query.eq('shop_id', shopId)
-      else if (owned?.length) query = query.in('shop_id', owned.map((shop) => shop.id))
-      const { data, error: queryError } = await query
-      if (queryError) throw queryError
-      daily.value = parseDaily(data)
+      const rows = await fetchPages((from, to) => {
+        let query = supabase
+          .from('shop_traffic_daily')
+          .select('shop_id, kind, surface, day, hits')
+          .gte('day', fromDay)
+          .order('shop_id')
+          .order('kind')
+          .order('surface')
+          .order('day')
+          .range(from, to)
+        if (shopId) query = query.eq('shop_id', shopId)
+        else if (owned?.length) query = query.in('shop_id', owned.map((shop) => shop.id))
+        return query
+      })
+      daily.value = parseDaily(rows)
+      await mergeNames(daily.value.map((row) => row.shop_id))
       status.value = 'ready'
     } catch (err) {
       status.value = 'error'
@@ -169,6 +198,7 @@ export function useShopTrafficDesk() {
       const page = parseEvents(data)
       events.value = input.append ? [...events.value, ...page] : page
       eventsDone.value = page.length < RECORDS_PAGE_SIZE
+      await mergeNames(page.map((row) => row.shop_id))
       eventsStatus.value = 'ready'
     } catch (err) {
       eventsStatus.value = 'error'
