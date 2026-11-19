@@ -124,13 +124,14 @@ onMounted(async () => {
 .owner-claims {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+  width: 100%;
 }
 
 .owner-claims__filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .owner-claims__count {
@@ -140,5 +141,10 @@ onMounted(async () => {
 .owner-claims__list {
   display: grid;
   gap: 12px;
+}
+
+.owner-claims ::selection {
+  background: var(--kd-accent);
+  color: var(--kd-ink);
 }
 </style>

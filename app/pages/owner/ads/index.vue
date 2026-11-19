@@ -9,40 +9,61 @@
     >
       <div class="owner-ads">
         <form class="owner-ads__form" @submit.prevent="onPost">
-          <h2>Hang a poster</h2>
-          <p class="owner-ads__hint">
-            One poster at a time on each cafe. Choose one cafe, or several you manage.
-          </p>
+          <div class="owner-ads__intro">
+            <h2>Hang a poster</h2>
+            <p class="owner-ads__hint">
+              Upload a plate, then pick the bags it hangs on.
+            </p>
+          </div>
 
-          <label class="owner-ads__file">
-            Poster
+          <div class="owner-ads__plate-field">
+            <p id="poster-label" class="owner-ads__label">Poster</p>
+            <p class="owner-ads__meta">JPG, PNG, or WebP, under 4 MB.</p>
             <input
               ref="fileInput"
+              class="sr-only"
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              aria-labelledby="poster-label"
               @change="onFile"
             />
-          </label>
-          <p v-if="preview" class="owner-ads__preview">
-            <img :src="preview" alt="Poster preview" width="320" height="200" />
-          </p>
+            <p v-if="preview" class="owner-ads__preview">
+              <img :src="preview" alt="Poster preview" width="320" height="200" />
+            </p>
+            <div class="owner-ads__plate-actions">
+              <button type="button" class="owner-btn owner-btn--ghost" @click="pickPoster">
+                {{ file ? 'Change poster' : 'Choose poster' }}
+              </button>
+              <button
+                v-if="file"
+                type="button"
+                class="owner-ads__text-btn"
+                @click="clearFile"
+              >
+                Remove
+              </button>
+            </div>
+            <p v-if="file" class="owner-ads__source">{{ file.name }}</p>
+          </div>
 
           <fieldset v-if="cafes.length > 1" class="owner-ads__scope">
             <legend>Hang this poster at</legend>
-            <label class="owner-ads__check">
-              <input v-model="scope" type="radio" value="one" />
-              One cafe
-            </label>
-            <label class="owner-ads__check">
-              <input v-model="scope" type="radio" value="several" />
-              Several cafes
-            </label>
+            <div class="owner-ads__scope-row">
+              <label class="owner-chip" :class="{ 'is-active': scope === 'one' }">
+                <input v-model="scope" class="sr-only" type="radio" value="one" />
+                One cafe
+              </label>
+              <label class="owner-chip" :class="{ 'is-active': scope === 'several' }">
+                <input v-model="scope" class="sr-only" type="radio" value="several" />
+                Several cafes
+              </label>
+            </div>
           </fieldset>
 
-          <label v-if="cafes.length === 1" class="owner-ads__one">
-            Cafe
-            <span>{{ cafes[0]?.name }}</span>
-          </label>
+          <p v-if="cafes.length === 1" class="owner-ads__one">
+            <span class="owner-ads__label">Cafe</span>
+            <span class="owner-ads__one-name">{{ cafes[0]?.name }}</span>
+          </p>
 
           <label v-else-if="scope === 'one'" class="owner-ads__select">
             Cafe
@@ -66,7 +87,7 @@
             </label>
           </fieldset>
 
-          <p v-if="hangingNames.length" class="owner-ads__reprint" aria-live="polite">
+          <p v-if="hangingNames.length > 1" class="owner-ads__reprint" aria-live="polite">
             Hangs at {{ hangingNames.join(', ') }}.
           </p>
           <p v-if="replaceCopy" class="owner-ads__warn">{{ replaceCopy }}</p>
@@ -207,6 +228,17 @@ const clearPreview = () => {
   previewIsBlob.value = false
 }
 
+const pickPoster = () => {
+  fileInput.value?.click()
+}
+
+const clearFile = () => {
+  file.value = null
+  clearPreview()
+  if (fileInput.value) fileInput.value.value = ''
+  formError.value = ''
+}
+
 const onFile = (event: Event) => {
   const input = event.target as HTMLInputElement
   const next = input.files?.[0] ?? null
@@ -305,17 +337,18 @@ onBeforeUnmount(() => {
 .owner-ads {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 32px;
+  width: 100%;
 }
 
 .owner-ads__form,
 .owner-ads__bag {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: 16px;
+  padding: 20px;
   background: #faf8f5;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
 }
 
@@ -323,26 +356,36 @@ onBeforeUnmount(() => {
 .owner-ads__live h2,
 .owner-ads__bag h3,
 .owner-ads__hint,
+.owner-ads__meta,
+.owner-ads__source,
 .owner-ads__reprint,
 .owner-ads__warn,
 .owner-ads__error,
+.owner-ads__label,
 .owner-ads__bag p {
   margin: 0;
 }
 
+.owner-ads__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .owner-ads__form h2,
 .owner-ads__live h2 {
-  margin-bottom: 4px;
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1.2;
 }
 
 .owner-ads__live h2 {
-  margin-bottom: 12px;
+  margin: 0 0 12px;
 }
 
 .owner-ads__hint,
+.owner-ads__meta,
+.owner-ads__source,
 .owner-ads__bag p,
 .owner-ads__reprint {
   color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
@@ -350,7 +393,12 @@ onBeforeUnmount(() => {
   line-height: 1.3;
 }
 
-.owner-ads__file,
+.owner-ads__meta,
+.owner-ads__source {
+  font-size: 0.75rem;
+}
+
+.owner-ads__label,
 .owner-ads__select,
 .owner-ads__one {
   display: flex;
@@ -358,14 +406,31 @@ onBeforeUnmount(() => {
   gap: 6px;
   font-size: 0.75rem;
   font-weight: 700;
+  line-height: 1.3;
 }
 
-.owner-ads__one span {
+.owner-ads__plate-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.owner-ads__plate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.owner-ads__one-name {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   font-size: 0.95rem;
   font-weight: 400;
 }
 
-.owner-ads__file input,
 .owner-ads__select select {
   min-height: 44px;
   padding: 0 16px;
@@ -376,6 +441,7 @@ onBeforeUnmount(() => {
   font: inherit;
   font-size: 0.95rem;
   font-weight: 400;
+  caret-color: var(--kd-primary);
 }
 
 .owner-ads__preview img,
@@ -402,9 +468,20 @@ onBeforeUnmount(() => {
 
 .owner-ads__scope legend,
 .owner-ads__cafes legend {
-  margin-bottom: 8px;
+  padding: 0;
+  margin-bottom: 4px;
   font-size: 0.75rem;
   font-weight: 700;
+}
+
+.owner-ads__scope-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.owner-ads__scope-row .owner-chip {
+  cursor: pointer;
 }
 
 .owner-ads__check {
@@ -429,8 +506,26 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-.owner-ads__cafes .owner-btn {
+.owner-ads__cafes .owner-btn,
+.owner-ads__form > .owner-btn {
   align-self: flex-start;
+  min-width: 160px;
+}
+
+.owner-ads__cafes .owner-btn {
+  min-width: 0;
+}
+
+.owner-ads__text-btn {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--kd-ink);
+  font: inherit;
+  font-size: 0.7875rem;
+  font-weight: 400;
+  cursor: pointer;
 }
 
 .owner-ads__warn,
@@ -468,11 +563,23 @@ onBeforeUnmount(() => {
   align-self: flex-start;
 }
 
-.owner-ads__file input:focus-visible,
 .owner-ads__select select:focus-visible,
-.owner-ads__check input:focus-visible {
+.owner-ads__check input:focus-visible,
+.owner-ads__scope-row .owner-chip:focus-within,
+.owner-ads__text-btn:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;
+}
+
+.owner-ads__text-btn:focus-visible {
+  border-radius: 8px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .owner-ads__text-btn:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 
 @keyframes owner-ads-settle {
@@ -492,10 +599,23 @@ onBeforeUnmount(() => {
   }
 }
 
-:root.is-android .owner-ads__file input,
 :root.is-android .owner-ads__select select,
-:root.is-android .owner-ads__check {
+:root.is-android .owner-ads__check,
+:root.is-android .owner-ads__one-name,
+:root.is-android .owner-ads__text-btn {
   min-height: 48px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 ::selection {

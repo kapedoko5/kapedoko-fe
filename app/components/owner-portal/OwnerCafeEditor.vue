@@ -1,48 +1,50 @@
 <template>
   <form class="owner-editor" @submit.prevent="onSubmit">
-    <CafeIdentityStep
-      :name="draft.name"
-      :logo-file="draft.logoFile"
-      :logo-object-key="draft.logoObjectKey"
-      :logo-preview-url="logoPreviewUrl"
-      :logo-source-label="logoSourceLabel"
-      :name-issue="issues.name"
-      :logo-issue="issues.logo"
-      :lede="lede"
-      @update:name="draft.name = $event"
-      @update:logoFile="onLogoFile"
-    />
-    <CafeVibeTagPicker
-      v-model="draft.vibeTagIds"
-      :tags="enabledTags"
-      :hidden-count="hiddenCount"
-      :issue="issues.vibeTags"
-      :status="pickerStatus"
-      @issue="issues.vibeTags = $event"
-    />
-    <OwnerFeaturedPhotos
-      :object-keys="draft.galleryObjectKeys"
-      :issue="issues.gallery"
-      @change="onGallery"
-      @issue="issues.gallery = $event"
-    />
-    <CafeDetailsStep
-      :phone="draft.phone"
-      :same-every-day="draft.sameEveryDay"
-      :all-day="draft.allDay"
-      :open-time="draft.openTime"
-      :close-time="draft.closeTime"
-      :weekly="draft.weekly"
-      :phone-issue="issues.phone"
-      :hours-issue="issues.hours"
-      @update:phone="draft.phone = $event"
-      @update:sameEveryDay="draft.sameEveryDay = $event"
-      @update:allDay="draft.allDay = $event"
-      @update:openTime="draft.openTime = $event"
-      @update:closeTime="draft.closeTime = $event"
-      @update:weekly="draft.weekly = $event"
-    />
-    <div class="owner-editor__map">
+    <div class="owner-editor__panel">
+      <CafeIdentityStep
+        :name="draft.name"
+        :logo-file="draft.logoFile"
+        :logo-object-key="draft.logoObjectKey"
+        :logo-preview-url="logoPreviewUrl"
+        :logo-source-label="logoSourceLabel"
+        :name-issue="issues.name"
+        :logo-issue="issues.logo"
+        :lede="lede"
+        @update:name="draft.name = $event"
+        @update:logoFile="onLogoFile"
+      />
+      <CafeVibeTagPicker
+        v-model="draft.vibeTagIds"
+        :tags="enabledTags"
+        :hidden-count="hiddenCount"
+        :issue="issues.vibeTags"
+        :status="pickerStatus"
+        @issue="issues.vibeTags = $event"
+      />
+      <OwnerFeaturedPhotos
+        :object-keys="draft.galleryObjectKeys"
+        :issue="issues.gallery"
+        @change="onGallery"
+        @issue="issues.gallery = $event"
+      />
+      <CafeDetailsStep
+        :phone="draft.phone"
+        :same-every-day="draft.sameEveryDay"
+        :all-day="draft.allDay"
+        :open-time="draft.openTime"
+        :close-time="draft.closeTime"
+        :weekly="draft.weekly"
+        :phone-issue="issues.phone"
+        :hours-issue="issues.hours"
+        @update:phone="draft.phone = $event"
+        @update:sameEveryDay="draft.sameEveryDay = $event"
+        @update:allDay="draft.allDay = $event"
+        @update:openTime="draft.openTime = $event"
+        @update:closeTime="draft.closeTime = $event"
+        @update:weekly="draft.weekly = $event"
+      />
+    </div>
+    <div class="owner-editor__panel owner-editor__map">
       <ClientOnly>
         <CafeLocationPicker
           :lat="draft.lat"
@@ -248,19 +250,113 @@ const onSubmit = () => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
 }
 
-.owner-editor__map {
-  min-height: 360px;
-  overflow: hidden;
+.owner-editor__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  padding: 20px;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
+  background: #faf8f5;
+}
+
+.owner-editor__panel:not(.owner-editor__map) {
+  gap: 0;
+}
+
+.owner-editor__panel:not(.owner-editor__map) > * + * {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--kd-ink) 14%, transparent);
+}
+
+.owner-editor__panel :deep(.identity),
+.owner-editor__panel :deep(.details) {
+  gap: 16px;
+}
+
+.owner-editor__panel :deep(.identity__intro),
+.owner-editor__panel :deep(.details__intro),
+.owner-editor__panel :deep(.featured__intro) {
+  gap: 6px;
+}
+
+.owner-editor__panel :deep(#identity-title),
+.owner-editor__panel :deep(.details h2),
+.owner-editor__panel :deep(.featured h2),
+.owner-editor__panel :deep(.vibe-picker__head h2),
+.owner-editor__map :deep(.picker__copy h2) {
+  font-size: 0.95rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.owner-editor__panel :deep(.identity__mark) {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+
+.owner-editor__panel :deep(.identity__lede),
+.owner-editor__panel :deep(.details__lede),
+.owner-editor__panel :deep(.featured__lede),
+.owner-editor__panel :deep(.vibe-picker__lede) {
+  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
+}
+
+.owner-editor__panel :deep(.identity__logo) {
+  gap: 8px;
+}
+
+.owner-editor__panel :deep(.identity__logo-row) {
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.owner-editor__panel :deep(.identity__logo-actions) {
+  gap: 8px;
+}
+
+.owner-editor__panel :deep(.details__hours) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.owner-editor__panel :deep(.details__hours-label),
+.owner-editor__panel :deep(.details__toggle),
+.owner-editor__panel :deep(.details__times),
+.owner-editor__panel :deep(.details__days) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.owner-editor__map :deep(.picker) {
+  gap: 16px;
+}
+
+.owner-editor__map :deep(.picker__map),
+.owner-editor__map :deep(.picker__canvas) {
+  min-height: 280px;
+}
+
+.owner-editor__map :deep(.picker__copy p) {
+  margin-top: 8px;
 }
 
 .owner-editor__actions {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
+}
+
+.owner-editor__actions .owner-btn {
+  min-width: 160px;
 }
 
 .owner-editor__error {
@@ -268,5 +364,20 @@ const onSubmit = () => {
   color: var(--kd-destructive);
   font-size: 0.7875rem;
   font-weight: 700;
+}
+
+.owner-editor ::selection {
+  background: var(--kd-accent);
+  color: var(--kd-ink);
+}
+
+@media (max-width: 520px) {
+  .owner-editor__panel :deep(.details__day-controls:has(input)) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .owner-editor__panel :deep(.details__day-controls select) {
+    grid-column: 1 / -1;
+  }
 }
 </style>

@@ -249,10 +249,18 @@ const onSubmit = () => {
 }
 
 .owner-form__map {
-  min-height: 360px;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.owner-form__map :deep(.picker) {
+  gap: 16px;
+}
+
+.owner-form__map :deep(.picker__map),
+.owner-form__map :deep(.picker__canvas) {
+  min-height: 280px;
 }
 
 .owner-form__actions {

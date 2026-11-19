@@ -1,15 +1,8 @@
 <template>
   <section class="picker" :class="{ 'is-overlay': overlay }" aria-labelledby="picker-title">
-    <div class="picker__map">
-      <div ref="root" class="picker__canvas" />
-      <button
-        type="button"
-        class="picker__locate"
-        aria-label="Use my location"
-        @click="useMyLocation"
-      >
-        <LocateFixed :size="20" :stroke-width="2" />
-      </button>
+    <div v-if="!overlay" class="picker__copy">
+      <h2 id="picker-title">Pin the cafe</h2>
+      <p>Drag the pin or search so the marker sits on the shop, not the next street.</p>
     </div>
 
     <div class="picker__search" @keydown.enter.stop>
@@ -51,12 +44,24 @@
       </ul>
     </div>
 
+    <div class="picker__map">
+      <div ref="root" class="picker__canvas" />
+      <button
+        type="button"
+        class="picker__locate"
+        aria-label="Use my location"
+        @click="useMyLocation"
+      >
+        <LocateFixed :size="20" :stroke-width="2" />
+      </button>
+    </div>
+
     <p v-if="!unrestricted && !inBounds" class="picker__banner picker__banner--error" role="alert">
       That pin is outside the Philippines.
     </p>
 
     <div class="picker__peek">
-      <div class="picker__copy">
+      <div v-if="overlay" class="picker__copy">
         <h2 id="picker-title">Pin the cafe</h2>
         <p>Drag the pin or search so the marker sits on the shop, not the next street.</p>
       </div>
@@ -344,7 +349,7 @@ onBeforeUnmount(() => {
 
 .picker__copy p,
 .picker__error {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
   color: var(--kd-ink);
   font-size: 0.7875rem;
   line-height: 1.3;
