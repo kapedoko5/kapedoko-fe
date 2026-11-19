@@ -1,5 +1,7 @@
 # Marikina Pilot Analytics
 
+**Superseded.** Product analytics is first-party café listing traffic in Supabase, shown at `/admin/analytics` and `/owner/analytics`. PostHog is not used. Keep this file as the historical PostHog plan.
+
 Product analytics plan for the Marikina launch. This document is the implementation plan only: do not add the SDK or fire events from this file.
 
 **Pilot questions**

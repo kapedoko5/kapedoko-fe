@@ -19,12 +19,7 @@ mock.module('@capacitor/preferences', () => ({
 
 const {
   ANALYTICS_CONSENT_KEY,
-  ANALYTICS_ACQUISITION_KEY,
-  captureAcquisitionFromLocation,
-  clearAcquisitionSource,
-  readAcquisitionSource,
   readAnalyticsConsent,
-  writeAcquisitionSource,
   writeAnalyticsConsent,
 } = await import('./analytics-consent')
 
@@ -60,21 +55,5 @@ describe('analytics consent storage', () => {
   test('migrates a legacy localStorage consent flag', async () => {
     localMemory.set(ANALYTICS_CONSENT_KEY, 'granted')
     expect(await readAnalyticsConsent()).toBe('granted')
-  })
-
-  test('stores a closed acquisition enum and can clear it', async () => {
-    await writeAcquisitionSource('instagram')
-    expect(await readAcquisitionSource()).toBe('instagram')
-    expect(memory.get(ANALYTICS_ACQUISITION_KEY)).toBe('instagram')
-    await clearAcquisitionSource()
-    expect(await readAcquisitionSource()).toBe(null)
-  })
-
-  test('reads UTM from the first-open search string', () => {
-    expect(captureAcquisitionFromLocation({
-      search: '?utm_source=Instagram&q=secret',
-      referrer: '',
-      native: false,
-    })).toBe('instagram')
   })
 })

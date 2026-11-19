@@ -11,7 +11,7 @@
       <div class="analytics-consent__card">
         <h2 id="analytics-consent-title">Help us improve KapéDoko?</h2>
         <p id="analytics-consent-copy">
-          We record taps like search, filters, and café opens so we can see whether cafés nationwide are easy to find.
+          We record café cards, café pages, directions, calls, and photos so cafés can see how people find them.
           We do not record your email, your exact location, or what you type into search.
           You can change this later in Profile.
         </p>

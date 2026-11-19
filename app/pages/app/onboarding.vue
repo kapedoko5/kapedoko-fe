@@ -47,10 +47,8 @@ import { useIonRouter } from '@ionic/vue'
 import OnboardingStep1 from '~/components/onboarding/OnboardingStep1.vue'
 import OnboardingStep2 from '~/components/onboarding/OnboardingStep2.vue'
 import OnboardingStep3 from '~/components/onboarding/OnboardingStep3.vue'
-import { ANALYTICS_EVENTS, type OnboardingStep } from '~/utils/analytics'
 import { markOnboardingDone } from '~/utils/onboarding'
 
-const { track } = useAnalytics()
 const ionRouter = useIonRouter()
 const STEP_COUNT = 3
 
@@ -108,14 +106,11 @@ const leave = async () => {
 }
 
 const finish = async () => {
-  track(ANALYTICS_EVENTS.ONBOARDING_COMPLETED, { step_reached: 3 })
   await markOnboardingDone()
   await leave()
 }
 
 const skip = async () => {
-  const step = Math.min(3, Math.max(1, activeStep.value + 1)) as OnboardingStep
-  track(ANALYTICS_EVENTS.ONBOARDING_SKIPPED, { step_reached: step })
   await markOnboardingDone()
   await leave()
 }

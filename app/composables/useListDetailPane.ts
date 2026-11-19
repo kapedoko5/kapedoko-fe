@@ -1,25 +1,18 @@
 import { onIonViewWillLeave } from '@ionic/vue'
 import type { Cafe } from '~/types/cafe'
 import type { ActiveEventRow, KapeEvent } from '~/types/event'
-import {
-  ANALYTICS_EVENTS,
-  confidenceBucketFromStatus,
-  detailViewKey,
-  rememberDetailSource,
-  takeDetailSource,
-  type DetailSource,
-} from '~/utils/analytics'
 import { fetchApprovedCafeById, hydrateCafeDetail, isShopId } from '~/utils/approved-shops'
 import { isEventId, mapActiveEvent } from '~/utils/events'
+import { rememberTrafficSurface, type ShopTrafficSurface } from '~/utils/shop-traffic'
 import { usesDetailPane } from '~/utils/viewport-layout'
 
 const EVENT_DETAIL_COLUMNS = 'id, name, organizer_name, organizer_contact_name, organizer_contact_number, description, address, latitude, longitude, event_starts_at, event_ends_at, display_starts_at, display_ends_at, poster_object_key, gallery_object_keys'
 
-export function useListDetailPane(defaultSource: DetailSource) {
+export function useListDetailPane(defaultSource: ShopTrafficSurface) {
   const { size, compact } = useViewportLayout()
   const supabase = useSupabaseClient()
   const config = useRuntimeConfig()
-  const { track, once } = useAnalytics()
+  const { record } = useShopTrafficCapture()
 
   const cafe = ref<Cafe | null>(null)
   const event = ref<KapeEvent | null>(null)
@@ -49,18 +42,13 @@ export function useListDetailPane(defaultSource: DetailSource) {
     clear()
   }
 
-  const trackCafe = (next: Cafe, source: DetailSource) => {
-    if (!once(detailViewKey(next.id))) return
-    track(ANALYTICS_EVENTS.CAFE_DETAIL_VIEWED, {
-      cafe_id: next.id,
-      wifi_confidence: confidenceBucketFromStatus(next.work.wifiStatus),
-      outlet_confidence: confidenceBucketFromStatus(next.work.outletsStatus),
-      source: takeDetailSource(source),
-    })
+  const trackCafe = (next: Cafe, source: ShopTrafficSurface) => {
+    rememberTrafficSurface(source)
+    record(next.id, 'detail_view', source)
   }
 
   const openCafe = async (id: string, fallback?: Cafe | null, source = defaultSource) => {
-    rememberDetailSource(source)
+    rememberTrafficSurface(source)
     if (!usesDetailPane(size.value)) {
       close(true)
       await navigateTo(`/app/cafes/${id}`)

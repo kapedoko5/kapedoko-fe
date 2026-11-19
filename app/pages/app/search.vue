@@ -122,12 +122,6 @@ import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
 import { CAFE_FILTERS, type CafeFilterIcon, type CafeFilterId } from '~/utils/cafe-filters'
 import { amenityFilterHint } from '~/utils/amenity-status'
-import {
-  ANALYTICS_EVENTS,
-  classifySearchQuery,
-  confidenceBucketFromCafe,
-  modalConfidenceBucket,
-} from '~/utils/analytics'
 import { distanceMeters, formatDistance } from '~/utils/geo'
 
 useAppTabBar('hide')
@@ -144,8 +138,6 @@ const {
 
 const { status: locationStatus, location, usingFallback, requestLocation } = useDeviceLocation()
 const { radiusMeters } = useNearbyRadius()
-const { track } = useAnalytics()
-
 const filterIcons: Record<CafeFilterIcon, typeof Navigation> = {
   navigation: Navigation,
   flame: Flame,
@@ -247,42 +239,10 @@ const openCafe = async (id: string) => {
   await openCafePane(id, fallback)
 }
 
-const trackPending = ref<CafeFilterId | null>(null)
-
 const setFilter = (id: CafeFilterId) => {
   if (id === activeFilter.value) return
   activeFilter.value = id
-  trackPending.value = id
 }
-
-watch(status, (value) => {
-  const id = trackPending.value
-  if (value !== 'ready' || !id) return
-  trackPending.value = null
-  track(ANALYTICS_EVENTS.FILTER_APPLIED, {
-    filter_name: id,
-    result_count: cafeTotal.value ?? pagedCafes.value.length,
-    confidence_bucket: modalConfidenceBucket(pagedCafes.value.map((cafe) => confidenceBucketFromCafe(cafe))),
-  })
-})
-
-watch(
-  [submittedQuery, status],
-  ([queryText, loadStatus], previous) => {
-    const next = String(queryText ?? '').trim()
-    if (!next || loadStatus !== 'ready') return
-    if (previous && previous[0] === queryText && previous[1] === loadStatus) return
-    const classified = classifySearchQuery(next)
-    const count = cafeTotal.value ?? pagedCafes.value.length
-    track(ANALYTICS_EVENTS.SEARCH_PERFORMED, {
-      query_type: classified.query_type,
-      result_count: count,
-      zero_results: count === 0,
-      ...(classified.area_name ? { area_name: classified.area_name } : {}),
-    })
-  },
-  { immediate: true },
-)
 
 const resultAnnouncement = computed(() => {
   const shown = pagedCafes.value.length

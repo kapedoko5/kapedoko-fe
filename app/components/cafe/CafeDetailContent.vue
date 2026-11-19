@@ -410,11 +410,7 @@ import {
   amenityStampKind,
   type AmenityStampKind,
 } from '~/utils/amenity-status'
-import {
-  ANALYTICS_EVENTS,
-  confidenceBucketFromCafe,
-  type CafeActionType,
-} from '~/utils/analytics'
+import { currentTrafficSurface, type ShopTrafficKind } from '~/utils/shop-traffic'
 import { fetchOwnShopReview, isShopId } from '~/utils/approved-shops'
 import { BUSYNESS_METER_SEATS, busynessMeterFill, monthCheckInCopy } from '~/utils/cafe-review'
 import { seatingDateLabel, seatingPressLabel } from '~/utils/cafe-seating'
@@ -436,7 +432,7 @@ const emit = defineEmits<{
 
 const favorites = useFavorites()
 const { currentUserId, goToLogin, user } = useAuth()
-const { track } = useAnalytics()
+const { record } = useShopTrafficCapture()
 const supabase = useSupabaseClient()
 const route = useRoute()
 const broken = ref<Record<string, boolean>>({})
@@ -489,12 +485,8 @@ const onSave = () => {
   void favorites.toggle(props.cafe.id)
 }
 
-const trackAction = (type: CafeActionType) => {
-  track(ANALYTICS_EVENTS.CAFE_ACTION, {
-    cafe_id: props.cafe.id,
-    type,
-    confidence_bucket: confidenceBucketFromCafe(props.cafe),
-  }, type === 'navigate' || type === 'call' ? { instant: true } : undefined)
+const trackAction = (type: Extract<ShopTrafficKind, 'navigate' | 'call' | 'photo_view'>) => {
+  record(props.cafe.id, type, currentTrafficSurface())
 }
 
 const onNavigate = () => trackAction('navigate')
@@ -504,7 +496,6 @@ const reportTarget = async (target: 'review' | 'shop_photo', reviewId?: string) 
   reportNotice.value = ''
   const userId = await currentUserId()
   if (!userId) {
-    track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'report' })
     await goToLogin(route.fullPath)
     return
   }

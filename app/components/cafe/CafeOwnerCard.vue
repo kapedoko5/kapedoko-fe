@@ -89,9 +89,6 @@ import AdminUserSearchDialog from '~/components/admin/AdminUserSearchDialog.vue'
 import type { AdminUserRow } from '~/types/admin'
 import { parseProfileRole } from '~/utils/profile-role'
 import {
-  ANALYTICS_EVENTS,
-} from '~/utils/analytics'
-import {
   adminCannotClaimCopy,
   adminCannotOwnCopy,
   assignOwnershipTitle,
@@ -129,7 +126,6 @@ const emit = defineEmits<{
 
 const ownership = useShopOwnership()
 const { loadProfile, user, currentUserId, goToLogin } = useAuth()
-const { track } = useAnalytics()
 const route = useRoute()
 const headingId = useId()
 const isAdmin = ref(props.admin)
@@ -265,9 +261,6 @@ const refreshAdmin = async () => {
 
 const goClaim = async () => {
   if (!claimHref.value) return
-  if (!user.value) {
-    track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'claim' })
-  }
   await navigateTo(claimHref.value)
 }
 
@@ -276,7 +269,6 @@ const reportOwner = async () => {
   reportNotice.value = ''
   const userId = await currentUserId()
   if (!userId) {
-    track(ANALYTICS_EVENTS.AUTH_PROMPT_SHOWN, { trigger: 'report' })
     await goToLogin(route.fullPath)
     return
   }
