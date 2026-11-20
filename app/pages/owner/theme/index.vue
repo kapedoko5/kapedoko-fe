@@ -2,13 +2,17 @@
   <IonPage>
     <OwnerShell
       title="Theme"
-      :lede="cafeThemeLede()"
+      :lede="ownerCafeThemeLede()"
       :status="pageStatus"
       :error="pageError"
       :claim-count="waitingClaims.length"
     >
       <p v-if="cafes.length === 0" class="owner-empty">
-        Claim and verify a cafe before you ink its details page.
+        {{
+          approvedOwnedCafes(ownedShops).length === 0
+            ? ownerCafeThemeNoCafesCopy()
+            : ownerCafeThemeLockedCopy()
+        }}
       </p>
       <CafeThemeForm
         v-else
@@ -34,7 +38,11 @@ import CafeThemeForm from '~/components/cafe/CafeThemeForm.vue'
 import OwnerBusyLabel from '~/components/owner-portal/OwnerBusyLabel.vue'
 import OwnerShell from '~/components/owner-portal/OwnerShell.vue'
 import { adminActionErrorMessage } from '~/utils/admin-feedback'
-import { cafeThemeLede } from '~/utils/cafe-theme'
+import {
+  ownerCafeThemeLede,
+  ownerCafeThemeLockedCopy,
+  ownerCafeThemeNoCafesCopy,
+} from '~/utils/cafe-theme'
 import { approvedOwnedCafes } from '~/utils/owner-ads'
 
 definePageMeta({
@@ -53,10 +61,13 @@ const {
   status,
   error,
   loadDesk,
+  hasFeature,
   applyOwnedShopTheme,
 } = desk
 
-const cafes = computed(() => approvedOwnedCafes(ownedShops.value))
+const cafes = computed(() =>
+  approvedOwnedCafes(ownedShops.value).filter((shop) => hasFeature(shop.id, 'theme')),
+)
 const pageStatus = computed(() => {
   if (desk.access.value === 'forbidden') return 'forbidden' as const
   return status.value

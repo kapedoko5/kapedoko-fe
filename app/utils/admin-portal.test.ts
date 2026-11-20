@@ -407,7 +407,10 @@ describe('roles and placements', () => {
       },
     ], now)).toEqual(['sponsored-on', 'partner-on'])
     expect(missingPartnershipSqlCopy('column shop_placements.show_on_home does not exist')).toMatch(/20261124/)
-    expect(missingPartnershipSqlCopy('Could not find the function public.save_shop_placement(..., p_features)')).toMatch(/20261125/)
+    expect(missingPartnershipSqlCopy('Could not find the function public.save_shop_placement(..., p_features) in the schema cache')).toMatch(/20261125/)
+    expect(missingPartnershipSqlCopy(
+      'invalid input syntax for type boolean: "{}" CONTEXT: PL/pgSQL function save_shop_placement(uuid,text,timestamp with time zone,timestamp with time zone,boolean,jsonb)',
+    )).toBeNull()
   })
 
   test('maps admin routes and local datetime inputs', () => {

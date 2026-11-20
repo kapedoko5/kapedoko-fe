@@ -25,6 +25,7 @@ import {
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
 import { missingPartnershipSqlCopy } from '~/utils/admin-placements'
+import { placementFeaturesPayload } from '~/utils/placement-features'
 import { missingCafeThemeSqlCopy } from '~/utils/cafe-theme'
 import type { ShopPosterRow } from '~/utils/owner-ads'
 import { fetchAdminShopRows } from '~/utils/approved-shops'
@@ -498,7 +499,7 @@ export function useAdminData() {
         p_starts_at: kind === 'standard' ? null : new Date(startsAt).toISOString(),
         p_ends_at: kind === 'standard' ? null : new Date(endsAt).toISOString(),
         p_show_on_home: kind === 'standard' ? false : (features?.home_carousel ?? showOnHome),
-        p_features: kind === 'standard' ? null : features,
+        p_features: kind === 'standard' ? null : placementFeaturesPayload(features),
       })
       if (rpcError) throw new Error(rpcError.message)
       await loadPlacements()

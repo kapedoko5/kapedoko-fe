@@ -18,3 +18,7 @@
 -- Junk hex is rejected.
 -- select public.apply_admin_shop_theme(array['<shop-id>'::uuid], 'orange', '#1C1917', '#F2F2F2');
 -- Expected: exception 'Use a hex color like #D9793B.'
+
+-- Owner stamp requires Theme on a live partnership.
+-- select public.apply_owner_shop_theme(array['<shop-id-without-theme>'::uuid], '#2F6B4F', '#1C1917', '#F3F6F2');
+-- Expected: exception 'Theme is off until a partnership turns it on for a cafe you manage.'

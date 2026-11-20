@@ -47,8 +47,11 @@ export function homeCarouselShopIds(
 }
 
 export function missingPartnershipSqlCopy(message: string): string | null {
-  if (!/schema cache|does not exist|save_shop_placement|show_on_home|pending_name|review_owner_shop_name|p_features|shop_has_feature/i.test(message)) {
+  if (!/schema cache|could not find the function|column \S+ does not exist|relation \S+ does not exist/i.test(message)) {
     return null
   }
-  return 'Apply db/20261124_placement_home_carousel.sql and db/20261125_placement_features.sql in the SQL editor, then try again.'
+  if (!/save_shop_placement|show_on_home|pending_name|review_owner_shop_name|p_features|shop_has_feature|shop_placements/i.test(message)) {
+    return null
+  }
+  return 'Apply db/20261124_placement_home_carousel.sql, db/20261125_placement_features.sql, and db/20261126_placement_theme.sql in the SQL editor, then try again.'
 }

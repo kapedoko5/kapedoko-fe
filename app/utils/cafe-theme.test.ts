@@ -7,6 +7,9 @@ import {
   cafeThemeDraftError,
   cafeThemeHexError,
   cafeThemeLede,
+  ownerCafeThemeLede,
+  ownerCafeThemeLockedCopy,
+  ownerCafeThemeNoCafesCopy,
   cafeThemeOnButton,
   cafeThemeShopIds,
   cafeThemeStyle,
@@ -113,5 +116,8 @@ describe('cafe theme copy', () => {
     expect(missingCafeThemeSqlCopy('Could not find the function public.apply_admin_shop_theme')).toMatch(/20261120_cafe_detail_theme/)
     expect(missingCafeThemeSqlCopy('Network error')).toBeNull()
     expect(cafeThemeLede()).toMatch(/one cafe or several/)
+    expect(ownerCafeThemeLede()).toMatch(/partnership/)
+    expect(ownerCafeThemeLockedCopy()).toMatch(/partnership turns it on/)
+    expect(ownerCafeThemeNoCafesCopy()).toMatch(/verify a cafe/)
   })
 })

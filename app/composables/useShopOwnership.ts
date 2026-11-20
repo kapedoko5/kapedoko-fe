@@ -443,6 +443,10 @@ export function useShopOwnership() {
       error.value = 'Choose at least one cafe.'
       throw new Error(error.value)
     }
+    if (shopIds.some((id) => !featuresByShop.value[id]?.theme)) {
+      error.value = 'Theme is off until a partnership turns it on for a cafe you manage.'
+      throw new Error(error.value)
+    }
     saving.value = true
     error.value = ''
     try {

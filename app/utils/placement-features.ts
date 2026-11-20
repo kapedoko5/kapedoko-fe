@@ -2,6 +2,7 @@ export const PLACEMENT_FEATURE_IDS = [
   'featured_photos',
   'ad_poster',
   'analytics',
+  'theme',
   'home_carousel',
 ] as const
 
@@ -58,6 +59,11 @@ export const TOGGLE_PLACEMENT_FEATURES: {
     hint: 'Owner desk traffic for this cafe.',
   },
   {
+    id: 'theme',
+    label: 'Theme',
+    hint: 'Owner can ink buttons, words, and stock on the cafe page.',
+  },
+  {
     id: 'home_carousel',
     label: 'Home carousel',
     hint: 'Optional reach on Home when no admin banner is live.',
@@ -69,6 +75,7 @@ export function emptyPlacementFeatures(): PlacementFeatures {
     featured_photos: false,
     ad_poster: false,
     analytics: false,
+    theme: false,
     home_carousel: false,
   }
 }
@@ -79,6 +86,7 @@ export function defaultPlacementFeatures(kind: 'partner' | 'sponsored'): Placeme
       featured_photos: true,
       ad_poster: true,
       analytics: true,
+      theme: true,
       home_carousel: false,
     }
   }
@@ -86,8 +94,20 @@ export function defaultPlacementFeatures(kind: 'partner' | 'sponsored'): Placeme
     featured_photos: true,
     ad_poster: false,
     analytics: false,
+    theme: false,
     home_carousel: false,
   }
+}
+
+export function placementFeaturesPayload(
+  features: Partial<PlacementFeatures> | Record<string, boolean> | null | undefined,
+): PlacementFeatures {
+  const next = emptyPlacementFeatures()
+  if (!features) return next
+  for (const id of PLACEMENT_FEATURE_IDS) {
+    next[id] = Boolean(features[id])
+  }
+  return next
 }
 
 function asBoolean(value: unknown, fallback: boolean): boolean {

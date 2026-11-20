@@ -13,14 +13,15 @@ alter table public.shop_placements
   add column if not exists features jsonb not null default '{}'::jsonb;
 
 comment on column public.shop_placements.features is
-  'Optional extras for this window: featured_photos, ad_poster, analytics, home_carousel.';
+  'Optional extras for this window: featured_photos, ad_poster, analytics, theme, home_carousel.';
 
 update public.shop_placements
 set features = jsonb_strip_nulls(jsonb_build_object(
   'home_carousel', show_on_home,
   'featured_photos', true,
   'ad_poster', kind = 'sponsored',
-  'analytics', kind = 'sponsored'
+  'analytics', kind = 'sponsored',
+  'theme', kind = 'sponsored'
 ))
 where features = '{}'::jsonb or features is null;
 
@@ -92,6 +93,7 @@ begin
       'featured_photos', true,
       'ad_poster', true,
       'analytics', true,
+      'theme', true,
       'home_carousel', false
     );
   else
@@ -99,16 +101,18 @@ begin
       'featured_photos', true,
       'ad_poster', false,
       'analytics', false,
+      'theme', false,
       'home_carousel', false
     );
   end if;
 
   if p_features is not null and jsonb_typeof(p_features) = 'object' then
     feats := feats || jsonb_build_object(
-      'featured_photos', coalesce((p_features->>'featured_photos')::boolean, (feats->>'featured_photos')::boolean),
-      'ad_poster', coalesce((p_features->>'ad_poster')::boolean, (feats->>'ad_poster')::boolean),
-      'analytics', coalesce((p_features->>'analytics')::boolean, (feats->>'analytics')::boolean),
-      'home_carousel', coalesce((p_features->>'home_carousel')::boolean, coalesce(p_show_on_home, false))
+      'featured_photos', coalesce((p_features->'featured_photos') = 'true'::jsonb, (feats->'featured_photos') = 'true'::jsonb),
+      'ad_poster', coalesce((p_features->'ad_poster') = 'true'::jsonb, (feats->'ad_poster') = 'true'::jsonb),
+      'analytics', coalesce((p_features->'analytics') = 'true'::jsonb, (feats->'analytics') = 'true'::jsonb),
+      'theme', coalesce((p_features->'theme') = 'true'::jsonb, (feats->'theme') = 'true'::jsonb),
+      'home_carousel', coalesce((p_features->'home_carousel') = 'true'::jsonb, coalesce(p_show_on_home, false))
     );
   elsif p_show_on_home then
     feats := feats || jsonb_build_object('home_carousel', true);
@@ -158,7 +162,7 @@ as $$
     where p.shop_id = p_shop_id
       and p.starts_at <= now()
       and p.ends_at > now()
-      and coalesce((p.features ->> p_feature)::boolean, false)
+      and coalesce((p.features -> p_feature) = 'true'::jsonb, false)
   );
 $$;
 

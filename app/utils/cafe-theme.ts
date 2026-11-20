@@ -144,9 +144,21 @@ export function missingCafeThemeSqlCopy(message: string): string | null {
   if (!/theme_button_hex|theme_text_hex|theme_background_hex|apply_admin_shop_theme|apply_owner_shop_theme|p_button_hex|p_text_hex|p_background_hex/i.test(message)) {
     return null
   }
-  return 'Apply db/20261120_cafe_detail_theme.sql in the SQL editor, then try again.'
+  return 'Apply db/20261120_cafe_detail_theme.sql and db/20261126_placement_theme.sql in the SQL editor, then try again.'
 }
 
 export function cafeThemeLede(): string {
   return 'Ink the buttons, the words, and the stock. Preview the page, then stamp it on one cafe or several.'
+}
+
+export function ownerCafeThemeLede(): string {
+  return 'When Theme is on for a partnership, ink the cafe page. Preview it, then stamp one cafe or several.'
+}
+
+export function ownerCafeThemeNoCafesCopy(): string {
+  return 'Claim and verify a cafe before you ink its details page.'
+}
+
+export function ownerCafeThemeLockedCopy(): string {
+  return 'Theme is off until a partnership turns it on for a cafe you manage.'
 }

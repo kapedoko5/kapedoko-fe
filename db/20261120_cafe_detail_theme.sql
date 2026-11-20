@@ -167,10 +167,18 @@ begin
     from unnest(coalesce(p_shop_ids, '{}'::uuid[])) as sid
     where sid is not null
       and public.is_shop_owner(sid)
+      and exists (
+        select 1
+        from public.shop_placements p
+        where p.shop_id = sid
+          and p.kind = 'sponsored'
+          and p.starts_at <= now()
+          and p.ends_at > now()
+      )
   ) into shop_ids;
 
   if cardinality(shop_ids) is null or cardinality(shop_ids) = 0 then
-    raise exception 'Choose at least one cafe you manage.';
+    raise exception 'Theme is off until a partnership turns it on for a cafe you manage.';
   end if;
   if cardinality(shop_ids) > 2000 then
     raise exception 'Stamp at most 2000 cafes at a time.';
