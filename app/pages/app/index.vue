@@ -33,22 +33,18 @@
           </form>
 
         <section
-          v-if="homeAds.length > 0"
+          v-if="homeBanners.length > 0"
           class="home-partners"
-          :aria-label="usingLiveAds ? 'Featured banners' : 'Featured cafes'"
+          aria-label="Featured banners"
         >
           <div class="home-partners__track" role="list">
             <button
-              v-for="ad in homeAds"
+              v-for="ad in homeBanners"
               :key="ad.id"
               type="button"
               class="home-partners__card"
               :class="[
-                ad.kind === 'ad'
-                  ? 'home-partners__card--sponsored'
-                  : ad.kind === 'promoted'
-                    ? 'home-partners__card--sponsored'
-                    : 'home-partners__card--partner',
+                'home-partners__card--sponsored',
                 { 'home-partners__card--bleed': ad.bleed },
               ]"
               role="listitem"
@@ -61,14 +57,9 @@
                   class="home-partners__image"
                   :src="ad.image"
                   alt=""
-                  :width="ad.bleed ? 640 : 320"
-                  height="150"
+                  :width="ad.bleed ? 1920 : 320"
+                  :height="ad.bleed ? 640 : 150"
                 />
-                <span v-if="ad.badge" class="home-partners__badge">{{ ad.badge }}</span>
-              </span>
-              <span v-if="!ad.bleed" class="home-partners__copy" aria-hidden="true">
-                <span class="home-partners__name">{{ ad.name }}</span>
-                <span v-if="ad.place" class="home-partners__place">{{ ad.place }}</span>
               </span>
             </button>
           </div>
@@ -89,6 +80,42 @@
             {{ filter.label }}
           </button>
         </div>
+
+        <section
+          v-if="featuredCafes.length > 0"
+          class="home-partners"
+          aria-labelledby="home-featured-cafes-title"
+        >
+          <h2 id="home-featured-cafes-title" class="home-partners__title">Our featured cafes</h2>
+          <div class="home-partners__track" role="list">
+            <button
+              v-for="ad in featuredCafes"
+              :key="ad.id"
+              type="button"
+              class="home-partners__card home-partners__card--cafe"
+              :class="ad.kind === 'promoted' ? 'home-partners__card--sponsored' : 'home-partners__card--partner'"
+              role="listitem"
+              :aria-label="ad.ariaLabel"
+              :ref="(el) => bindPromoEl(ad.id, el)"
+              @click="openPromotion(ad)"
+            >
+              <span class="home-partners__media">
+                <img
+                  class="home-partners__image"
+                  :src="ad.image"
+                  alt=""
+                  width="100"
+                  height="100"
+                />
+                <span v-if="ad.badge" class="home-partners__badge">{{ ad.badge }}</span>
+              </span>
+              <span class="home-partners__copy" aria-hidden="true">
+                <span class="home-partners__name">{{ ad.name }}</span>
+                <span v-if="ad.place" class="home-partners__place">{{ ad.place }}</span>
+              </span>
+            </button>
+          </div>
+        </section>
 
         <section
           v-if="nearbyEvents.length > 0"
@@ -318,49 +345,44 @@ const placementCafes = computed(() => {
   return [...promoted, ...partners]
 })
 
-const usingLiveAds = computed(() => liveAds.value.length > 0)
-
-const homeAds = computed(() => {
-  if (usingLiveAds.value) {
-    return liveAds.value.map((ad) => {
-      const bleed = adBannerIsBleed(ad.label)
-      const copy = ad.destinationKind === 'cafe'
-        ? featuredAdCopy(ad.name, ad.label)
-        : { name: ad.label.trim() || ad.name, place: '' }
-      return {
-        id: ad.id,
-        shopId: ad.shopId,
-        name: copy.name,
-        place: copy.place,
-        image: ad.image,
-        badge: '',
-        kind: 'ad' as const,
-        bleed,
-        destinationKind: ad.destinationKind,
-        destinationUrl: ad.destinationUrl,
-        ariaLabel: copy.place
-          ? `Ad: ${copy.name}, ${copy.place}`
-          : `Ad: ${copy.name}`,
-      }
-    })
+const homeBanners = computed(() => liveAds.value.map((ad) => {
+  const bleed = adBannerIsBleed(ad.label)
+  const copy = ad.destinationKind === 'cafe'
+    ? featuredAdCopy(ad.name, ad.label)
+    : { name: ad.label.trim() || ad.name, place: '' }
+  return {
+    id: ad.id,
+    shopId: ad.shopId,
+    name: copy.name,
+    place: copy.place,
+    image: ad.image,
+    badge: '',
+    kind: 'ad' as const,
+    bleed,
+    destinationKind: ad.destinationKind,
+    destinationUrl: ad.destinationUrl,
+    ariaLabel: copy.place
+      ? `Ad: ${copy.name}, ${copy.place}`
+      : `Ad: ${copy.name}`,
   }
-  return placementCafes.value.map((cafe) => {
-    const badge = cafe.markerTier === 'promoted' ? 'Sponsored' : 'Partner'
-    return {
-      id: cafe.id,
-      shopId: cafe.id,
-      name: cafe.name,
-      place: cafe.address,
-      image: '/assets/partner-ad-placeholder.svg',
-      badge,
-      kind: cafe.markerTier === 'promoted' ? 'promoted' as const : 'partner' as const,
-      bleed: false,
-      destinationKind: 'cafe' as const,
-      destinationUrl: null as string | null,
-      ariaLabel: `${badge}: ${cafe.name}`,
-    }
-  })
-})
+}))
+
+const featuredCafes = computed(() => placementCafes.value.map((cafe) => {
+  const badge = cafe.markerTier === 'promoted' ? 'Sponsored' : 'Partner'
+  return {
+    id: cafe.id,
+    shopId: cafe.id,
+    name: cafe.name,
+    place: cafe.address,
+    image: '/assets/partner-ad-placeholder.svg',
+    badge,
+    kind: cafe.markerTier === 'promoted' ? 'promoted' as const : 'partner' as const,
+    bleed: false,
+    destinationKind: 'cafe' as const,
+    destinationUrl: null as string | null,
+    ariaLabel: `${badge}: ${cafe.name}`,
+  }
+}))
 
 const firstNameFrom = (value: unknown): string => {
   if (typeof value !== 'string') return ''
@@ -564,7 +586,8 @@ const startPromoWatch = (id: string, node: Element) => {
   promoStops.get(id)?.()
   promoStops.delete(id)
   if (consent.value !== 'granted') return
-  const ad = homeAds.value.find((item) => item.id === id)
+  const ad = homeBanners.value.find((item) => item.id === id)
+    ?? featuredCafes.value.find((item) => item.id === id)
   if (!ad) return
   promoStops.set(id, watchImpression(node, {
     ratio: CARD_IMPRESSION_RATIO,
@@ -725,8 +748,19 @@ onMounted(() => {
   margin: 0 0 4px;
 }
 
+.home-partners__title {
+  margin: 0;
+  padding: 4px 20px 8px;
+  color: var(--kd-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
 .home-partners__track {
   display: flex;
+  align-items: flex-start;
   gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -779,11 +813,66 @@ onMounted(() => {
 }
 
 .home-partners__card--bleed {
+  --ad-banner-height: auto;
   grid-template-columns: minmax(0, 1fr);
+  width: min(100%, 1920px);
+  height: auto;
+  min-height: 0;
+  max-width: 1920px;
+  max-height: 640px;
+  aspect-ratio: 1920 / 640;
+  border: 0;
+  background: #faf8f5;
 }
 
 .home-partners__card:only-child {
   flex-basis: 100%;
+}
+
+.home-partners__card--bleed:only-child {
+  flex-basis: min(100%, 1920px);
+  margin-inline: auto;
+}
+
+.home-partners__card--cafe {
+  --ad-banner-height: 100px;
+  --ad-media-col: 100px;
+  grid-template-columns: 100px minmax(0, 1fr);
+  flex: 0 0 280px;
+  width: 280px;
+  height: 100px;
+  min-height: 100px;
+  max-height: 100px;
+}
+
+.home-partners__card--cafe:only-child {
+  flex-basis: 280px;
+}
+
+.home-partners__card--cafe .home-partners__media {
+  width: 100px;
+  height: 100px;
+  aspect-ratio: 1 / 1;
+}
+
+.home-partners__card--cafe .home-partners__image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.home-partners__card--cafe .home-partners__copy {
+  padding: 10px 12px;
+}
+
+.home-partners__card--cafe .home-partners__name {
+  font-size: 0.9rem;
+}
+
+.home-partners__card--cafe .home-partners__badge {
+  left: 6px;
+  bottom: 6px;
+  padding: 1px 5px;
+  font-size: 0.65rem;
 }
 
 .home-partners__card:active {
@@ -805,6 +894,11 @@ onMounted(() => {
   }
 }
 
+.home-partners__card.home-partners__card--bleed:hover,
+.home-partners__card.home-partners__card--bleed:active {
+  background: #faf8f5;
+}
+
 .home-partners__media {
   position: relative;
   display: block;
@@ -817,12 +911,22 @@ onMounted(() => {
   background: var(--kd-accent);
 }
 
+.home-partners__card--bleed .home-partners__media,
+.home-partners__card--sponsored.home-partners__card--bleed .home-partners__media {
+  background: #faf8f5;
+}
+
 .home-partners__image {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.home-partners__card--bleed .home-partners__image {
+  object-fit: contain;
+  object-position: center;
 }
 
 .home-partners__badge {
