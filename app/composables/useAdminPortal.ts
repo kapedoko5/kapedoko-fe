@@ -1,5 +1,6 @@
 import type {
   AdCampaignRow,
+  AdDestinationKind,
   AdminDashboardCounts,
   AdminUserRow,
   AdminUsersResponse,
@@ -824,7 +825,9 @@ export function useAdminData() {
 
   const saveAd = async (payload: {
     id?: string
-    shop_id: string
+    destination_kind: AdDestinationKind
+    shop_id: string | null
+    destination_url: string | null
     bannerFile: File | null
     banner_object_key?: string | null
     starts_at: string
@@ -836,8 +839,11 @@ export function useAdminData() {
     let bannerKey = payload.banner_object_key ?? null
     if (payload.bannerFile) bannerKey = await uploadAdminAsset(payload.bannerFile, 'ad-banner')
     if (!bannerKey) throw new Error('Upload a banner image.')
+    const cafeLinked = payload.destination_kind === 'cafe'
     const row = {
-      shop_id: payload.shop_id,
+      shop_id: cafeLinked ? payload.shop_id : null,
+      destination_kind: payload.destination_kind,
+      destination_url: cafeLinked ? null : payload.destination_url,
       banner_object_key: bannerKey,
       starts_at: new Date(payload.starts_at).toISOString(),
       ends_at: new Date(payload.ends_at).toISOString(),
@@ -1140,6 +1146,22 @@ export function useAdminData() {
     ads.value = ads.value.map((item) => (item.id === id ? (data as AdCampaignRow) : item))
   }
 
+  const reorderAds = async (ids: string[]) => {
+    const total = ids.length
+    const saved = await Promise.all(ids.map(async (id, index) => {
+      const { data, error: updateError } = await supabase
+        .from('ad_campaigns')
+        .update({ priority: total - index })
+        .eq('id', id)
+        .select()
+        .single()
+      if (updateError || !data) throw new Error(updateError?.message || 'Could not reorder these ads.')
+      return data as AdCampaignRow
+    }))
+    const byId = new Map(saved.map((row) => [row.id, row]))
+    ads.value = ads.value.map((item) => byId.get(item.id) ?? item)
+  }
+
   const moderateClaim = async (
     claim: ShopClaimRow,
     next: Extract<ShopClaimRow['status'], 'verified' | 'rejected'>,
@@ -1210,6 +1232,7 @@ export function useAdminData() {
     deleteShop,
     resolveReport,
     saveAd,
+    reorderAds,
     cancelAd,
     saveEvent,
     cancelEvent,
