@@ -1,5 +1,7 @@
 import type { ShopVibeTagRow, VibeTagNameRow } from '~/types/admin'
-import type { ShopAmenityVerificationRow, ShopClaimRow, ShopOwnerPublic, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
+import type { MarkerTier, ShopAmenityVerificationRow, ShopClaimRow, ShopMarkerTierRow, ShopOwnerPublic, ShopPlacementRow, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
+import { isPlacementActive } from '~/utils/marker-tier'
+import { parsePlacementFeatures, type PlacementFeatureId, type PlacementFeatures } from '~/utils/placement-features'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import { authUserId } from '~/utils/auth'
 import { missingOwnerMediaSqlCopy, type ShopPosterRow } from '~/utils/owner-ads'
@@ -48,6 +50,8 @@ export function useShopOwnership() {
   const session = useSupabaseSession()
   const claims = useState<ShopClaimRow[]>('kd-shop-claims', () => [])
   const ownedShops = useState<ShopRow[]>('kd-owned-shops', () => [])
+  const markerTierByShop = useState<Record<string, MarkerTier>>('kd-owner-marker-tiers', () => ({}))
+  const featuresByShop = useState<Record<string, PlacementFeatures>>('kd-owner-placement-features', () => ({}))
   const claimShopNames = useState<Record<string, string>>('kd-claim-shop-names', () => ({}))
   const verifiedOwnerByShop = useState<Record<string, boolean>>('kd-shop-verified-owner', () => ({}))
   const shopOwnerByShop = useState<Record<string, ShopOwnerPublic>>('kd-shop-owner', () => ({}))
@@ -78,6 +82,8 @@ export function useShopOwnership() {
   const loadOwnedShops = async (verifiedIds: string[]) => {
     if (!verifiedIds.length) {
       ownedShops.value = []
+      markerTierByShop.value = {}
+      featuresByShop.value = {}
       await loadVibeTags([])
       return
     }
@@ -88,6 +94,23 @@ export function useShopOwnership() {
       .order('name', { ascending: true })
     if (shopsError) throw shopsError
     ownedShops.value = (shops ?? []) as ShopRow[]
+    const { data: tiers } = await supabase
+      .from('shop_marker_tiers')
+      .select('shop_id,marker_tier')
+      .in('shop_id', verifiedIds)
+    markerTierByShop.value = Object.fromEntries(
+      ((tiers ?? []) as ShopMarkerTierRow[]).map((row) => [row.shop_id, row.marker_tier]),
+    )
+    const { data: placementRows } = await supabase
+      .from('shop_placements')
+      .select('shop_id,kind,features,show_on_home,starts_at,ends_at')
+      .in('shop_id', verifiedIds)
+    const nextFeatures: Record<string, PlacementFeatures> = {}
+    for (const row of (placementRows ?? []) as ShopPlacementRow[]) {
+      if (!isPlacementActive(row)) continue
+      nextFeatures[row.shop_id] = parsePlacementFeatures(row)
+    }
+    featuresByShop.value = nextFeatures
     await loadVibeTags(verifiedIds)
   }
 
@@ -513,9 +536,19 @@ export function useShopOwnership() {
     }
   }
 
+  const markerTierFor = (shopId: string): MarkerTier =>
+    markerTierByShop.value[shopId] ?? 'standard'
+
+  const hasFeature = (shopId: string, feature: PlacementFeatureId): boolean =>
+    Boolean(featuresByShop.value[shopId]?.[feature])
+
   return {
     claims,
     ownedShops,
+    markerTierByShop,
+    markerTierFor,
+    featuresByShop,
+    hasFeature,
     claimShopNames,
     posters,
     vibeTagNames,

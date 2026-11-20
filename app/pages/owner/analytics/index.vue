@@ -8,7 +8,7 @@
       :claim-count="waitingClaims.length"
     >
       <p v-if="ownedNames.length === 0" class="owner-empty">
-        {{ ownerAnalyticsEmptyCopy(waitingClaims.length) }}
+        {{ liveCafes.length === 0 ? ownerAnalyticsEmptyCopy(waitingClaims.length) : ownerAnalyticsLockedCopy() }}
       </p>
       <DeskAnalyticsBoard
         v-else
@@ -30,7 +30,7 @@
 <script lang="ts" setup>
 import DeskAnalyticsBoard from '~/components/desk/DeskAnalyticsBoard.vue'
 import OwnerShell from '~/components/owner-portal/OwnerShell.vue'
-import { ownerAnalyticsEmptyCopy, type ShopTrafficRecordsQuery, type TrafficRangeDays } from '~/utils/shop-traffic'
+import { ownerAnalyticsEmptyCopy, ownerAnalyticsLockedCopy, type ShopTrafficRecordsQuery, type TrafficRangeDays } from '~/utils/shop-traffic'
 
 definePageMeta({
   middleware: ['owner'],
@@ -40,6 +40,7 @@ const portal = useOwnerPortal()
 const {
   liveCafes,
   waitingClaims,
+  hasFeature,
   status: portalStatus,
   error: portalError,
   access,
@@ -62,7 +63,11 @@ const {
 const range = ref<TrafficRangeDays>(30)
 const records = ref<ShopTrafficRecordsQuery | null>(null)
 
-const ownedNames = computed(() => liveCafes.value.map((shop) => ({ id: shop.id, name: shop.name })))
+const ownedNames = computed(() =>
+  liveCafes.value
+    .filter((shop) => hasFeature(shop.id, 'analytics'))
+    .map((shop) => ({ id: shop.id, name: shop.name })),
+)
 const ownedIds = () => ownedNames.value.map((shop) => shop.id)
 const pageStatus = computed(() => {
   if (access.value === 'forbidden') return 'forbidden' as const

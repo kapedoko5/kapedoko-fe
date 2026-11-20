@@ -20,6 +20,7 @@
           :key="shop.id"
           :shop="shop"
           :saving="saving"
+          :gallery-max="galleryMax"
           @save="onSave"
         />
       </div>
@@ -38,7 +39,9 @@ import OwnerShell from '~/components/owner-portal/OwnerShell.vue'
 import type { ShopRow } from '~/types/shop'
 import { isShopId, resolveLiveShopId } from '~/utils/approved-shops'
 import { settleOwnerIonPages } from '~/utils/owner-nav'
+import { ownerGalleryMax } from '~/utils/owner-ads'
 import { ownerLiveStatusWord } from '~/utils/owner-portal'
+import { ownerNameReviewCopy, shopPendingName } from '~/utils/shop-name-review'
 
 definePageMeta({
   middleware: ['owner'],
@@ -70,6 +73,7 @@ const shellStatus = computed(() => {
 })
 
 const shopId = computed(() => resolveShopId())
+const galleryMax = computed(() => ownerGalleryMax(desk.hasFeature(shop.value?.id ?? '', 'featured_photos')))
 
 function resolveShopId(): string {
   const param = route.params.id
@@ -141,7 +145,12 @@ const onSave = async (payload: Parameters<typeof updateOwnedShop>[1]) => {
   formError.value = ''
   try {
     shop.value = await updateOwnedShop(shop.value.id, payload)
-    toast.success('Saved', `${shop.value.name} is updated on Home and Map.`)
+    toast.success(
+      'Saved',
+      shopPendingName(shop.value)
+        ? ownerNameReviewCopy(shop.value) ?? `${shop.value.name} is updated on Home and Map.`
+        : `${shop.value.name} is updated on Home and Map.`,
+    )
   } catch (err) {
     formError.value = err instanceof Error ? err.message : 'Could not save this cafe.'
     toast.error('Could not save', err, 'Could not save this cafe.')

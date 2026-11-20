@@ -24,6 +24,7 @@ import {
   parseDeletedAdminShop,
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
+import { missingPartnershipSqlCopy } from '~/utils/admin-placements'
 import type { ShopPosterRow } from '~/utils/owner-ads'
 import { fetchAdminShopRows } from '~/utils/approved-shops'
 import { chunkImportDrafts, pendingImportDrafts } from '~/utils/cafe-csv-import'
@@ -478,7 +479,14 @@ export function useAdminData() {
     }
   }
 
-  const savePlacement = async (shop: ShopRow, kind: 'standard' | 'partner' | 'sponsored', startsAt: string, endsAt: string) => {
+  const savePlacement = async (
+    shop: ShopRow,
+    kind: 'standard' | 'partner' | 'sponsored',
+    startsAt: string,
+    endsAt: string,
+    showOnHome = false,
+    features: Record<string, boolean> | null = null,
+  ) => {
     if (shop.status !== 'approved') throw new Error('Approve the cafe before setting a map pin.')
     savingId.value = shop.id
     error.value = ''
@@ -488,12 +496,36 @@ export function useAdminData() {
         p_kind: kind,
         p_starts_at: kind === 'standard' ? null : new Date(startsAt).toISOString(),
         p_ends_at: kind === 'standard' ? null : new Date(endsAt).toISOString(),
+        p_show_on_home: kind === 'standard' ? false : (features?.home_carousel ?? showOnHome),
+        p_features: kind === 'standard' ? null : features,
       })
       if (rpcError) throw new Error(rpcError.message)
       await loadPlacements()
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Could not save this map pin.'
-      throw err
+      const message = err instanceof Error ? err.message : 'Could not save this map pin.'
+      error.value = missingPartnershipSqlCopy(message) ?? message
+      throw err instanceof Error ? new Error(error.value) : err
+    } finally {
+      savingId.value = null
+    }
+  }
+
+  const reviewOwnerShopName = async (shopId: string, accept: boolean) => {
+    savingId.value = shopId
+    error.value = ''
+    try {
+      const { data, error: rpcError } = await supabase.rpc('review_owner_shop_name', {
+        p_shop_id: shopId,
+        p_accept: accept,
+      })
+      const updated = (Array.isArray(data) ? data[0] : data) as ShopRow | null
+      if (rpcError || !updated) throw new Error(rpcError?.message || 'Could not review this name.')
+      putShop(updated)
+      return updated
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not review this name.'
+      error.value = missingPartnershipSqlCopy(message) ?? message
+      throw err instanceof Error ? new Error(error.value) : err
     } finally {
       savingId.value = null
     }
@@ -1223,6 +1255,7 @@ export function useAdminData() {
     moderate,
     moderateMany,
     savePlacement,
+    reviewOwnerShopName,
     endPlacement,
     createShop,
     importShops,

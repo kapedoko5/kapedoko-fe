@@ -9,6 +9,7 @@ import {
   formatTrafficRatio,
   isTrafficTabId,
   ownerAnalyticsEmptyCopy,
+  ownerAnalyticsLockedCopy,
   promotionEmptyCopy,
   TRAFFIC_LEDGER_SURFACES,
   cafeAnalyticsPath,
@@ -274,5 +275,6 @@ describe('owner empty copy', () => {
   test('waits for a live cafe when a claim is pending', () => {
     expect(ownerAnalyticsEmptyCopy(1)).toBe('Analytics appear after a cafe you manage is live.')
     expect(ownerAnalyticsEmptyCopy(0)).toBe('Claim a cafe to see how people find it.')
+    expect(ownerAnalyticsLockedCopy()).toMatch(/partnership/)
   })
 })

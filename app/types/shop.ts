@@ -10,6 +10,8 @@ export interface ShopPlacementRow {
   kind: ShopPlacementKind
   starts_at: string
   ends_at: string
+  show_on_home?: boolean
+  features?: Record<string, boolean> | null
   created_by: string | null
   created_at: string
 }
@@ -72,6 +74,7 @@ export interface ShopRow {
   cover_photo_url: string | null
   logo_object_key: string | null
   gallery_object_keys?: string[] | null
+  pending_name?: string | null
   contact_number: string | null
   status: ShopStatus
   submitted_by: string | null
