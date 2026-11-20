@@ -1,10 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  SHOP_GALLERY_FREE_MAX,
   SHOP_GALLERY_MAX,
   featuredPhotoCountError,
   featuredPhotoFileError,
+  featuredPhotoLede,
+  ownerGalleryMax,
   missingOwnerMediaSqlCopy,
   ownerAdsEmptyCopy,
+  ownerAdsLockedCopy,
   ownerPosterCafeError,
   ownerPosterReplaceCopy,
   ownerPosterReplaceNames,
@@ -82,6 +86,15 @@ describe('owner media files', () => {
     expect(featuredPhotoFileError({ type: 'image/webp', size: 800 } as File)).toBeNull()
     expect(featuredPhotoFileError(null)).toMatch(/Choose a photo/)
   })
+
+  test('caps free listings at three featured photos', () => {
+    expect(ownerGalleryMax('standard')).toBe(SHOP_GALLERY_FREE_MAX)
+    expect(ownerGalleryMax('partner')).toBe(SHOP_GALLERY_MAX)
+    expect(ownerGalleryMax('promoted')).toBe(SHOP_GALLERY_MAX)
+    expect(featuredPhotoCountError(3, 3)).toBeNull()
+    expect(featuredPhotoCountError(4, 3)).toMatch('3')
+    expect(featuredPhotoLede(3)).toMatch(/free listing/)
+  })
 })
 
 describe('owner media copy', () => {
@@ -89,5 +102,6 @@ describe('owner media copy', () => {
     expect(missingOwnerMediaSqlCopy('Could not find the function public.publish_owner_poster')).toMatch(/20261114_owner_cafe_media/)
     expect(missingOwnerMediaSqlCopy('Network error')).toBeNull()
     expect(ownerAdsEmptyCopy()).toMatch(/Upload one above/)
+    expect(ownerAdsLockedCopy()).toMatch(/partnership/)
   })
 })

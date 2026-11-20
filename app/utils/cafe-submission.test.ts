@@ -302,6 +302,22 @@ describe('shop to cafe mapping', () => {
     expect(mapShopToCafe({ ...shop, menu_price_php: 95 }).menuPricePhp).toBe(95)
   })
 
+  test('carries cafe-detail button and text ink', () => {
+    expect(mapShopToCafe(shop).themeButtonHex).toBeNull()
+    expect(mapShopToCafe(shop).themeTextHex).toBeNull()
+    expect(mapShopToCafe(shop).themeBackgroundHex).toBeNull()
+    expect(mapShopToCafe({
+      ...shop,
+      theme_button_hex: '#2F6B4F',
+      theme_text_hex: '#1C1917',
+      theme_background_hex: '#F3F6F2',
+    })).toMatchObject({
+      themeButtonHex: '#2F6B4F',
+      themeTextHex: '#1C1917',
+      themeBackgroundHex: '#F3F6F2',
+    })
+  })
+
   test('carries OSM source for attribution', () => {
     expect(mapShopToCafe({ ...shop, source: 'openstreetmap' }).source).toBe('openstreetmap')
   })

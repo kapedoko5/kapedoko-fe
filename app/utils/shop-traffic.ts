@@ -490,6 +490,10 @@ export function ownerAnalyticsEmptyCopy(claimCount: number): string {
   return 'Claim a cafe to see how people find it.'
 }
 
+export function ownerAnalyticsLockedCopy(): string {
+  return 'Analytics is off until a partnership turns it on for a cafe you manage.'
+}
+
 export function promotionEmptyCopy(query?: string): string {
   if (query?.trim()) return 'No cafes match that search.'
   return 'No promotion traffic in this window yet.'

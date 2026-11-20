@@ -1,7 +1,7 @@
 <template>
   <IonPage>
     <OwnerShell
-      title="Ads"
+      title="Ad Poster"
       :lede="ownerAdsLede()"
       :status="pageStatus"
       :error="pageError"
@@ -13,6 +13,9 @@
             <h2>Hang a poster</h2>
             <p class="owner-ads__hint">
               Upload a plate, then pick the bags it hangs on.
+            </p>
+            <p v-if="cafes.length === 0" class="owner-ads__hint">
+              {{ approvedOwnedCafes(ownedShops).length === 0 ? ownerAdsNoCafesCopy() : ownerAdsLockedCopy() }}
             </p>
           </div>
 
@@ -102,7 +105,9 @@
 
         <section class="owner-ads__live" aria-labelledby="owner-ads-live">
           <h2 id="owner-ads-live">Live posters</h2>
-          <p v-if="cafes.length === 0" class="owner-empty">{{ ownerAdsNoCafesCopy() }}</p>
+          <p v-if="cafes.length === 0" class="owner-empty">
+            {{ approvedOwnedCafes(ownedShops).length === 0 ? ownerAdsNoCafesCopy() : ownerAdsLockedCopy() }}
+          </p>
           <p v-else-if="posters.length === 0" class="owner-empty">{{ ownerAdsEmptyCopy() }}</p>
           <ul v-else class="owner-ads__list">
             <li v-for="(row, index) in posters" :key="row.id" :style="{ '--enter': String(index) }">
@@ -148,6 +153,7 @@ import {
   livePosterByShopId,
   ownerAdsEmptyCopy,
   ownerAdsLede,
+  ownerAdsLockedCopy,
   ownerAdsNoCafesCopy,
   ownerPosterCafeError,
   ownerPosterReplaceCopy,
@@ -181,6 +187,7 @@ const {
   loadPosters,
   publishPoster,
   endPoster,
+  hasFeature,
 } = desk
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -193,7 +200,7 @@ const scope = ref<OwnerPosterScope>('one')
 const oneId = ref('')
 const severalIds = ref<string[]>([])
 
-const cafes = computed(() => approvedOwnedCafes(ownedShops.value))
+const cafes = computed(() => approvedOwnedCafes(ownedShops.value).filter((shop) => hasFeature(shop.id, 'ad_poster')))
 const liveByShop = computed(() => livePosterByShopId(posters.value))
 const liveShopIds = computed(() => new Set(liveByShop.value.keys()))
 const selectedIds = computed(() => ownerPosterShopIds({

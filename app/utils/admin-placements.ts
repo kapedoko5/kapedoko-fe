@@ -28,3 +28,30 @@ export function placementLifecycle(
 export function placementKindFromTier(tier: MarkerTier): ShopPlacementKind | 'standard' {
   return markerTierToKind(tier) ?? 'standard'
 }
+
+export function isHomeCarouselPlacement(
+  placement: Pick<ShopPlacementRow, 'show_on_home' | 'starts_at' | 'ends_at'>,
+  now = new Date(),
+): boolean {
+  return Boolean(placement.show_on_home) && isPlacementActive(placement, now)
+}
+
+export function homeCarouselShopIds(
+  rows: readonly Pick<ShopPlacementRow, 'shop_id' | 'kind' | 'show_on_home' | 'starts_at' | 'ends_at'>[],
+  now = new Date(),
+): string[] {
+  const live = rows.filter((row) => isHomeCarouselPlacement(row, now))
+  const sponsored = live.filter((row) => row.kind === 'sponsored').map((row) => row.shop_id)
+  const partners = live.filter((row) => row.kind === 'partner').map((row) => row.shop_id)
+  return [...new Set([...sponsored, ...partners])]
+}
+
+export function missingPartnershipSqlCopy(message: string): string | null {
+  if (!/schema cache|could not find the function|column \S+ does not exist|relation \S+ does not exist/i.test(message)) {
+    return null
+  }
+  if (!/save_shop_placement|show_on_home|pending_name|review_owner_shop_name|p_features|shop_has_feature|shop_placements/i.test(message)) {
+    return null
+  }
+  return 'Apply db/20261124_placement_home_carousel.sql, db/20261125_placement_features.sql, and db/20261126_placement_theme.sql in the SQL editor, then try again.'
+}

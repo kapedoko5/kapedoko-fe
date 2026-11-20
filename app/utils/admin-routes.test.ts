@@ -18,6 +18,7 @@ describe('admin routes', () => {
       '/admin/badges',
       '/admin/vibe-tags',
       '/admin/price-marks',
+      '/admin/theme',
       '/admin/users',
       '/admin/moderation',
     ])
@@ -42,6 +43,7 @@ describe('admin routes', () => {
     expect(adminNavIdFromPath('/admin/vibe-tags')).toBe('vibe-tags')
     expect(adminNavIdFromPath('/admin/vibe-tags/new')).toBe('vibe-tags')
     expect(adminNavIdFromPath('/admin/price-marks')).toBe('price-marks')
+    expect(adminNavIdFromPath('/admin/theme')).toBe('theme')
     expect(adminNavIdFromPath('/admin')).toBe('dashboard')
     expect(adminNavIdFromPath('/admin/analytics')).toBe('analytics')
     expect(adminNavIdFromPath('/admin/analytics/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toBe('analytics')
@@ -133,6 +135,7 @@ describe('admin routes', () => {
     expect(adminBackNav('/admin/badges')).toBeNull()
     expect(adminBackNav('/admin/vibe-tags')).toBeNull()
     expect(adminBackNav('/admin/price-marks')).toBeNull()
+    expect(adminBackNav('/admin/theme')).toBeNull()
     expect(adminBackNav('/admin/verifications')).toBeNull()
   })
 })

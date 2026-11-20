@@ -8,6 +8,7 @@ import type {
   ShopBusynessNowRow,
   ShopCheckinStatsRow,
   ShopMarkerTierRow,
+  ShopPlacementRow,
   ShopReviewPublicRow,
   ShopReviewRow,
   ShopReviewStatsRow,
@@ -35,16 +36,32 @@ import {
   POPULAR_REVIEW_MIN,
 } from './cafe-feed'
 import type { CafeFilterId } from './cafe-filters'
+import { homeCarouselShopIds } from './admin-placements'
 
 const APPROVED_SHOP_COLUMNS_CORE =
-  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,contact_number,menu_price_php,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
+  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,contact_number,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
+
+const APPROVED_SHOP_GALLERY_COLUMNS = 'gallery_object_keys'
+const APPROVED_SHOP_THEME_COLUMNS = 'theme_button_hex,theme_text_hex,theme_background_hex'
+const APPROVED_SHOP_PRICE_COLUMNS = 'menu_price_php'
 
 export const APPROVED_SHOP_COLUMNS =
-  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,gallery_object_keys,contact_number,menu_price_php,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
+  `${APPROVED_SHOP_COLUMNS_CORE},${APPROVED_SHOP_PRICE_COLUMNS},${APPROVED_SHOP_GALLERY_COLUMNS},${APPROVED_SHOP_THEME_COLUMNS}`
 
-let shopColumnSelect = APPROVED_SHOP_COLUMNS
+let includeGalleryColumns = true
+let includeThemeColumns = true
+let includeMenuPriceColumns = true
 
-function shopColumnError(error: unknown): { message: string; code: string } {
+function shopColumnSelect(): string {
+  const extra = [
+    includeMenuPriceColumns ? APPROVED_SHOP_PRICE_COLUMNS : '',
+    includeGalleryColumns ? APPROVED_SHOP_GALLERY_COLUMNS : '',
+    includeThemeColumns ? APPROVED_SHOP_THEME_COLUMNS : '',
+  ].filter(Boolean)
+  return extra.length ? `${APPROVED_SHOP_COLUMNS_CORE},${extra.join(',')}` : APPROVED_SHOP_COLUMNS_CORE
+}
+
+function shopColumnErrorMessage(error: unknown): { message: string; code: string } {
   const message = error instanceof Error
     ? error.message
     : typeof error === 'object' && error !== null && 'message' in error
@@ -56,43 +73,51 @@ function shopColumnError(error: unknown): { message: string; code: string } {
   return { message, code }
 }
 
-export function isMissingShopGalleryColumn(error: unknown): boolean {
-  const { message, code } = shopColumnError(error)
-  return /gallery_object_keys/i.test(message)
+function isMissingColumn(error: unknown, column: string): boolean {
+  const { message, code } = shopColumnErrorMessage(error)
+  return new RegExp(column, 'i').test(message)
     && (/does not exist|schema cache/i.test(message) || code === '42703')
+}
+
+export function isMissingShopGalleryColumn(error: unknown): boolean {
+  return isMissingColumn(error, 'gallery_object_keys')
 }
 
 export function isMissingMenuPriceColumn(error: unknown): boolean {
-  const { message, code } = shopColumnError(error)
-  return /menu_price_php/i.test(message)
-    && (/does not exist|schema cache/i.test(message) || code === '42703')
+  return isMissingColumn(error, 'menu_price_php')
+}
+
+export function isMissingShopThemeColumn(error: unknown): boolean {
+  return isMissingColumn(error, 'theme_button_hex|theme_text_hex|theme_background_hex')
 }
 
 export function resetApprovedShopSelectForTests(): void {
-  shopColumnSelect = APPROVED_SHOP_COLUMNS
+  includeGalleryColumns = true
+  includeThemeColumns = true
+  includeMenuPriceColumns = true
 }
 
-function dropGalleryColumnSelect(): boolean {
-  if (shopColumnSelect === APPROVED_SHOP_COLUMNS_CORE) return false
-  shopColumnSelect = APPROVED_SHOP_COLUMNS_CORE
-  return true
-}
-
-function dropMenuPriceColumnSelect(): boolean {
-  if (!shopColumnSelect.includes('menu_price_php')) return false
-  shopColumnSelect = shopColumnSelect.replace(',menu_price_php', '')
-  return true
+function dropOptionalShopColumns(error: unknown): boolean {
+  if (includeGalleryColumns && isMissingShopGalleryColumn(error)) {
+    includeGalleryColumns = false
+    return true
+  }
+  if (includeThemeColumns && isMissingShopThemeColumn(error)) {
+    includeThemeColumns = false
+    return true
+  }
+  if (includeMenuPriceColumns && isMissingMenuPriceColumn(error)) {
+    includeMenuPriceColumns = false
+    return true
+  }
+  return false
 }
 
 async function withShopGalleryFallback<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run()
   } catch (error) {
-    const retry = (
-      (isMissingShopGalleryColumn(error) && dropGalleryColumnSelect())
-      || (isMissingMenuPriceColumn(error) && dropMenuPriceColumnSelect())
-    )
-    if (!retry) throw error
+    if (!dropOptionalShopColumns(error)) throw error
     return await withShopGalleryFallback(run)
   }
 }
@@ -488,7 +513,7 @@ function approvedShopQuery(
 ) {
   let request = supabase
     .from('shops')
-    .select(shopColumnSelect)
+    .select(shopColumnSelect())
     .eq('status', 'approved')
 
   if (options.ids) request = request.in('id', options.ids)
@@ -709,18 +734,18 @@ export async function fetchFilterShopIds(
 export async function fetchPlacementCafes(
   supabase: ShopClient,
   publicBase: string,
+  now = new Date(),
 ): Promise<Cafe[]> {
+  const at = now.toISOString()
   const { data, error } = await supabase
-    .from('shop_marker_tiers')
-    .select('shop_id,marker_tier')
-    .in('marker_tier', ['promoted', 'partner'])
+    .from('shop_placements')
+    .select('shop_id,kind,starts_at,ends_at,show_on_home')
+    .eq('show_on_home', true)
+    .lte('starts_at', at)
+    .gt('ends_at', at)
 
   if (error) throw error
-  const ids = [...new Set(
-    ((data ?? []) as { shop_id?: string }[])
-      .map((row) => row.shop_id)
-      .filter((id): id is string => Boolean(id)),
-  )]
+  const ids = homeCarouselShopIds((data ?? []) as ShopPlacementRow[], now)
   if (!ids.length) return []
   return fetchApprovedCafesByIds(supabase, publicBase, ids)
 }
@@ -762,7 +787,7 @@ export async function fetchApprovedCafeById(
   const shop = await withShopGalleryFallback(async () => {
     const { data, error } = await supabase
       .from('shops')
-      .select(shopColumnSelect)
+      .select(shopColumnSelect())
       .eq('id', shopId)
       .eq('status', 'approved')
       .maybeSingle()

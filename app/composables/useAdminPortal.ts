@@ -26,6 +26,9 @@ import {
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
 import { assignedVibeTagIdsForPrice, vibeIdsWithoutBudgetFriendly } from '~/utils/admin-vibe-tags'
+import { missingPartnershipSqlCopy } from '~/utils/admin-placements'
+import { placementFeaturesPayload } from '~/utils/placement-features'
+import { missingCafeThemeSqlCopy } from '~/utils/cafe-theme'
 import type { ShopPosterRow } from '~/utils/owner-ads'
 import { fetchAdminShopRows } from '~/utils/approved-shops'
 import { chunkImportDrafts, pendingImportDrafts } from '~/utils/cafe-csv-import'
@@ -481,7 +484,14 @@ export function useAdminData() {
     }
   }
 
-  const savePlacement = async (shop: ShopRow, kind: 'standard' | 'partner' | 'sponsored', startsAt: string, endsAt: string) => {
+  const savePlacement = async (
+    shop: ShopRow,
+    kind: 'standard' | 'partner' | 'sponsored',
+    startsAt: string,
+    endsAt: string,
+    showOnHome = false,
+    features: Record<string, boolean> | null = null,
+  ) => {
     if (shop.status !== 'approved') throw new Error('Approve the cafe before setting a map pin.')
     savingId.value = shop.id
     error.value = ''
@@ -491,12 +501,36 @@ export function useAdminData() {
         p_kind: kind,
         p_starts_at: kind === 'standard' ? null : new Date(startsAt).toISOString(),
         p_ends_at: kind === 'standard' ? null : new Date(endsAt).toISOString(),
+        p_show_on_home: kind === 'standard' ? false : (features?.home_carousel ?? showOnHome),
+        p_features: kind === 'standard' ? null : placementFeaturesPayload(features),
       })
       if (rpcError) throw new Error(rpcError.message)
       await loadPlacements()
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Could not save this map pin.'
-      throw err
+      const message = err instanceof Error ? err.message : 'Could not save this map pin.'
+      error.value = missingPartnershipSqlCopy(message) ?? message
+      throw err instanceof Error ? new Error(error.value) : err
+    } finally {
+      savingId.value = null
+    }
+  }
+
+  const reviewOwnerShopName = async (shopId: string, accept: boolean) => {
+    savingId.value = shopId
+    error.value = ''
+    try {
+      const { data, error: rpcError } = await supabase.rpc('review_owner_shop_name', {
+        p_shop_id: shopId,
+        p_accept: accept,
+      })
+      const updated = (Array.isArray(data) ? data[0] : data) as ShopRow | null
+      if (rpcError || !updated) throw new Error(rpcError?.message || 'Could not review this name.')
+      putShop(updated)
+      return updated
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not review this name.'
+      error.value = missingPartnershipSqlCopy(message) ?? message
+      throw err instanceof Error ? new Error(error.value) : err
     } finally {
       savingId.value = null
     }
@@ -781,6 +815,44 @@ export function useAdminData() {
       return done
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Could not stamp this logo.'
+      throw err
+    } finally {
+      savingId.value = null
+    }
+  }
+
+  const applyShopTheme = async (
+    shopIds: string[],
+    buttonHex: string | null,
+    textHex: string | null,
+    backgroundHex: string | null,
+  ) => {
+    const ids = [...new Set(shopIds)]
+    if (ids.length === 0) {
+      error.value = 'Tick at least one cafe.'
+      throw new Error(error.value)
+    }
+    savingId.value = ids.length === 1 ? ids[0]! : 'theme'
+    error.value = ''
+    try {
+      const { data, error: rpcError } = await supabase.rpc('apply_admin_shop_theme', {
+        p_shop_ids: ids,
+        p_button_hex: buttonHex,
+        p_text_hex: textHex,
+        p_background_hex: backgroundHex,
+      })
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as ShopRow[]
+      if (rpcError || rows.length === 0) {
+        throw new Error(
+          missingCafeThemeSqlCopy(rpcError?.message || '')
+          || rpcError?.message
+          || 'Could not stamp this look.',
+        )
+      }
+      mergeUpdatedShops(rows)
+      return rows
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Could not stamp this look.'
       throw err
     } finally {
       savingId.value = null
@@ -1240,12 +1312,14 @@ export function useAdminData() {
     moderate,
     moderateMany,
     savePlacement,
+    reviewOwnerShopName,
     endPlacement,
     createShop,
     importShops,
     updateShop,
     updateShopLogo,
     updateShopLogos,
+    applyShopTheme,
     deleteShop,
     resolveReport,
     saveAd,

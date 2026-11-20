@@ -1,0 +1,11 @@
+-- Optional checks after db/20261124_placement_home_carousel.sql
+-- select show_on_home from public.shop_placements limit 1;
+-- select pending_name from public.shops limit 1;
+-- select public.save_shop_placement('<shop-id>', 'partner', now(), now() + interval '30 days', true);
+-- Expected: admin only for non-admins; show_on_home true for admins.
+-- As an owner of a standard cafe, update_owner_shop with 4 gallery keys.
+-- Expected: Keep featured photos to 3.
+-- As an owner, submit a new name.
+-- Expected: shops.name unchanged; pending_name set.
+-- select public.review_owner_shop_name('<shop-id>', true);
+-- Expected: name becomes the proposed name; pending_name null.

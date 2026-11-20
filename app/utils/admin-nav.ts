@@ -14,6 +14,7 @@ export const ADMIN_NAV = [
   { id: 'badges', label: 'Badges', href: '/admin/badges' },
   { id: 'vibe-tags', label: 'Vibe tags', href: '/admin/vibe-tags' },
   { id: 'price-marks', label: 'Price marks', href: '/admin/price-marks' },
+  { id: 'theme', label: 'Theme', href: '/admin/theme' },
   { id: 'users', label: 'Users', href: '/admin/users' },
   { id: 'moderation', label: 'Moderation', href: '/admin/moderation' },
 ] as const
@@ -104,6 +105,7 @@ export function adminNavIdFromPath(path: string): (typeof ADMIN_NAV)[number]['id
   if (path.startsWith('/admin/badges')) return 'badges'
   if (path.startsWith('/admin/vibe-tags')) return 'vibe-tags'
   if (path.startsWith('/admin/price-marks')) return 'price-marks'
+  if (path.startsWith('/admin/theme')) return 'theme'
   if (path.startsWith('/admin/users')) return 'users'
   if (path.startsWith('/admin/moderation')) return 'moderation'
   return 'dashboard'

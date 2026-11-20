@@ -77,4 +77,7 @@ export interface Cafe {
   seating?: CafeSeating | null
   badges: CafeBadge[]
   vibeTags: CafeVibeTag[]
+  themeButtonHex?: string | null
+  themeTextHex?: string | null
+  themeBackgroundHex?: string | null
 }

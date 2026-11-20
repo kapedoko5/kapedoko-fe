@@ -41,7 +41,14 @@ import {
   sortActiveAds,
 } from './admin-ads'
 import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, roleChangeError, suspendError } from './admin-users'
-import { placementKindFromTier, placementLifecycle, placementWindowError } from './admin-placements'
+import {
+  homeCarouselShopIds,
+  isHomeCarouselPlacement,
+  missingPartnershipSqlCopy,
+  placementKindFromTier,
+  placementLifecycle,
+  placementWindowError,
+} from './admin-placements'
 import { adminNavIdFromPath, toLocalInput } from './admin-nav'
 import { allDayEveryDay } from './hours'
 
@@ -371,6 +378,44 @@ describe('roles and placements', () => {
     }, now)).toBe('ended')
     expect(placementWindowError('2026-09-01T00:00', '2026-08-01T00:00')).toMatch(/end date/)
     expect(placementKindFromTier('promoted')).toBe('sponsored')
+    expect(isHomeCarouselPlacement({
+      show_on_home: true,
+      starts_at: '2026-09-01T00:00:00.000Z',
+      ends_at: '2026-10-01T00:00:00.000Z',
+    }, now)).toBe(true)
+    expect(isHomeCarouselPlacement({
+      show_on_home: false,
+      starts_at: '2026-09-01T00:00:00.000Z',
+      ends_at: '2026-10-01T00:00:00.000Z',
+    }, now)).toBe(false)
+    expect(homeCarouselShopIds([
+      {
+        shop_id: 'partner-off',
+        kind: 'partner',
+        show_on_home: false,
+        starts_at: '2026-09-01T00:00:00.000Z',
+        ends_at: '2026-10-01T00:00:00.000Z',
+      },
+      {
+        shop_id: 'sponsored-on',
+        kind: 'sponsored',
+        show_on_home: true,
+        starts_at: '2026-09-01T00:00:00.000Z',
+        ends_at: '2026-10-01T00:00:00.000Z',
+      },
+      {
+        shop_id: 'partner-on',
+        kind: 'partner',
+        show_on_home: true,
+        starts_at: '2026-09-01T00:00:00.000Z',
+        ends_at: '2026-10-01T00:00:00.000Z',
+      },
+    ], now)).toEqual(['sponsored-on', 'partner-on'])
+    expect(missingPartnershipSqlCopy('column shop_placements.show_on_home does not exist')).toMatch(/20261124/)
+    expect(missingPartnershipSqlCopy('Could not find the function public.save_shop_placement(..., p_features) in the schema cache')).toMatch(/20261125/)
+    expect(missingPartnershipSqlCopy(
+      'invalid input syntax for type boolean: "{}" CONTEXT: PL/pgSQL function save_shop_placement(uuid,text,timestamp with time zone,timestamp with time zone,boolean,jsonb)',
+    )).toBeNull()
   })
 
   test('maps admin routes and local datetime inputs', () => {
