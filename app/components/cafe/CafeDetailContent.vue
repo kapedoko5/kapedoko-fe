@@ -30,9 +30,9 @@
           v-if="variant !== 'page'"
           class="cafe-detail__navigate"
           :href="mapsHref"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Navigate to this cafe in Google Maps"
+          :target="mapsOpensInNewTab ? '_blank' : undefined"
+          :rel="mapsOpensInNewTab ? 'noopener noreferrer' : undefined"
+          aria-label="Navigate to this cafe in Maps"
           @click="onNavigate"
         >
           <span class="cafe-detail__action-face cafe-detail__action-face--primary">
@@ -212,9 +212,9 @@
         <a
           class="cafe-detail__navigate"
           :href="mapsHref"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Navigate to this cafe in Google Maps"
+          :target="mapsOpensInNewTab ? '_blank' : undefined"
+          :rel="mapsOpensInNewTab ? 'noopener noreferrer' : undefined"
+          aria-label="Navigate to this cafe in Maps"
           @click="onNavigate"
         >
           <span class="cafe-detail__action-face cafe-detail__action-face--primary">
@@ -508,6 +508,7 @@
 </template>
 
 <script lang="ts" setup>
+import { Capacitor } from '@capacitor/core'
 import { Armchair, BadgeAlert, BadgeCheck, ChevronLeft, ChevronRight, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff, X } from 'lucide-vue-next'
 import { cafePricePesoMarks, cafePriceTierLabel } from '~/utils/cafe-price-marks'
 import {
@@ -520,7 +521,12 @@ import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { Cafe } from '~/types/cafe'
 import { cafeThemeStyle } from '~/utils/cafe-theme'
 import { isKapedokoMark, KAPEDOKO_BEAN_PIN_SRC } from '~/utils/logo'
-import { googleMapsDirectionsUrl } from '~/utils/maps'
+import {
+  directionsUrl,
+  mapsAppForClient,
+  mapsLinkOpensInNewTab,
+  type MapsAppKind,
+} from '~/utils/maps'
 import {
   amenityAriaLabel,
   amenityFactMeta,
@@ -797,7 +803,19 @@ const vibePresses = computed(() =>
   })),
 )
 
-const mapsHref = computed(() => googleMapsDirectionsUrl(props.cafe.lat, props.cafe.lng))
+const mapsKind = shallowRef<MapsAppKind>('google')
+const mapsPlatform = shallowRef('web')
+const syncMapsApp = () => {
+  mapsPlatform.value = Capacitor.getPlatform()
+  mapsKind.value = mapsAppForClient({
+    platform: mapsPlatform.value,
+    userAgent: import.meta.client ? navigator.userAgent : '',
+  })
+}
+if (import.meta.client) syncMapsApp()
+onMounted(syncMapsApp)
+const mapsHref = computed(() => directionsUrl(props.cafe.lat, props.cafe.lng, mapsKind.value))
+const mapsOpensInNewTab = computed(() => mapsLinkOpensInNewTab(mapsKind.value, mapsPlatform.value))
 
 watch(
   () => props.cafe.id,
@@ -1208,7 +1226,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   width: auto;
   max-width: 100%;
   padding: 4px 20px 0;
-  background: #faf8f5;
+  background: var(--cafe-background);
 }
 
 .cafe-detail--page .cafe-detail__header > *,
@@ -1222,7 +1240,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   flex-direction: column;
   box-sizing: border-box;
   padding: 0 20px;
-  background: #faf8f5;
+  background: var(--cafe-background);
 }
 
 .cafe-detail--page .cafe-detail__address { order: 1; }
@@ -1285,7 +1303,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 .cafe-detail__header {
   flex-shrink: 0;
   padding: 16px 20px 12px;
-  background: #ffffff;
+  background: var(--cafe-background);
 }
 
 .cafe-detail--page .cafe-detail__header {
@@ -1398,7 +1416,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
-  background: #faf8f5;
+  background: var(--cafe-background);
   color: var(--cafe-button);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1419,8 +1437,8 @@ const onGalleryWheel = (event: WheelEvent) => {
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
   border-radius: 16px;
-  background: #ffffff;
-  color: var(--kd-ink);
+  background: var(--cafe-background);
+  color: var(--cafe-text);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1479,9 +1497,9 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__action-face--quiet {
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  background: #faf8f5;
-  color: var(--kd-ink);
+  border: 1px solid color-mix(in srgb, var(--cafe-text) 22%, transparent);
+  background: var(--cafe-background);
+  color: var(--cafe-text);
 }
 
 .cafe-detail__prompt,
@@ -1533,10 +1551,10 @@ const onGalleryWheel = (event: WheelEvent) => {
   gap: 2px;
   min-width: 138px;
   padding: 12px 28px 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cafe-button) 34%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--kd-accent) 16%, #faf8f5);
-  color: var(--kd-ink);
+  background: color-mix(in srgb, var(--cafe-button) 16%, var(--cafe-background));
+  color: var(--cafe-text);
   transform: rotate(var(--tilt, -2.2deg));
   transform-origin: 40% 20%;
   scroll-snap-align: start;
@@ -1545,17 +1563,17 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__press[data-stamp='community'] {
-  background: #faf8f5;
+  background: color-mix(in srgb, var(--cafe-button) 8%, var(--cafe-background));
 }
 
 .cafe-detail__press[data-stamp='recheck'],
 .cafe-detail__press.is-no {
-  background: color-mix(in srgb, #8c3a2f 10%, #faf8f5);
+  background: color-mix(in srgb, #8c3a2f 10%, var(--cafe-background));
   border-color: color-mix(in srgb, #8c3a2f 45%, transparent);
 }
 
 .cafe-detail__press.is-soft {
-  background: #faf8f5;
+  background: var(--cafe-background);
   border-style: dashed;
 }
 
@@ -1616,9 +1634,9 @@ const onGalleryWheel = (event: WheelEvent) => {
   align-items: center;
   gap: 5px;
   padding: 6px 10px;
-  border: 1px solid var(--vibe-color, var(--kd-accent));
+  border: 1px solid var(--vibe-color, var(--cafe-button));
   border-radius: 8px;
-  background: color-mix(in srgb, var(--vibe-color, var(--kd-accent)) 22%, #faf8f5);
+  background: color-mix(in srgb, var(--vibe-color, var(--cafe-button)) 22%, var(--cafe-background));
   color: var(--kd-ink);
   font-size: 0.72rem;
   font-weight: 700;
@@ -1629,7 +1647,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__vibe :deep(svg) {
-  color: var(--vibe-color, var(--kd-accent));
+  color: var(--vibe-color, var(--cafe-button));
   flex-shrink: 0;
 }
 
@@ -1639,7 +1657,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   right: 8px;
   display: grid;
   place-items: center;
-  color: var(--kd-accent);
+  color: var(--cafe-button);
 }
 
 .cafe-detail__press[data-stamp='recheck'] .cafe-detail__press-seal,
@@ -1657,7 +1675,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__press-amenity :deep(svg) {
-  color: var(--kd-accent);
+  color: var(--cafe-button);
 }
 
 .cafe-detail__press-mark {
@@ -1670,7 +1688,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 
 .cafe-detail__press-date {
   margin-top: 2px;
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
+  color: color-mix(in srgb, var(--cafe-text) 72%, var(--cafe-background));
   font-size: 0.75rem;
   font-weight: 400;
   line-height: 1.3;
@@ -1694,8 +1712,8 @@ const onGalleryWheel = (event: WheelEvent) => {
   padding: 6px 10px 6px 8px;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
-  background: #faf8f5;
-  color: var(--kd-ink);
+  background: var(--cafe-background);
+  color: var(--cafe-text);
 }
 
 .cafe-detail__crowd.is-empty {
@@ -1745,7 +1763,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__seat.is-on .cafe-detail__bean {
-  fill: var(--kd-accent);
+  fill: var(--cafe-button);
   stroke: var(--kd-ink);
 }
 
@@ -1778,7 +1796,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__crowd-copy span {
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
+  color: color-mix(in srgb, var(--cafe-text) 72%, var(--cafe-background));
   font-size: 0.6875rem;
   font-weight: 400;
   line-height: 1.2;
@@ -1786,7 +1804,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 
 .cafe-detail__month {
   margin: 0;
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
+  color: color-mix(in srgb, var(--cafe-text) 72%, var(--cafe-background));
   font-size: 0.75rem;
   font-weight: 400;
   line-height: 1.3;
@@ -1886,7 +1904,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 .cafe-detail--page .cafe-detail__gallery,
 .cafe-detail--page .cafe-detail__poster {
   padding: 16px 20px 20px;
-  background: #faf8f5;
+  background: var(--cafe-background);
   border-bottom: 1px solid color-mix(in srgb, var(--kd-ink) 16%, transparent);
 }
 
@@ -1904,15 +1922,16 @@ const onGalleryWheel = (event: WheelEvent) => {
   margin-left: 20px;
 }
 
-.cafe-detail--page .cafe-detail__leave {
+.cafe-detail__leave:not(.cafe-detail__leave--quiet) {
   border-color: var(--cafe-button);
   background: var(--cafe-button);
   color: var(--cafe-on-button);
 }
 
-.cafe-detail--page .cafe-detail__leave--quiet {
-  border-color: color-mix(in srgb, var(--kd-ink) 34%, transparent);
+.cafe-detail__leave--quiet {
+  border-color: color-mix(in srgb, var(--cafe-text) 34%, transparent);
   background: var(--cafe-background);
+  color: var(--cafe-text);
 }
 
 .cafe-detail__poster {
@@ -1953,7 +1972,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
-  background: #faf8f5;
+  background: var(--cafe-background);
   cursor: zoom-in;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1996,7 +2015,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__hero.is-mark {
-  background: #faf8f5;
+  background: var(--cafe-background);
 }
 
 .cafe-detail__hero.is-mark img {
@@ -2041,7 +2060,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
-  background: #faf8f5;
+  background: var(--cafe-background);
   cursor: pointer;
   scroll-snap-align: start;
   -webkit-tap-highlight-color: transparent;
@@ -2190,7 +2209,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 .cafe-detail__insight > :first-child {
   flex-shrink: 0;
   margin-top: 2px;
-  color: var(--kd-accent);
+  color: var(--cafe-button);
 }
 
 .cafe-detail__insight h3 {
@@ -2225,7 +2244,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   margin-top: 32px;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
   border-radius: 16px;
-  background: #faf8f5;
+  background: var(--cafe-background);
 }
 
 .cafe-detail--page :deep(.cafe-pin-map__frame),
@@ -2243,8 +2262,8 @@ const onGalleryWheel = (event: WheelEvent) => {
   padding: 0 16px;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 34%, transparent);
   border-radius: 16px;
-  background: #ffffff;
-  color: var(--kd-ink);
+  background: var(--cafe-background);
+  color: var(--cafe-text);
   font-size: 0.95rem;
   font-weight: 700;
   font-family: inherit;
@@ -2275,7 +2294,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__empty :deep(svg) {
-  color: var(--kd-accent);
+  color: var(--cafe-button);
 }
 
 .cafe-detail__empty p {
@@ -2308,8 +2327,8 @@ const onGalleryWheel = (event: WheelEvent) => {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--kd-accent);
-  color: var(--kd-ink);
+  background: var(--cafe-button);
+  color: var(--cafe-on-button);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -2341,7 +2360,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail--page :deep(.cafe-owner) {
-  margin-bottom: calc(20px + env(safe-area-inset-bottom));
+  margin-bottom: calc(20px + max(var(--kd-tabbar-inset), env(safe-area-inset-bottom)));
 }
 
 :root.is-android .cafe-detail__leave,
@@ -2372,7 +2391,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 @media (hover: hover) {
   .cafe-detail__close:hover {
     border-color: color-mix(in srgb, var(--kd-ink) 55%, transparent);
-    background: #faf8f5;
+    background: color-mix(in srgb, var(--cafe-text) 8%, var(--cafe-background));
   }
 
   .cafe-detail__navigate:hover .cafe-detail__action-face--primary {
@@ -2380,27 +2399,23 @@ const onGalleryWheel = (event: WheelEvent) => {
   }
 
   .cafe-detail__call:hover .cafe-detail__action-face--quiet {
-    border-color: color-mix(in srgb, var(--kd-ink) 34%, transparent);
+    border-color: color-mix(in srgb, var(--cafe-text) 34%, transparent);
   }
 
-  .cafe-detail__leave:hover {
-    background: #faf8f5;
-  }
-
-  .cafe-detail--page .cafe-detail__leave:hover {
+  .cafe-detail__leave:not(.cafe-detail__leave--quiet):hover {
     background: var(--cafe-button);
     box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
   }
 
-  .cafe-detail--page .cafe-detail__leave--quiet:hover {
-    background: #faf8f5;
+  .cafe-detail__leave--quiet:hover {
+    background: color-mix(in srgb, var(--cafe-text) 8%, var(--cafe-background));
     box-shadow: none;
   }
 }
 
 .cafe-detail__save,
 .cafe-detail__action-face--primary,
-.cafe-detail--page .cafe-detail__leave,
+.cafe-detail__leave:not(.cafe-detail__leave--quiet),
 .cafe-detail__stars {
   transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
 }
@@ -2410,7 +2425,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   .cafe-detail__header h2,
   .cafe-detail__save,
   .cafe-detail__action-face--primary,
-  .cafe-detail--page .cafe-detail__leave,
+  .cafe-detail__leave:not(.cafe-detail__leave--quiet),
   .cafe-detail__stars {
     transition: none;
   }

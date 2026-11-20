@@ -7,12 +7,51 @@ export const ONBOARDING_TEACH_MAP = {
   label: 'Exact location',
 } as const
 
+export type MapsAppKind = 'apple' | 'google'
+
+export function mapsAppFromUserAgent(userAgent: string): MapsAppKind {
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return 'apple'
+  return 'google'
+}
+
+export function mapsAppForClient(input: {
+  platform?: string | null
+  userAgent?: string | null
+}): MapsAppKind {
+  const platform = (input.platform ?? '').trim().toLowerCase()
+  if (platform === 'ios') return 'apple'
+  if (platform === 'android') return 'google'
+  return mapsAppFromUserAgent(input.userAgent ?? '')
+}
+
 export function googleMapsDirectionsUrl(lat: number, lng: number): string {
   const params = new URLSearchParams({
     api: '1',
     destination: `${lat},${lng}`,
   })
   return `https://www.google.com/maps/dir/?${params.toString()}`
+}
+
+export function appleMapsDirectionsUrl(lat: number, lng: number): string {
+  const params = new URLSearchParams({
+    daddr: `${lat},${lng}`,
+    dirflg: 'd',
+  })
+  return `https://maps.apple.com/?${params.toString()}`
+}
+
+export function directionsUrl(
+  lat: number,
+  lng: number,
+  kind: MapsAppKind = 'google',
+): string {
+  return kind === 'apple' ? appleMapsDirectionsUrl(lat, lng) : googleMapsDirectionsUrl(lat, lng)
+}
+
+export function mapsLinkOpensInNewTab(kind: MapsAppKind, platform?: string | null): boolean {
+  const native = (platform ?? '').trim().toLowerCase()
+  if (native === 'ios' || native === 'android' || kind === 'apple') return false
+  return true
 }
 
 export function cafeHasMapPoint(lat: number, lng: number): boolean {

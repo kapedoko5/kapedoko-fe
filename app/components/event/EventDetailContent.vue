@@ -54,9 +54,9 @@
           <a
             class="event-detail__navigate"
             :href="mapsHref"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Navigate to this event in Google Maps"
+            :target="mapsOpensInNewTab ? '_blank' : undefined"
+            :rel="mapsOpensInNewTab ? 'noopener noreferrer' : undefined"
+            aria-label="Navigate to this event in Maps"
           >
             <Navigation :size="16" :stroke-width="2.25" aria-hidden="true" />
             Navigate to this event
@@ -124,10 +124,16 @@
 </template>
 
 <script lang="ts" setup>
+import { Capacitor } from '@capacitor/core'
 import { Calendar, MapPin, Navigation } from 'lucide-vue-next'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { KapeEvent } from '~/types/event'
-import { googleMapsDirectionsUrl } from '~/utils/maps'
+import {
+  directionsUrl,
+  mapsAppForClient,
+  mapsLinkOpensInNewTab,
+  type MapsAppKind,
+} from '~/utils/maps'
 
 const props = withDefaults(defineProps<{
   event: KapeEvent
@@ -144,7 +150,19 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const mapsHref = computed(() => googleMapsDirectionsUrl(props.event.lat, props.event.lng))
+const mapsKind = shallowRef<MapsAppKind>('google')
+const mapsPlatform = shallowRef('web')
+const syncMapsApp = () => {
+  mapsPlatform.value = Capacitor.getPlatform()
+  mapsKind.value = mapsAppForClient({
+    platform: mapsPlatform.value,
+    userAgent: import.meta.client ? navigator.userAgent : '',
+  })
+}
+if (import.meta.client) syncMapsApp()
+onMounted(syncMapsApp)
+const mapsHref = computed(() => directionsUrl(props.event.lat, props.event.lng, mapsKind.value))
+const mapsOpensInNewTab = computed(() => mapsLinkOpensInNewTab(mapsKind.value, mapsPlatform.value))
 const viewer = ref<HTMLDialogElement | null>(null)
 const viewerSrc = ref('')
 const viewerAlt = ref('')
