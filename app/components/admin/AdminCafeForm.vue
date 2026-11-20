@@ -21,7 +21,7 @@
         v-if="shop"
         class="admin-span"
         v-model="draft.vibeTagIds"
-        :tags="enabledTags"
+        :tags="pickerTags"
         :hidden-count="hiddenCount"
         :issue="issues.vibeTags"
         :status="pickerStatus"
@@ -29,15 +29,19 @@
       />
       <CafeDetailsStep
         :key="`details-${resetStamp}`"
+        show-price
         :phone="draft.phone"
+        :price="draft.menuPrice"
         :same-every-day="draft.sameEveryDay"
         :all-day="draft.allDay"
         :open-time="draft.openTime"
         :close-time="draft.closeTime"
         :weekly="draft.weekly"
         :phone-issue="issues.phone"
+        :price-issue="issues.price"
         :hours-issue="issues.hours"
         @update:phone="draft.phone = $event"
+        @update:price="draft.menuPrice = $event"
         @update:sameEveryDay="draft.sameEveryDay = $event"
         @update:allDay="draft.allDay = $event"
         @update:openTime="draft.openTime = $event"
@@ -156,7 +160,15 @@ import {
   SHOP_GALLERY_MAX,
   type ShopPosterRow,
 } from '~/utils/owner-ads'
-import { enabledVibeTags, vibeTagCountError } from '~/utils/admin-vibe-tags'
+import {
+  formatMenuPricePhp,
+  hiddenUserVibeTagCount,
+  parseMenuPricePhp,
+  pickerVibeTags,
+  selectedUserVibeTagIds,
+  vibeIdsWithoutBudgetFriendly,
+  vibeTagCountError,
+} from '~/utils/admin-vibe-tags'
 import { optionalPhone } from '~/utils/phone'
 import { publicObjectUrl } from '~/utils/shop-mapper'
 import { DAY_KEYS } from '~/types/shop'
@@ -194,6 +206,7 @@ const emit = defineEmits<{
     galleryObjectKeys?: string[]
     posterFile?: File | null
     vibeTagIds?: string[]
+    menu_price_php: number | null
   }]
   takeDownPoster: [poster: ShopPosterRow]
 }>()
@@ -228,6 +241,7 @@ const emptyIssues = () => ({
   poster: null as string | null,
   gallery: null as string | null,
   vibeTags: null as string | null,
+  price: null as string | null,
   form: null as string | null,
 })
 
@@ -247,6 +261,7 @@ const emptyDraft = () => {
     closeTime: hours.closeTime,
     weekly: hours.weekly,
     vibeTagIds: [] as string[],
+    menuPrice: '',
   }
 }
 
@@ -276,6 +291,7 @@ const draft = reactive({
   weekly: initial.weekly,
   posterFile: null as File | null,
   vibeTagIds: [] as string[],
+  menuPrice: formatMenuPricePhp(props.shop?.menu_price_php),
 })
 
 const issues = reactive(emptyIssues())
@@ -410,15 +426,9 @@ const assignedForShop = () => {
   if (!shopId) return []
   return admin.shopVibeTags.value.filter((row) => row.shop_id === shopId)
 }
-const enabledTags = computed(() => enabledVibeTags(admin.vibeTagNames.value))
-const selectedEnabledIds = () => {
-  const enabled = new Set(enabledTags.value.map((tag) => tag.id))
-  return assignedForShop().flatMap((row) => enabled.has(row.tag_id) ? [row.tag_id] : [])
-}
-const hiddenCount = computed(() => {
-  const enabled = new Set(enabledTags.value.map((tag) => tag.id))
-  return assignedForShop().filter((row) => !enabled.has(row.tag_id)).length
-})
+const pickerTags = computed(() => pickerVibeTags(admin.vibeTagNames.value))
+const selectedEnabledIds = () => selectedUserVibeTagIds(assignedForShop(), admin.vibeTagNames.value)
+const hiddenCount = computed(() => hiddenUserVibeTagCount(assignedForShop(), admin.vibeTagNames.value))
 const pickerStatus = computed(() => {
   if (admin.status.value === 'error' || admin.status.value === 'forbidden') return 'error' as const
   if (admin.status.value === 'loading' || admin.status.value === 'idle') return 'loading' as const
@@ -456,6 +466,7 @@ const onSubmit = () => {
     phone: draft.phone,
     hours: draft.weekly,
     logoFile: draft.logoFile,
+    price: draft.menuPrice,
   })
   const galleryIssue = props.shop
     ? featuredPhotoCountError(galleryItems.value.length)
@@ -478,7 +489,10 @@ const onSubmit = () => {
       ? galleryItems.value.flatMap((item) => item.file ? [] : (item.objectKey ? [item.objectKey] : []))
       : undefined,
     posterFile: props.shop ? draft.posterFile : undefined,
-    vibeTagIds: props.shop && pickerStatus.value === 'ready' ? draft.vibeTagIds : undefined,
+    vibeTagIds: props.shop && pickerStatus.value === 'ready'
+      ? vibeIdsWithoutBudgetFriendly(draft.vibeTagIds, admin.vibeTagNames.value)
+      : undefined,
+    menu_price_php: parseMenuPricePhp(draft.menuPrice),
   })
 }
 </script>

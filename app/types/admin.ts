@@ -12,6 +12,7 @@ export type AdminNavId =
   | 'events'
   | 'badges'
   | 'vibe-tags'
+  | 'price-marks'
   | 'theme'
   | 'users'
   | 'moderation'

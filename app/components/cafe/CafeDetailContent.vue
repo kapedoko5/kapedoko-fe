@@ -6,7 +6,16 @@
   >
     <header class="cafe-detail__header">
       <div class="cafe-detail__title-row">
-        <h2>{{ cafe.name }}</h2>
+        <div class="cafe-detail__name">
+          <h2>{{ cafe.name }}</h2>
+          <p
+            v-if="priceMarks"
+            class="cafe-detail__pesos"
+            :aria-label="priceAria"
+          >
+            <span aria-hidden="true">{{ priceMarks }}</span>
+          </p>
+        </div>
         <button
           type="button"
           class="cafe-detail__save"
@@ -500,7 +509,11 @@
 
 <script lang="ts" setup>
 import { Armchair, BadgeAlert, BadgeCheck, ChevronLeft, ChevronRight, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff, X } from 'lucide-vue-next'
-import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
+import { cafePricePesoMarks, cafePriceTierLabel } from '~/utils/cafe-price-marks'
+import {
+  vibeTagColorStyle,
+  vibeTagLucideComponent,
+} from '~/utils/admin-vibe-tags'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import CafeOwnerCard from '~/components/cafe/CafeOwnerCard.vue'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
@@ -538,6 +551,7 @@ const emit = defineEmits<{
 }>()
 
 const favorites = useFavorites()
+const { marks } = useCafePriceMarks()
 const { currentUserId, goToLogin, user } = useAuth()
 const { record } = useShopTrafficCapture()
 const supabase = useSupabaseClient()
@@ -583,6 +597,8 @@ const themeStyle = computed(() => cafeThemeStyle(
 const monthCopy = computed(() => monthCheckInCopy(props.cafe.checkIns30d))
 const meterSeats = BUSYNESS_METER_SEATS
 const crowdFill = computed(() => busynessMeterFill(props.cafe.busyness?.level))
+const priceMarks = computed(() => cafePricePesoMarks(props.cafe.menuPricePhp, marks.value))
+const priceAria = computed(() => cafePriceTierLabel(props.cafe.menuPricePhp, marks.value) ?? undefined)
 
 const refreshOwnReview = async () => {
   const request = ++ownReviewRequest
@@ -1228,6 +1244,10 @@ const onGalleryWheel = (event: WheelEvent) => {
   font-size: 1.6rem;
 }
 
+.cafe-detail--page .cafe-detail__pesos {
+  font-size: 1.05rem;
+}
+
 .cafe-detail--page .cafe-detail__address,
 .cafe-detail--page .cafe-detail__hours,
 .cafe-detail--page .cafe-detail__prompt {
@@ -1317,7 +1337,7 @@ const onGalleryWheel = (event: WheelEvent) => {
     'save nav .';
 }
 
-.cafe-detail--sheet .cafe-detail__title-row h2 {
+.cafe-detail--sheet .cafe-detail__title-row .cafe-detail__name {
   grid-area: name;
 }
 
@@ -1337,10 +1357,18 @@ const onGalleryWheel = (event: WheelEvent) => {
   justify-self: end;
 }
 
+.cafe-detail__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 10px;
+  min-width: 0;
+}
+
 .cafe-detail__header h2 {
   margin: 0;
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
   color: var(--cafe-text);
   font-size: 1.325rem;
   font-weight: 700;
@@ -1348,6 +1376,17 @@ const onGalleryWheel = (event: WheelEvent) => {
   letter-spacing: -0.03em;
   overflow-wrap: anywhere;
   transition: color 180ms ease;
+}
+
+.cafe-detail__pesos {
+  margin: 0;
+  flex: 0 0 auto;
+  color: var(--kd-primary);
+  font-family: 'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.08em;
 }
 
 .cafe-detail__save {

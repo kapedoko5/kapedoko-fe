@@ -15,7 +15,7 @@
     <p v-if="nameReviewCopy" class="owner-form__notice" role="status">{{ nameReviewCopy }}</p>
     <CafeVibeTagPicker
       v-model="draft.vibeTagIds"
-      :tags="enabledTags"
+      :tags="pickerTags"
       :hidden-count="hiddenCount"
       :issue="issues.vibeTags"
       :status="pickerStatus"
@@ -29,15 +29,19 @@
       @issue="issues.gallery = $event"
     />
     <CafeDetailsStep
+      show-price
       :phone="draft.phone"
+      :price="draft.menuPrice"
       :same-every-day="draft.sameEveryDay"
       :all-day="draft.allDay"
       :open-time="draft.openTime"
       :close-time="draft.closeTime"
       :weekly="draft.weekly"
       :phone-issue="issues.phone"
+      :price-issue="issues.price"
       :hours-issue="issues.hours"
       @update:phone="draft.phone = $event"
+      @update:price="draft.menuPrice = $event"
       @update:sameEveryDay="draft.sameEveryDay = $event"
       @update:allDay="draft.allDay = $event"
       @update:openTime="draft.openTime = $event"
@@ -73,7 +77,15 @@ import CafeDetailsStep from '~/components/submit/CafeDetailsStep.vue'
 import CafeLocationPicker from '~/components/submit/CafeLocationPicker.client.vue'
 import OwnerFeaturedPhotos from '~/components/owner-portal/OwnerFeaturedPhotos.vue'
 import type { ShopRow, WeeklyHours } from '~/types/shop'
-import { enabledVibeTags, vibeTagCountError } from '~/utils/admin-vibe-tags'
+import {
+  formatMenuPricePhp,
+  hiddenUserVibeTagCount,
+  parseMenuPricePhp,
+  pickerVibeTags,
+  selectedUserVibeTagIds,
+  vibeIdsWithoutBudgetFriendly,
+  vibeTagCountError,
+} from '~/utils/admin-vibe-tags'
 import { adminCafeErrors } from '~/utils/admin-shop'
 import { allDayEveryDay, isValidWeeklyHours, sameHoursEveryDay } from '~/utils/hours'
 import { normalizeAddress, normalizeCafeName } from '~/utils/identity'
@@ -108,6 +120,7 @@ const emit = defineEmits<{
     galleryFiles: File[]
     galleryObjectKeys: string[]
     vibeTagIds?: string[]
+    menu_price_php: number | null
   }]
 }>()
 
@@ -130,10 +143,7 @@ const publicBase = String(config.public.r2PublicBaseUrl || '')
 const ownership = useShopOwnership()
 const initial = hoursFromShop(props.shop.hours)
 const assignedForShop = () => ownership.shopVibeTags.value.filter((row) => row.shop_id === props.shop.id)
-const selectedEnabledIds = () => {
-  const enabled = new Set(enabledVibeTags(ownership.vibeTagNames.value).map((tag) => tag.id))
-  return assignedForShop().flatMap((row) => enabled.has(row.tag_id) ? [row.tag_id] : [])
-}
+const selectedEnabledIds = () => selectedUserVibeTagIds(assignedForShop(), ownership.vibeTagNames.value)
 const galleryMax = computed(() => ownerGalleryMax(ownership.hasFeature(props.shop.id, 'featured_photos')))
 const nameReviewCopy = computed(() => ownerNameReviewCopy(props.shop))
 
@@ -145,6 +155,7 @@ const draft = reactive({
   lng: props.shop.longitude as number | null,
   address: props.shop.address,
   phone: props.shop.contact_number ?? '',
+  menuPrice: formatMenuPricePhp(props.shop.menu_price_php),
   galleryFiles: [] as File[],
   galleryObjectKeys: [...(props.shop.gallery_object_keys ?? [])],
   vibeTagIds: selectedEnabledIds(),
@@ -164,6 +175,7 @@ const issues = reactive({
   hours: null as string | null,
   gallery: null as string | null,
   vibeTags: null as string | null,
+  price: null as string | null,
   form: null as string | null,
 })
 
@@ -188,11 +200,8 @@ const onGallery = (payload: { files: File[]; objectKeys: string[] }) => {
   issues.gallery = featuredPhotoCountError(payload.files.length + payload.objectKeys.length, galleryMax.value)
 }
 
-const enabledTags = computed(() => enabledVibeTags(ownership.vibeTagNames.value))
-const hiddenCount = computed(() => {
-  const enabled = new Set(enabledTags.value.map((tag) => tag.id))
-  return assignedForShop().filter((row) => !enabled.has(row.tag_id)).length
-})
+const pickerTags = computed(() => pickerVibeTags(ownership.vibeTagNames.value))
+const hiddenCount = computed(() => hiddenUserVibeTagCount(assignedForShop(), ownership.vibeTagNames.value))
 const pickerStatus = computed(() => {
   if (ownership.status.value === 'error') return 'error' as const
   if (ownership.status.value === 'loading' || ownership.status.value === 'idle') return 'loading' as const
@@ -234,6 +243,7 @@ const onSubmit = () => {
     phone: draft.phone,
     hours: draft.weekly,
     logoFile: draft.logoFile,
+    price: draft.menuPrice,
   })
   const galleryIssue = featuredPhotoCountError(draft.galleryFiles.length + draft.galleryObjectKeys.length, galleryMax.value)
   const vibeIssue = vibeTagCountError(draft.vibeTagIds.length, hiddenCount.value)
@@ -250,7 +260,10 @@ const onSubmit = () => {
     logoObjectKey: draft.logoObjectKey,
     galleryFiles: draft.galleryFiles,
     galleryObjectKeys: draft.galleryObjectKeys,
-    vibeTagIds: pickerStatus.value === 'ready' ? draft.vibeTagIds : undefined,
+    vibeTagIds: pickerStatus.value === 'ready'
+      ? vibeIdsWithoutBudgetFriendly(draft.vibeTagIds, ownership.vibeTagNames.value)
+      : undefined,
+    menu_price_php: parseMenuPricePhp(draft.menuPrice),
   })
 }
 </script>

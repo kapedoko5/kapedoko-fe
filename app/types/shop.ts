@@ -79,6 +79,7 @@ export interface ShopRow {
   theme_background_hex?: string | null
   pending_name?: string | null
   contact_number: string | null
+  menu_price_php?: number | null
   status: ShopStatus
   submitted_by: string | null
   reviewed_by: string | null

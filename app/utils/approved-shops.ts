@@ -43,15 +43,18 @@ const APPROVED_SHOP_COLUMNS_CORE =
 
 const APPROVED_SHOP_GALLERY_COLUMNS = 'gallery_object_keys'
 const APPROVED_SHOP_THEME_COLUMNS = 'theme_button_hex,theme_text_hex,theme_background_hex'
+const APPROVED_SHOP_PRICE_COLUMNS = 'menu_price_php'
 
 export const APPROVED_SHOP_COLUMNS =
-  `${APPROVED_SHOP_COLUMNS_CORE},${APPROVED_SHOP_GALLERY_COLUMNS},${APPROVED_SHOP_THEME_COLUMNS}`
+  `${APPROVED_SHOP_COLUMNS_CORE},${APPROVED_SHOP_PRICE_COLUMNS},${APPROVED_SHOP_GALLERY_COLUMNS},${APPROVED_SHOP_THEME_COLUMNS}`
 
 let includeGalleryColumns = true
 let includeThemeColumns = true
+let includeMenuPriceColumns = true
 
 function shopColumnSelect(): string {
   const extra = [
+    includeMenuPriceColumns ? APPROVED_SHOP_PRICE_COLUMNS : '',
     includeGalleryColumns ? APPROVED_SHOP_GALLERY_COLUMNS : '',
     includeThemeColumns ? APPROVED_SHOP_THEME_COLUMNS : '',
   ].filter(Boolean)
@@ -80,6 +83,10 @@ export function isMissingShopGalleryColumn(error: unknown): boolean {
   return isMissingColumn(error, 'gallery_object_keys')
 }
 
+export function isMissingMenuPriceColumn(error: unknown): boolean {
+  return isMissingColumn(error, 'menu_price_php')
+}
+
 export function isMissingShopThemeColumn(error: unknown): boolean {
   return isMissingColumn(error, 'theme_button_hex|theme_text_hex|theme_background_hex')
 }
@@ -87,6 +94,7 @@ export function isMissingShopThemeColumn(error: unknown): boolean {
 export function resetApprovedShopSelectForTests(): void {
   includeGalleryColumns = true
   includeThemeColumns = true
+  includeMenuPriceColumns = true
 }
 
 function dropOptionalShopColumns(error: unknown): boolean {
@@ -96,6 +104,10 @@ function dropOptionalShopColumns(error: unknown): boolean {
   }
   if (includeThemeColumns && isMissingShopThemeColumn(error)) {
     includeThemeColumns = false
+    return true
+  }
+  if (includeMenuPriceColumns && isMissingMenuPriceColumn(error)) {
+    includeMenuPriceColumns = false
     return true
   }
   return false

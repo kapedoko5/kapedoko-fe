@@ -53,6 +53,7 @@ export interface Cafe {
   status: string
   hoursHint: string
   phone?: string
+  menuPricePhp?: number | null
   amenities: Amenity[] | 'none'
   work: CafeWorkFacts
   popular: boolean

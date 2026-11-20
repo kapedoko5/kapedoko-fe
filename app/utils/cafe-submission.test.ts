@@ -298,6 +298,8 @@ describe('shop to cafe mapping', () => {
   test('defaults unpaid shops to the standard pin', () => {
     expect(mapShopToCafe(shop).markerTier).toBe('standard')
     expect(mapShopToCafe(shop).badges).toEqual([])
+    expect(mapShopToCafe(shop).menuPricePhp).toBeNull()
+    expect(mapShopToCafe({ ...shop, menu_price_php: 95 }).menuPricePhp).toBe(95)
   })
 
   test('carries cafe-detail button and text ink', () => {
