@@ -223,14 +223,34 @@
       </div>
 
       <div v-if="cafe.poster" class="cafe-detail__poster">
-        <img :src="cafe.poster" :alt="`${cafe.name} poster`" width="720" height="420" />
+        <button
+          type="button"
+          class="cafe-detail__poster-btn"
+          :aria-label="`View ${cafe.name} poster`"
+          @click="openPoster"
+        >
+          <img :src="cafe.poster" :alt="`${cafe.name} poster`" width="720" height="420" />
+        </button>
       </div>
 
       <div class="cafe-detail__gallery">
-        <div class="cafe-detail__hero" :class="{ 'is-mark': heroIsMark }">
+        <button
+          v-if="!heroIsMark"
+          type="button"
+          class="cafe-detail__hero"
+          :aria-label="`View ${cafe.name} photos`"
+          @click="openGallery"
+        >
           <img
             :src="heroSrc"
-            :alt="heroIsMark ? '' : `${cafe.name} interior`"
+            :alt="`${cafe.name} interior`"
+            @error="onHeroError"
+          />
+        </button>
+        <div v-else class="cafe-detail__hero is-mark">
+          <img
+            :src="heroSrc"
+            alt=""
             @error="onHeroError"
           />
         </div>
@@ -242,7 +262,13 @@
         >
           Report this photo
         </button>
-        <div v-if="photos.length > 1" class="cafe-detail__thumbs" role="group" aria-label="Cafe photos">
+        <div
+          v-if="photos.length > 1"
+          ref="thumbsRef"
+          class="cafe-detail__thumbs"
+          role="group"
+          aria-label="Cafe photos"
+        >
           <button
             v-for="(photo, index) in photos"
             :key="`${photo}-${index}`"
@@ -390,11 +416,85 @@
         :cafe-name="cafe.name"
       />
     </div>
+
+    <Teleport to="body">
+      <dialog
+        :id="galleryId"
+        ref="galleryRef"
+        class="cafe-gallery"
+        :aria-labelledby="galleryTitleId"
+        @close="onGalleryClose"
+        @click="onGalleryBackdrop"
+        @keydown="onGalleryKeydown"
+      >
+        <h3 :id="galleryTitleId" class="sr-only">{{ galleryAlt }}</h3>
+        <div
+          ref="galleryStageRef"
+          class="cafe-gallery__stage"
+          :class="{
+            'is-zoomed': galleryScale > 1.02,
+            'is-busy': galleryZoomBusy,
+          }"
+          @pointerdown="onGalleryPointerDown"
+          @pointermove="onGalleryPointerMove"
+          @pointerup="onGalleryPointerUp"
+          @pointercancel="onGalleryPointerCancel"
+          @touchstart="onGalleryTouchStart"
+          @touchmove.prevent="onGalleryTouchMove"
+          @touchend="onGalleryTouchEnd"
+          @touchcancel="onGalleryTouchEnd"
+          @wheel.prevent="onGalleryWheel"
+        >
+          <div
+            class="cafe-gallery__frame"
+            :class="{ 'is-busy': galleryZoomBusy }"
+            :style="galleryZoomStyle"
+          >
+            <img
+              :key="gallerySrc"
+              class="cafe-gallery__image"
+              :src="gallerySrc"
+              :alt="galleryAlt"
+              draggable="false"
+            />
+          </div>
+        </div>
+        <p v-if="galleryCanStep" class="cafe-gallery__count">
+          {{ activePhoto + 1 }} of {{ photos.length }}
+        </p>
+        <button
+          v-if="galleryCanStep"
+          type="button"
+          class="cafe-gallery__nav cafe-gallery__nav--prev"
+          aria-label="Previous photo"
+          @click.stop="stepGallery(-1)"
+        >
+          <ChevronLeft :size="22" :stroke-width="2.25" aria-hidden="true" />
+        </button>
+        <button
+          v-if="galleryCanStep"
+          type="button"
+          class="cafe-gallery__nav cafe-gallery__nav--next"
+          aria-label="Next photo"
+          @click.stop="stepGallery(1)"
+        >
+          <ChevronRight :size="22" :stroke-width="2.25" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="cafe-gallery__close"
+          aria-label="Close photo"
+          @click.stop="closeGallery"
+        >
+          <X :size="22" :stroke-width="2.25" aria-hidden="true" />
+        </button>
+      </dialog>
+    </Teleport>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { Armchair, BadgeAlert, BadgeCheck, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
+import { Armchair, BadgeAlert, BadgeCheck, ChevronLeft, ChevronRight, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff, X } from 'lucide-vue-next'
 import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import CafeOwnerCard from '~/components/cafe/CafeOwnerCard.vue'
@@ -437,6 +537,31 @@ const supabase = useSupabaseClient()
 const route = useRoute()
 const broken = ref<Record<string, boolean>>({})
 const activePhoto = ref(0)
+const thumbsRef = ref<HTMLElement | null>(null)
+const galleryRef = ref<HTMLDialogElement | null>(null)
+const galleryStageRef = ref<HTMLElement | null>(null)
+const galleryMode = ref<'photos' | 'poster'>('photos')
+const galleryScale = ref(1)
+const galleryZoomX = ref(0)
+const galleryZoomY = ref(0)
+const galleryZoomBusy = ref(false)
+const galleryId = useId()
+const galleryTitleId = `${galleryId}-title`
+const GALLERY_MIN_SCALE = 1
+const GALLERY_MAX_SCALE = 4
+const GALLERY_TAP_SCALE = 2.5
+const galleryPointers = new Map<number, { x: number; y: number }>()
+let gallerySwipeX: number | null = null
+let galleryPinch: {
+  startDist: number
+  startScale: number
+  localX: number
+  localY: number
+} | null = null
+let galleryPan: { startX: number; startY: number; originX: number; originY: number } | null = null
+let galleryLastTap: { t: number; x: number; y: number } | null = null
+let galleryPinched = false
+let galleryMoved = false
 const reportNotice = ref('')
 const ownReviewId = ref<string | null>(null)
 const ownReviewChecked = ref(false)
@@ -527,8 +652,7 @@ const reportTarget = async (target: 'review' | 'shop_photo', reviewId?: string) 
 
 const photos = computed(() => {
   const list = props.cafe.photos.length ? [...props.cafe.photos] : [props.cafe.image]
-  const unique = [...new Set(list)]
-  return unique.slice(0, 4)
+  return [...new Set(list)]
 })
 
 const heroPhoto = computed(() => photos.value[activePhoto.value] ?? photos.value[0])
@@ -624,13 +748,361 @@ watch(
   () => {
     broken.value = {}
     activePhoto.value = 0
+    closeGallery()
   },
 )
+
+watch(activePhoto, async (index) => {
+  await nextTick()
+  const scroller = thumbsRef.value
+  const thumb = scroller?.children[index]
+  if (!(scroller instanceof HTMLElement) || !(thumb instanceof HTMLElement)) return
+  const left = thumb.offsetLeft - (scroller.clientWidth - thumb.offsetWidth) / 2
+  scroller.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+})
+
+const galleryCanStep = computed(() => galleryMode.value === 'photos' && photos.value.length > 1)
+const gallerySrc = computed(() => (
+  galleryMode.value === 'poster'
+    ? (props.cafe.poster ?? '')
+    : (photos.value[activePhoto.value] ?? heroSrc.value)
+))
+const galleryAlt = computed(() => (
+  galleryMode.value === 'poster'
+    ? `${props.cafe.name} poster`
+    : `${props.cafe.name} photo ${activePhoto.value + 1}`
+))
+const galleryZoomStyle = computed(() => ({
+  transform: `translate3d(${galleryZoomX.value}px, ${galleryZoomY.value}px, 0) scale(${galleryScale.value})`,
+}))
+
+const clampGallery = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+const galleryPointDistance = (
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) => Math.hypot(a.x - b.x, a.y - b.y)
+
+const galleryPointMid = (
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+
+const resetGalleryZoom = () => {
+  galleryScale.value = 1
+  galleryZoomX.value = 0
+  galleryZoomY.value = 0
+  galleryZoomBusy.value = false
+  galleryPinch = null
+  galleryPan = null
+  gallerySwipeX = null
+  galleryPointers.clear()
+}
+
+const clampGalleryPan = () => {
+  const stage = galleryStageRef.value
+  const frame = stage?.firstElementChild
+  if (!(stage instanceof HTMLElement) || !(frame instanceof HTMLElement)) return
+  const scale = galleryScale.value
+  if (scale <= 1.001) {
+    galleryZoomX.value = 0
+    galleryZoomY.value = 0
+    return
+  }
+  const extraX = Math.max(0, (frame.offsetWidth * scale - stage.clientWidth) / 2)
+  const extraY = Math.max(0, (frame.offsetHeight * scale - stage.clientHeight) / 2)
+  galleryZoomX.value = clampGallery(galleryZoomX.value, -extraX, extraX)
+  galleryZoomY.value = clampGallery(galleryZoomY.value, -extraY, extraY)
+}
+
+const zoomGalleryAt = (clientX: number, clientY: number, nextScale: number) => {
+  const stage = galleryStageRef.value
+  if (!stage) return
+  const rect = stage.getBoundingClientRect()
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height / 2
+  const prev = Math.max(galleryScale.value, 0.01)
+  const scale = clampGallery(nextScale, GALLERY_MIN_SCALE, GALLERY_MAX_SCALE)
+  if (scale <= 1.001) {
+    galleryScale.value = 1
+    galleryZoomX.value = 0
+    galleryZoomY.value = 0
+    return
+  }
+  const localX = (clientX - cx - galleryZoomX.value) / prev
+  const localY = (clientY - cy - galleryZoomY.value) / prev
+  galleryScale.value = scale
+  galleryZoomX.value = clientX - cx - localX * scale
+  galleryZoomY.value = clientY - cy - localY * scale
+  clampGalleryPan()
+}
+
+const captureGalleryPointer = (event: PointerEvent) => {
+  const node = event.currentTarget
+  if (!(node instanceof HTMLElement) || node.hasPointerCapture(event.pointerId)) return
+  try {
+    node.setPointerCapture(event.pointerId)
+  } catch {
+    /* already released */
+  }
+}
 
 const selectPhoto = (index: number) => {
   activePhoto.value = index
   broken.value.hero = Boolean(broken.value[`t${index}`])
   trackAction('photo_view')
+}
+
+const showGallery = () => {
+  resetGalleryZoom()
+  void nextTick(() => galleryRef.value?.showModal())
+}
+
+const openGallery = () => {
+  if (heroIsMark.value) return
+  galleryMode.value = 'photos'
+  trackAction('photo_view')
+  showGallery()
+}
+
+const openPoster = () => {
+  if (!props.cafe.poster) return
+  galleryMode.value = 'poster'
+  trackAction('photo_view')
+  showGallery()
+}
+
+const closeGallery = () => {
+  resetGalleryZoom()
+  if (galleryRef.value?.open) galleryRef.value.close()
+}
+
+const onGalleryClose = () => {
+  resetGalleryZoom()
+}
+
+const onGalleryBackdrop = (event: MouseEvent) => {
+  if (event.target === galleryRef.value) closeGallery()
+}
+
+const stepGallery = (delta: number) => {
+  if (!galleryCanStep.value) return
+  const total = photos.value.length
+  const next = (activePhoto.value + delta + total) % total
+  resetGalleryZoom()
+  selectPhoto(next)
+}
+
+const onGalleryKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    stepGallery(1)
+  }
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    stepGallery(-1)
+  }
+}
+
+type GalleryPoint = { x: number; y: number }
+
+const galleryTouchPoint = (touch: Touch): GalleryPoint => ({ x: touch.clientX, y: touch.clientY })
+
+const startGalleryPinch = (a: GalleryPoint, b: GalleryPoint) => {
+  const stage = galleryStageRef.value
+  if (!stage) return
+  galleryPinched = true
+  gallerySwipeX = null
+  galleryPan = null
+  galleryZoomBusy.value = true
+  const mid = galleryPointMid(a, b)
+  const rect = stage.getBoundingClientRect()
+  const scale = Math.max(galleryScale.value, 0.01)
+  galleryPinch = {
+    startDist: Math.max(1, galleryPointDistance(a, b)),
+    startScale: scale,
+    localX: (mid.x - (rect.left + rect.width / 2) - galleryZoomX.value) / scale,
+    localY: (mid.y - (rect.top + rect.height / 2) - galleryZoomY.value) / scale,
+  }
+}
+
+const moveGalleryPinch = (a: GalleryPoint, b: GalleryPoint) => {
+  const stage = galleryStageRef.value
+  if (!stage || !galleryPinch) return
+  const mid = galleryPointMid(a, b)
+  const rect = stage.getBoundingClientRect()
+  const scale = clampGallery(
+    galleryPinch.startScale * (galleryPointDistance(a, b) / galleryPinch.startDist),
+    GALLERY_MIN_SCALE,
+    GALLERY_MAX_SCALE,
+  )
+  galleryScale.value = scale
+  galleryZoomX.value = mid.x - (rect.left + rect.width / 2) - galleryPinch.localX * scale
+  galleryZoomY.value = mid.y - (rect.top + rect.height / 2) - galleryPinch.localY * scale
+  clampGalleryPan()
+  galleryMoved = true
+}
+
+const startGalleryPan = (point: GalleryPoint) => {
+  galleryPan = {
+    startX: point.x,
+    startY: point.y,
+    originX: galleryZoomX.value,
+    originY: galleryZoomY.value,
+  }
+  gallerySwipeX = null
+  galleryZoomBusy.value = true
+}
+
+const moveGalleryPan = (point: GalleryPoint) => {
+  if (!galleryPan) return
+  galleryZoomX.value = galleryPan.originX + (point.x - galleryPan.startX)
+  galleryZoomY.value = galleryPan.originY + (point.y - galleryPan.startY)
+  clampGalleryPan()
+  galleryMoved = true
+}
+
+const startGalleryOneFinger = (point: GalleryPoint) => {
+  galleryZoomBusy.value = true
+  galleryMoved = false
+  galleryPinched = false
+  galleryPinch = null
+  if (galleryScale.value > 1.02) startGalleryPan(point)
+  else {
+    galleryPan = null
+    gallerySwipeX = point.x
+  }
+}
+
+const endGalleryGesture = (point: GalleryPoint) => {
+  galleryPinch = null
+  galleryPan = null
+  galleryZoomBusy.value = false
+  if (galleryScale.value < 1.05) {
+    galleryScale.value = 1
+    galleryZoomX.value = 0
+    galleryZoomY.value = 0
+  }
+
+  const swipeStart = gallerySwipeX
+  gallerySwipeX = null
+
+  if (galleryPinched) {
+    galleryPinched = false
+    galleryLastTap = null
+    galleryMoved = false
+    return
+  }
+
+  const now = performance.now()
+  const tap = galleryLastTap
+  const tapDist = tap ? Math.hypot(point.x - tap.x, point.y - tap.y) : Number.POSITIVE_INFINITY
+  const isTap = !galleryMoved || (swipeStart != null && Math.abs(point.x - swipeStart) < 12)
+  galleryMoved = false
+
+  if (isTap && tap && now - tap.t < 300 && tapDist < 28) {
+    galleryLastTap = null
+    if (galleryScale.value > 1.05) {
+      galleryScale.value = 1
+      galleryZoomX.value = 0
+      galleryZoomY.value = 0
+    } else {
+      zoomGalleryAt(point.x, point.y, GALLERY_TAP_SCALE)
+    }
+    return
+  }
+  if (isTap) galleryLastTap = { t: now, x: point.x, y: point.y }
+
+  if (swipeStart != null && galleryScale.value <= 1.02) {
+    const delta = point.x - swipeStart
+    if (delta > 48) stepGallery(-1)
+    else if (delta < -48) stepGallery(1)
+  }
+}
+
+const onGalleryPointerDown = (event: PointerEvent) => {
+  if (event.pointerType === 'touch') return
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  captureGalleryPointer(event)
+  galleryPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  if (galleryPointers.size >= 2) {
+    const [a, b] = [...galleryPointers.values()]
+    startGalleryPinch(a, b)
+    return
+  }
+  startGalleryOneFinger({ x: event.clientX, y: event.clientY })
+}
+
+const onGalleryPointerMove = (event: PointerEvent) => {
+  if (event.pointerType === 'touch') return
+  if (!galleryPointers.has(event.pointerId)) return
+  galleryPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  if (galleryPinch && galleryPointers.size >= 2) {
+    const [a, b] = [...galleryPointers.values()]
+    moveGalleryPinch(a, b)
+    return
+  }
+  moveGalleryPan({ x: event.clientX, y: event.clientY })
+}
+
+const onGalleryPointerUp = (event: PointerEvent) => {
+  if (event.pointerType === 'touch') return
+  galleryPointers.delete(event.pointerId)
+  if (galleryPointers.size === 1 && galleryScale.value > 1.02) {
+    startGalleryPan([...galleryPointers.values()][0])
+    return
+  }
+  if (galleryPointers.size > 0) return
+  endGalleryGesture({ x: event.clientX, y: event.clientY })
+}
+
+const onGalleryPointerCancel = (event: PointerEvent) => {
+  if (event.pointerType === 'touch') return
+  galleryPointers.delete(event.pointerId)
+  galleryPinch = null
+  galleryPan = null
+  gallerySwipeX = null
+  galleryPinched = false
+  galleryMoved = false
+  galleryZoomBusy.value = false
+}
+
+const onGalleryTouchStart = (event: TouchEvent) => {
+  if (event.touches.length >= 2) {
+    event.preventDefault()
+    startGalleryPinch(galleryTouchPoint(event.touches[0]), galleryTouchPoint(event.touches[1]))
+    return
+  }
+  if (event.touches.length === 1) startGalleryOneFinger(galleryTouchPoint(event.touches[0]))
+}
+
+const onGalleryTouchMove = (event: TouchEvent) => {
+  if (event.touches.length >= 2) {
+    if (!galleryPinch) {
+      startGalleryPinch(galleryTouchPoint(event.touches[0]), galleryTouchPoint(event.touches[1]))
+    }
+    moveGalleryPinch(galleryTouchPoint(event.touches[0]), galleryTouchPoint(event.touches[1]))
+    return
+  }
+  if (event.touches.length === 1) moveGalleryPan(galleryTouchPoint(event.touches[0]))
+}
+
+const onGalleryTouchEnd = (event: TouchEvent) => {
+  galleryPinch = null
+  if (event.touches.length >= 2) {
+    startGalleryPinch(galleryTouchPoint(event.touches[0]), galleryTouchPoint(event.touches[1]))
+    return
+  }
+  if (event.touches.length === 1) {
+    startGalleryPan(galleryTouchPoint(event.touches[0]))
+    return
+  }
+  const last = event.changedTouches[0]
+  endGalleryGesture(last ? galleryTouchPoint(last) : { x: 0, y: 0 })
+}
+
+const onGalleryWheel = (event: WheelEvent) => {
+  zoomGalleryAt(event.clientX, event.clientY, galleryScale.value * (event.deltaY > 0 ? 0.9 : 1.12))
 }
 </script>
 
@@ -1353,26 +1825,75 @@ const selectPhoto = (index: number) => {
 }
 
 .cafe-detail__poster {
+  --cafe-poster-height: 150px;
   padding: 0 16px 12px;
 }
 
-.cafe-detail__poster img {
+.cafe-detail--page .cafe-detail__poster {
+  --cafe-poster-height: 160px;
+}
+
+@media (min-width: 600px) {
+  .cafe-detail__poster {
+    --cafe-poster-height: 180px;
+  }
+
+  .cafe-detail--page .cafe-detail__poster {
+    --cafe-poster-height: 200px;
+  }
+}
+
+@media (min-width: 840px) {
+  .cafe-detail__poster {
+    --cafe-poster-height: 200px;
+  }
+
+  .cafe-detail--page .cafe-detail__poster {
+    --cafe-poster-height: 220px;
+  }
+}
+
+.cafe-detail__poster-btn {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 280px;
-  object-fit: cover;
+  height: var(--cafe-poster-height);
+  max-height: var(--cafe-poster-height);
+  padding: 0;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
   background: #faf8f5;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cafe-detail__poster-btn img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
 }
 
 .cafe-detail__hero {
+  display: block;
+  width: 100%;
   overflow: hidden;
   height: 175px;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
   background: #f2f2f2;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cafe-detail__hero.is-mark {
+  cursor: default;
 }
 
 .cafe-detail__hero img,
@@ -1403,13 +1924,27 @@ const selectPhoto = (index: number) => {
 }
 
 .cafe-detail__thumbs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 2px;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
   margin-top: 10px;
+  padding: 4px 2px 6px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cafe-detail__thumbs::-webkit-scrollbar {
+  display: none;
 }
 
 .cafe-detail__thumb {
+  flex: 0 0 88px;
+  width: 88px;
   overflow: hidden;
   height: 71px;
   padding: 0;
@@ -1417,11 +1952,141 @@ const selectPhoto = (index: number) => {
   border-radius: 16px;
   background: #faf8f5;
   cursor: pointer;
+  scroll-snap-align: start;
   -webkit-tap-highlight-color: transparent;
 }
 
 .cafe-detail__thumb.is-active {
   box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--kd-primary);
+}
+
+.cafe-gallery {
+  width: min(960px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--kd-ink);
+  touch-action: none;
+}
+
+.cafe-gallery[open] {
+  animation: cafe-gallery-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cafe-gallery::backdrop {
+  background: color-mix(in srgb, #1c1917 72%, transparent);
+}
+
+.cafe-gallery[open]::backdrop {
+  animation: cafe-gallery-backdrop 280ms ease-out;
+}
+
+.cafe-gallery__stage {
+  display: grid;
+  place-items: center;
+  min-height: min(62vh, 520px);
+  overflow: hidden;
+  touch-action: none;
+  cursor: zoom-in;
+  user-select: none;
+}
+
+.cafe-gallery__stage.is-zoomed {
+  cursor: grab;
+}
+
+.cafe-gallery__stage.is-busy {
+  cursor: grabbing;
+}
+
+.cafe-gallery__frame {
+  display: grid;
+  place-items: center;
+  max-width: 100%;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.cafe-gallery__frame:not(.is-busy) {
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cafe-gallery__image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: min(80vh, calc(100vh - 112px));
+  object-fit: contain;
+  border-radius: 16px;
+  background: #1c1917;
+  pointer-events: none;
+  animation: cafe-gallery-photo 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cafe-gallery__count {
+  margin: 10px 0 0;
+  color: #faf8f5;
+  font-size: 0.7875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.cafe-gallery__close,
+.cafe-gallery__nav {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, #faf8f5 34%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, #1c1917 55%, transparent);
+  color: #faf8f5;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cafe-gallery__close {
+  top: 8px;
+  right: 8px;
+}
+
+.cafe-gallery__nav--prev {
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+}
+
+.cafe-gallery__nav--next {
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+}
+
+.cafe-gallery__close:focus-visible,
+.cafe-gallery__nav:focus-visible,
+.cafe-detail__hero:focus-visible,
+.cafe-detail__poster-btn:focus-visible {
+  outline: 2px solid var(--kd-primary);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .cafe-detail__insight {
@@ -1643,6 +2308,16 @@ const selectPhoto = (index: number) => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .cafe-gallery[open],
+  .cafe-gallery[open]::backdrop,
+  .cafe-gallery__image {
+    animation: none;
+  }
+
+  .cafe-gallery__frame:not(.is-busy) {
+    transition: none;
+  }
+
   .cafe-detail__press,
   .cafe-detail__vibe {
     animation: none;
@@ -1659,6 +2334,35 @@ const selectPhoto = (index: number) => {
   .cafe-detail__thumb:active,
   .cafe-detail__close:active {
     box-shadow: none;
+  }
+}
+
+@keyframes cafe-gallery-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cafe-gallery-backdrop {
+  from {
+    background: transparent;
+  }
+  to {
+    background: color-mix(in srgb, #1c1917 72%, transparent);
+  }
+}
+
+@keyframes cafe-gallery-photo {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
