@@ -46,6 +46,27 @@
           <span class="editor-status__label">Status</span>
           <span class="editor-status__word">{{ statusWord(shop.status) }}</span>
         </p>
+        <aside v-if="nameReviewCopy" class="name-review" role="status">
+          <p>{{ nameReviewCopy }}</p>
+          <div class="name-review__actions">
+            <button
+              type="button"
+              class="admin-btn"
+              :disabled="saving || acting"
+              @click="askNameReview(true)"
+            >
+              Accept name
+            </button>
+            <button
+              type="button"
+              class="admin-btn admin-btn--ghost"
+              :disabled="saving || acting"
+              @click="askNameReview(false)"
+            >
+              Reject name
+            </button>
+          </div>
+        </aside>
         <CafeOwnerCard
           desk
           admin
@@ -65,16 +86,36 @@
         />
       </div>
       <AdminConfirmDialog
-        :open="Boolean(pending) || Boolean(pendingPoster)"
-        :variant="pendingPoster ? 'destructive' : pending ? cafeDeskConfirmVariant(pending) : 'default'"
+        :open="Boolean(pending) || Boolean(pendingPoster) || pendingNameReview !== null"
+        :variant="pendingPoster || pendingNameReview === false
+          ? 'destructive'
+          : pending ? cafeDeskConfirmVariant(pending) : 'default'"
         :title="pendingPoster && shop
           ? adminTakeDownPosterTitle(shop.name)
-          : shop && pending ? cafeDeskConfirmTitle(pending, shop.name) : ''"
+          : pendingNameReview !== null && shop && pendingName
+            ? pendingNameReview
+              ? nameReviewAcceptTitle(shop.name, pendingName)
+              : nameReviewRejectTitle(pendingName)
+            : shop && pending ? cafeDeskConfirmTitle(pending, shop.name) : ''"
         :message="pendingPoster
           ? adminTakeDownPosterMessage()
-          : pending ? cafeDeskConfirmMessage(pending) : ''"
-        :confirm-label="pendingPoster ? 'Take down' : pending ? cafeDeskConfirmAction(pending) : ''"
-        :busy-label="pendingPoster ? 'Taking down…' : pending ? cafeDeskBusyLabel(pending) : ''"
+          : pendingNameReview !== null && shop
+            ? pendingNameReview ? nameReviewAcceptMessage() : nameReviewRejectMessage(shop.name)
+            : pending ? cafeDeskConfirmMessage(pending) : ''"
+        :confirm-label="pendingPoster
+          ? 'Take down'
+          : pendingNameReview === true
+            ? 'Accept name'
+            : pendingNameReview === false
+              ? 'Reject name'
+              : pending ? cafeDeskConfirmAction(pending) : ''"
+        :busy-label="pendingPoster
+          ? 'Taking down…'
+          : pendingNameReview === true
+            ? 'Accepting…'
+            : pendingNameReview === false
+              ? 'Rejecting…'
+              : pending ? cafeDeskBusyLabel(pending) : ''"
         :busy="acting"
         @confirm="confirmPending"
         @cancel="cancelPending"
@@ -104,6 +145,14 @@ import {
 } from '~/utils/admin-shop'
 import type { ShopPosterRow } from '~/utils/owner-ads'
 import { transferOwnershipDoneCopy } from '~/utils/shop-claims'
+import {
+  adminNameReviewCopy,
+  nameReviewAcceptMessage,
+  nameReviewAcceptTitle,
+  nameReviewRejectMessage,
+  nameReviewRejectTitle,
+  shopPendingName,
+} from '~/utils/shop-name-review'
 import { adminActionErrorMessage } from '~/utils/admin-feedback'
 import { shopIdFromRoute } from '~/utils/approved-shops'
 
@@ -114,7 +163,7 @@ definePageMeta({
 const route = useRoute()
 const ionRouter = useIonRouter()
 const admin = useAdminData()
-const { error, updateShop, moderate, deleteShop, fetchShopPoster, publishShopPoster, endShopPoster } = admin
+const { error, updateShop, moderate, deleteShop, fetchShopPoster, publishShopPoster, endShopPoster, reviewOwnerShopName } = admin
 const toast = useAdminToast()
 const saving = ref(false)
 const acting = ref(false)
@@ -123,6 +172,7 @@ const formError = ref('')
 const shop = ref<ShopRow | null>(null)
 const livePoster = ref<ShopPosterRow | null>(null)
 const pendingPoster = ref<ShopPosterRow | null>(null)
+const pendingNameReview = ref<boolean | null>(null)
 const lookingUp = ref(true)
 
 function resolveShopId(): string {
@@ -145,6 +195,8 @@ const pageStatus = computed(() => {
 })
 
 const statusWord = shopStatusWord
+const pendingName = computed(() => shop.value ? shopPendingName(shop.value) : null)
+const nameReviewCopy = computed(() => shop.value ? adminNameReviewCopy(shop.value) : null)
 
 const pageError = computed(() => {
   if (shop.value) return error.value
@@ -202,12 +254,21 @@ const onSave = async (payload: Parameters<typeof updateShop>[1]) => {
 const askAction = (action: Extract<CafeDeskAction, 'publish' | 'unpublish' | 'delete'>) => {
   if (!shop.value || saving.value || acting.value) return
   pendingPoster.value = null
+  pendingNameReview.value = null
   pending.value = action
+}
+
+const askNameReview = (accept: boolean) => {
+  if (!shop.value || saving.value || acting.value || !pendingName.value) return
+  pending.value = null
+  pendingPoster.value = null
+  pendingNameReview.value = accept
 }
 
 const askTakeDownPoster = (poster: ShopPosterRow) => {
   if (!shop.value || saving.value || acting.value) return
   pending.value = null
+  pendingNameReview.value = null
   pendingPoster.value = poster
 }
 
@@ -215,15 +276,28 @@ const cancelPending = () => {
   if (acting.value) return
   pending.value = null
   pendingPoster.value = null
+  pendingNameReview.value = null
 }
 
 const confirmPending = async () => {
   const poster = pendingPoster.value
   const action = pending.value
+  const nameReview = pendingNameReview.value
   const current = shop.value
-  if ((!action && !poster) || !current || acting.value) return
+  if ((!action && !poster && nameReview === null) || !current || acting.value) return
   acting.value = true
   try {
+    if (nameReview !== null) {
+      shop.value = await reviewOwnerShopName(current.id, nameReview)
+      pendingNameReview.value = null
+      toast.success(
+        nameReview ? 'Name accepted' : 'Name rejected',
+        nameReview
+          ? `${shop.value.name} is now the live name.`
+          : `${shop.value.name} stays the live name.`,
+      )
+      return
+    }
     if (poster) {
       await endShopPoster(poster.id)
       livePoster.value = null
@@ -246,8 +320,10 @@ const confirmPending = async () => {
   } catch (err) {
     const fallback = poster
       ? 'Could not take down this poster.'
-      : action === 'delete' ? 'Could not delete this cafe.' : 'Could not update this cafe.'
-    toast.error(poster ? 'Could not take down' : action === 'delete' ? 'Could not delete' : 'Could not update this cafe', err, fallback)
+      : nameReview !== null
+        ? 'Could not review this name.'
+        : action === 'delete' ? 'Could not delete this cafe.' : 'Could not update this cafe.'
+    toast.error(poster ? 'Could not take down' : nameReview !== null ? 'Could not review this name' : action === 'delete' ? 'Could not delete' : 'Could not update this cafe', err, fallback)
   } finally {
     acting.value = false
   }
@@ -271,6 +347,28 @@ watch(
   flex-direction: column;
   gap: 24px;
   caret-color: var(--kd-primary);
+}
+
+.name-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--kd-accent) 50%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--kd-accent) 14%, #faf8f5);
+}
+
+.name-review p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.name-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .cafe-editor :deep(.cafe-owner--desk) {

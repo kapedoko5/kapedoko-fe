@@ -13,6 +13,7 @@
         @update:name="draft.name = $event"
         @update:logoFile="onLogoFile"
       />
+      <p v-if="nameReviewCopy" class="owner-editor__notice" role="status">{{ nameReviewCopy }}</p>
       <CafeVibeTagPicker
         v-model="draft.vibeTagIds"
         :tags="enabledTags"
@@ -23,6 +24,7 @@
       />
       <OwnerFeaturedPhotos
         :object-keys="draft.galleryObjectKeys"
+        :max="galleryMax"
         :issue="issues.gallery"
         @change="onGallery"
         @issue="issues.gallery = $event"
@@ -80,8 +82,9 @@ import { enabledVibeTags, vibeTagCountError } from '~/utils/admin-vibe-tags'
 import { DAY_KEYS } from '~/types/shop'
 import { allDayEveryDay, isValidWeeklyHours, sameHoursEveryDay } from '~/utils/hours'
 import { normalizeAddress, normalizeCafeName } from '~/utils/identity'
-import { featuredPhotoCountError } from '~/utils/owner-ads'
+import { featuredPhotoCountError, ownerGalleryMax } from '~/utils/owner-ads'
 import { ownerCafeErrors, ownerEditorLede } from '~/utils/owner-portal'
+import { ownerNameReviewCopy, shopEditorName } from '~/utils/shop-name-review'
 import { optionalPhone } from '~/utils/phone'
 import { publicObjectUrl } from '~/utils/shop-mapper'
 
@@ -90,6 +93,7 @@ const props = withDefaults(defineProps<{
   saving?: boolean
   submitLabel?: string
   lede?: string
+  galleryMax?: number
 }>(), {
   saving: false,
   submitLabel: 'Save changes',
@@ -135,8 +139,11 @@ const selectedEnabledIds = () => {
   const enabled = new Set(enabledVibeTags(ownership.vibeTagNames.value).map((tag) => tag.id))
   return assignedForShop().flatMap((row) => enabled.has(row.tag_id) ? [row.tag_id] : [])
 }
+const galleryMax = computed(() => props.galleryMax ?? ownerGalleryMax(ownership.hasFeature(props.shop.id, 'featured_photos')))
+const nameReviewCopy = computed(() => ownerNameReviewCopy(props.shop))
+
 const draft = reactive({
-  name: props.shop.name,
+  name: shopEditorName(props.shop),
   logoFile: null as File | null,
   logoObjectKey: props.shop.logo_object_key as string | null,
   lat: props.shop.latitude as number | null,
@@ -183,7 +190,7 @@ const onLogoFile = (file: File | null) => {
 const onGallery = (payload: { files: File[]; objectKeys: string[] }) => {
   draft.galleryFiles = payload.files
   draft.galleryObjectKeys = payload.objectKeys
-  issues.gallery = featuredPhotoCountError(payload.files.length + payload.objectKeys.length)
+  issues.gallery = featuredPhotoCountError(payload.files.length + payload.objectKeys.length, galleryMax.value)
 }
 
 const enabledTags = computed(() => enabledVibeTags(ownership.vibeTagNames.value))
@@ -202,6 +209,14 @@ watch(
   () => {
     draft.galleryFiles = []
     draft.galleryObjectKeys = [...(props.shop.gallery_object_keys ?? [])]
+    issues.gallery = featuredPhotoCountError(draft.galleryObjectKeys.length, galleryMax.value)
+  },
+)
+
+watch(
+  () => [props.shop.id, props.shop.name, props.shop.pending_name].join('|'),
+  () => {
+    draft.name = shopEditorName(props.shop)
   },
 )
 
@@ -225,7 +240,7 @@ const onSubmit = () => {
     hours: draft.weekly,
     logoFile: draft.logoFile,
   })
-  const galleryIssue = featuredPhotoCountError(draft.galleryFiles.length + draft.galleryObjectKeys.length)
+  const galleryIssue = featuredPhotoCountError(draft.galleryFiles.length + draft.galleryObjectKeys.length, galleryMax.value)
   const vibeIssue = vibeTagCountError(draft.vibeTagIds.length, hiddenCount.value)
   Object.assign(issues, { ...next, gallery: galleryIssue, vibeTags: vibeIssue, form: null })
   if (Object.values(next).some(Boolean) || galleryIssue || vibeIssue || draft.lat == null || draft.lng == null) return
@@ -251,6 +266,17 @@ const onSubmit = () => {
   flex-direction: column;
   gap: 20px;
   width: 100%;
+}
+
+.owner-editor__notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--kd-accent) 50%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kd-accent) 14%, #faf8f5);
+  color: var(--kd-ink);
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .owner-editor__panel {

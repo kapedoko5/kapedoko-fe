@@ -4,7 +4,7 @@ export const OWNER_NAV = [
   { id: 'desk', label: 'Desk', href: '/owner' },
   { id: 'cafes', label: 'Cafes', href: '/owner/cafes' },
   { id: 'analytics', label: 'Analytics', href: '/owner/analytics' },
-  { id: 'ads', label: 'Ads', href: '/owner/ads' },
+  { id: 'ads', label: 'Ad Poster', href: '/owner/ads' },
   { id: 'theme', label: 'Theme', href: '/owner/theme' },
   { id: 'claims', label: 'Claims', href: '/owner/claims' },
 ] as const
