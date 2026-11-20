@@ -1,7 +1,7 @@
 <template>
   <IonPage>
-    <IonContent :scroll-y="true" class="cafe-page-content">
-      <div class="cafe-page">
+    <IonContent :scroll-y="true" class="cafe-page-content" :style="pageThemeStyle">
+      <div class="cafe-page" :style="pageThemeStyle">
         <header class="cafe-page__bar">
           <button type="button" class="cafe-page__back" aria-label="Go back" @click="goBack">
             <ChevronLeft :size="22" :stroke-width="2.25" />
@@ -60,6 +60,7 @@ import {
   shopIdFromRoute,
 } from '~/utils/approved-shops'
 import { takeTrafficSurface } from '~/utils/shop-traffic'
+import { cafeThemeStyle } from '~/utils/cafe-theme'
 useAppTabBar('hide')
 
 const route = useRoute()
@@ -74,6 +75,11 @@ const status = ref<'loading' | 'ready' | 'missing' | 'error'>('loading')
 
 const shopId = computed(() => resolveShopId())
 const heading = computed(() => cafe.value?.name || 'Cafe details')
+const pageThemeStyle = computed(() => cafeThemeStyle(
+  cafe.value?.themeButtonHex,
+  cafe.value?.themeTextHex,
+  cafe.value?.themeBackgroundHex,
+))
 
 function resolveShopId(): string {
   const param = route.params.id
@@ -212,7 +218,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .cafe-page-content {
-  --background: #f2f2f2;
+  --background: var(--cafe-background, #f2f2f2);
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
@@ -224,7 +230,7 @@ onBeforeUnmount(() => {
   margin-inline: auto;
   min-height: 100%;
   overflow-x: clip;
-  background: #f2f2f2;
+  background: var(--cafe-background, #f2f2f2);
 }
 
 .cafe-page__bar {
@@ -235,7 +241,7 @@ onBeforeUnmount(() => {
   align-items: center;
   min-height: 44px;
   padding: max(0.75rem, env(safe-area-inset-top)) 12px 0 8px;
-  background: #faf8f5;
+  background: var(--cafe-background, #faf8f5);
 }
 
 .cafe-page__back {
