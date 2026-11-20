@@ -18,9 +18,16 @@ export function useAdminShops() {
     load: admin.load,
     moderate: admin.moderate,
     markerTierFor: admin.markerTierFor,
-    savePlacement: async (shop: ShopRow, tier: MarkerTier, startsAt: string, endsAt: string) => {
+    savePlacement: async (
+      shop: ShopRow,
+      tier: MarkerTier,
+      startsAt: string,
+      endsAt: string,
+      showOnHome = false,
+      features: Record<string, boolean> | null = null,
+    ) => {
       const kind = tier === 'promoted' ? 'sponsored' : tier === 'partner' ? 'partner' : 'standard'
-      await admin.savePlacement(shop, kind, startsAt, endsAt)
+      await admin.savePlacement(shop, kind, startsAt, endsAt, showOnHome, features)
     },
     resolveReport: admin.resolveReport,
   }

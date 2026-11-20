@@ -3,7 +3,7 @@
     <div class="featured__intro">
       <h2 id="featured-title">Featured photos</h2>
       <p class="featured__lede">
-        Up to {{ max }} photos. Visitors see these on the cafe page.
+        {{ lede }}
       </p>
     </div>
 
@@ -37,7 +37,7 @@
 </template>
 
 <script lang="ts" setup>
-import { featuredPhotoCountError, featuredPhotoFileError, SHOP_GALLERY_MAX } from '~/utils/owner-ads'
+import { featuredPhotoCountError, featuredPhotoFileError, featuredPhotoLede, SHOP_GALLERY_FREE_MAX } from '~/utils/owner-ads'
 import { publicObjectUrl } from '~/utils/shop-mapper'
 
 export type FeaturedPhotoItem = {
@@ -54,8 +54,10 @@ const props = withDefaults(defineProps<{
 }>(), {
   objectKeys: () => [],
   issue: null,
-  max: SHOP_GALLERY_MAX,
+  max: SHOP_GALLERY_FREE_MAX,
 })
+
+const lede = computed(() => featuredPhotoLede(props.max))
 
 const emit = defineEmits<{
   change: [payload: { files: File[]; objectKeys: string[] }]
@@ -97,7 +99,7 @@ const onPick = (event: Event) => {
   if (!files.length) return
   const room = props.max - items.value.length
   if (room <= 0) {
-    emit('issue', featuredPhotoCountError(props.max + 1))
+    emit('issue', featuredPhotoCountError(props.max + 1, props.max))
     return
   }
   const next = files.slice(0, room)
@@ -108,7 +110,7 @@ const onPick = (event: Event) => {
       return
     }
   }
-  emit('issue', featuredPhotoCountError(items.value.length + next.length))
+  emit('issue', featuredPhotoCountError(items.value.length + next.length, props.max))
   items.value = [
     ...items.value,
     ...next.map((file) => ({

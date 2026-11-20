@@ -1,6 +1,7 @@
-import type { ShopRow } from '../types/shop'
+import type { MarkerTier, ShopRow } from '../types/shop'
 
 export const SHOP_GALLERY_MAX = 8
+export const SHOP_GALLERY_FREE_MAX = 3
 export const SHOP_POSTER_MAX_BYTES = 4 * 1024 * 1024
 export const SHOP_PHOTO_MAX_BYTES = 4 * 1024 * 1024
 
@@ -36,10 +37,22 @@ export function featuredPhotoFileError(file: File | null): string | null {
   return null
 }
 
-export function featuredPhotoCountError(count: number): string | null {
+export function ownerGalleryMax(tierOrFull: MarkerTier | boolean | null | undefined): number {
+  if (typeof tierOrFull === 'boolean') return tierOrFull ? SHOP_GALLERY_MAX : SHOP_GALLERY_FREE_MAX
+  return tierOrFull === 'partner' || tierOrFull === 'promoted' ? SHOP_GALLERY_MAX : SHOP_GALLERY_FREE_MAX
+}
+
+export function featuredPhotoCountError(count: number, max = SHOP_GALLERY_MAX): string | null {
   if (count < 0) return 'Choose photos to keep.'
-  if (count > SHOP_GALLERY_MAX) return `Keep featured photos to ${SHOP_GALLERY_MAX}.`
+  if (count > max) return `Keep featured photos to ${max}.`
   return null
+}
+
+export function featuredPhotoLede(max = SHOP_GALLERY_MAX): string {
+  if (max <= SHOP_GALLERY_FREE_MAX) {
+    return `Up to ${max} photos on a free listing. Visitors see these on the cafe page.`
+  }
+  return `Up to ${max} photos. Visitors see these on the cafe page.`
 }
 
 export function ownerPosterShopIds(input: {
@@ -86,6 +99,10 @@ export function ownerAdsEmptyCopy(): string {
 
 export function ownerAdsNoCafesCopy(): string {
   return 'A verified cafe has to land on this shelf before you can hang a poster.'
+}
+
+export function ownerAdsLockedCopy(): string {
+  return 'Ad Poster is off until a partnership turns it on for a cafe you manage.'
 }
 
 export function ownerAdsLede(): string {

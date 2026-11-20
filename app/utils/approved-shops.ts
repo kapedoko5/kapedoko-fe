@@ -8,6 +8,7 @@ import type {
   ShopBusynessNowRow,
   ShopCheckinStatsRow,
   ShopMarkerTierRow,
+  ShopPlacementRow,
   ShopReviewPublicRow,
   ShopReviewRow,
   ShopReviewStatsRow,
@@ -35,6 +36,7 @@ import {
   POPULAR_REVIEW_MIN,
 } from './cafe-feed'
 import type { CafeFilterId } from './cafe-filters'
+import { homeCarouselShopIds } from './admin-placements'
 
 const APPROVED_SHOP_COLUMNS_CORE =
   'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,contact_number,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
@@ -688,18 +690,18 @@ export async function fetchFilterShopIds(
 export async function fetchPlacementCafes(
   supabase: ShopClient,
   publicBase: string,
+  now = new Date(),
 ): Promise<Cafe[]> {
+  const at = now.toISOString()
   const { data, error } = await supabase
-    .from('shop_marker_tiers')
-    .select('shop_id,marker_tier')
-    .in('marker_tier', ['promoted', 'partner'])
+    .from('shop_placements')
+    .select('shop_id,kind,starts_at,ends_at,show_on_home')
+    .eq('show_on_home', true)
+    .lte('starts_at', at)
+    .gt('ends_at', at)
 
   if (error) throw error
-  const ids = [...new Set(
-    ((data ?? []) as { shop_id?: string }[])
-      .map((row) => row.shop_id)
-      .filter((id): id is string => Boolean(id)),
-  )]
+  const ids = homeCarouselShopIds((data ?? []) as ShopPlacementRow[], now)
   if (!ids.length) return []
   return fetchApprovedCafesByIds(supabase, publicBase, ids)
 }

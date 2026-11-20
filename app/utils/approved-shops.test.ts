@@ -13,6 +13,7 @@ import {
   fetchApprovedCafes,
   fetchApprovedPickerRows,
   fetchApprovedShopRows,
+  fetchPlacementCafes,
   fetchPages,
   groupAmenityRows,
   groupBadgeRows,
@@ -337,6 +338,37 @@ describe('approved shop catalog fetch', () => {
     expect(selects.some((columns) => columns.includes('gallery_object_keys'))).toBe(true)
     expect(selects.some((columns) => !columns.includes('gallery_object_keys'))).toBe(true)
     resetApprovedShopSelectForTests()
+  })
+
+  test('home fallback only loads active placements flagged for Home', async () => {
+    const tables: string[] = []
+    const filters: string[] = []
+    const cafes = await fetchPlacementCafes({
+      from(table: string) {
+        tables.push(table)
+        const builder: Record<string, unknown> = {}
+        const chain = () => builder
+        Object.assign(builder, {
+          select: chain,
+          eq(column: string, value: unknown) {
+            filters.push(`${column}:${value}`)
+            return builder
+          },
+          lte: chain,
+          gt: chain,
+          in: chain,
+          order: chain,
+          range: () => Promise.resolve({ data: [], error: null }),
+        })
+        return builder
+      },
+      async rpc() {
+        return { data: null, error: null }
+      },
+    }, '')
+    expect(tables[0]).toBe('shop_placements')
+    expect(filters).toContain('show_on_home:true')
+    expect(cafes).toEqual([])
   })
 })
 

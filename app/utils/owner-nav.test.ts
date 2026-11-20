@@ -3,6 +3,7 @@ import {
   formatOwnerDate,
   isOwnerDeskPath,
   isOwnerLoginPath,
+  OWNER_NAV,
   ownerBackNav,
   ownerCafeEditPath,
   ownerCafeVerifyPath,
@@ -16,6 +17,7 @@ describe('owner nav', () => {
     expect(ownerNavIdFromPath('/owner/cafes/abc')).toBe('cafes')
     expect(ownerNavIdFromPath('/owner/analytics')).toBe('analytics')
     expect(ownerNavIdFromPath('/owner/ads')).toBe('ads')
+    expect(OWNER_NAV.find((item) => item.id === 'ads')?.label).toBe('Ad Poster')
     expect(ownerNavIdFromPath('/owner/claims')).toBe('claims')
     expect(ownerNavIdFromPath('/owner/claims/?x=1')).toBe('claims')
   })

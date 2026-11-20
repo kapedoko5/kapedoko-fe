@@ -16,6 +16,13 @@
       <p v-if="stampNotice || importedCopy" class="cafe-notice" role="status">{{ stampNotice || importedCopy }}</p>
 
       <AdminPendingRail :shops="pending" :status="status" />
+      <AdminPendingRail
+        v-if="nameReviews.length > 0"
+        :tickets="nameReviews"
+        :status="status"
+        title="Name changes"
+        empty-copy="No owner name changes waiting."
+      />
 
       <div class="admin-toolbar cafe-board">
         <input
@@ -126,6 +133,7 @@
                       @click="openLogoPicker(shop)"
                     />
                     <NuxtLink class="cafe-name" :to="`/admin/cafes/${shop.id}`">{{ shop.name }}</NuxtLink>
+                    <span v-if="shopPendingName(shop)" class="cafe-name-review">Name review</span>
                   </div>
                 </td>
                 <td>
@@ -178,6 +186,7 @@
               <h2>
                 <NuxtLink class="cafe-name" :to="`/admin/cafes/${shop.id}`">{{ shop.name }}</NuxtLink>
               </h2>
+              <p v-if="shopPendingName(shop)" class="cafe-name-review">Name review</p>
               <AdminCafeActionsMenu
                 class="cafe-menu-slot"
                 :shop="shop"
@@ -287,6 +296,7 @@ import {
   type CafeDeskAction,
 } from '~/utils/admin-shop'
 import { requestRejectionReasonError } from '~/utils/cafe-requests'
+import { shopPendingName } from '~/utils/shop-name-review'
 
 definePageMeta({
   middleware: ['auth', 'admin'],
@@ -327,6 +337,18 @@ const filters = [
 ]
 
 const pending = computed(() => shops.value.filter((shop) => shop.status === 'pending'))
+const nameReviews = computed(() =>
+  shops.value.flatMap((shop) => {
+    const pendingName = shopPendingName(shop)
+    if (!pendingName) return []
+    return [{
+      id: shop.id,
+      name: shop.name,
+      detail: pendingName,
+      to: `/admin/cafes/${shop.id}`,
+    }]
+  }),
+)
 const tally = computed(() => ({
   all: shops.value.length,
   approved: shops.value.filter((shop) => shop.status === 'approved').length,
@@ -691,6 +713,19 @@ onIonViewWillEnter(() => {
 .cafe-name:focus-visible {
   outline: 2px solid var(--kd-primary);
   outline-offset: 2px;
+}
+
+.cafe-name-review {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--kd-accent) 28%, #faf8f5);
+  color: var(--kd-ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .cafe-stamp {
