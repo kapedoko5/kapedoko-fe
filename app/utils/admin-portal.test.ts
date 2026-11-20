@@ -34,12 +34,15 @@ import {
   bannerFileHint,
   campaignWindowError,
   featuredAdCopy,
+  featuredCafeSignals,
   isAdCampaignActive,
   isExternalAdUrl,
   isInternalAdPath,
+  missingAdDestinationSqlCopy,
   parseInternalAdPath,
   sortActiveAds,
 } from './admin-ads'
+import { resolveAmenity } from './amenity-status'
 import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, roleChangeError, suspendError } from './admin-users'
 import {
   homeCarouselShopIds,
@@ -219,9 +222,8 @@ describe('ad campaigns', () => {
     expect(bannerFileHint()).toMatch(/3:1/)
     expect(bannerFileHint()).toMatch(/640/)
     expect(bannerFileHint()).toMatch(/4 MB/)
-    expect(bannerFileHint()).toMatch(/150px on phone/)
-    expect(bannerFileHint()).toMatch(/200px on tablet/)
-    expect(bannerFileHint()).toMatch(/240px on desktop/)
+    expect(bannerFileHint()).toMatch(/3:1 frame/)
+    expect(bannerFileHint()).toMatch(/640px tall/)
   })
 
   test('shows an internal ad label under the cafe name when it is set', () => {
@@ -234,11 +236,27 @@ describe('ad campaigns', () => {
     expect(featuredAdCopy('% Arabica', null)).toEqual({ name: '% Arabica', place: '' })
   })
 
-  test('bleeds the banner card when the internal label is empty', () => {
-    expect(adBannerIsBleed('Summer blend')).toBe(false)
+  test('live banners always use the 3:1 bleed frame', () => {
+    expect(adBannerIsBleed('Summer blend')).toBe(true)
     expect(adBannerIsBleed('  ')).toBe(true)
     expect(adBannerIsBleed(null)).toBe(true)
     expect(adBannerIsBleed(undefined)).toBe(true)
+  })
+
+  test('featured cafe signals show trusted wifi, outlets, and vibe tags', () => {
+    const verified = resolveAmenity({
+      audit: { result: 'available', auditedAt: '2026-09-20T00:00:00.000Z' },
+    })
+    const unknown = resolveAmenity({})
+    const tags = [{ id: 'vibe-1', slug: 'cozy', label: 'Cozy', lucideIcon: 'coffee' as const, color: '#d9793b' }]
+    expect(featuredCafeSignals({
+      work: { wifiStatus: verified, outletsStatus: verified },
+      vibeTags: tags,
+    })).toEqual({ wifi: true, outlets: true, vibeTags: tags })
+    expect(featuredCafeSignals({
+      work: { wifiStatus: unknown, outletsStatus: unknown },
+      vibeTags: [],
+    })).toEqual({ wifi: false, outlets: false, vibeTags: [] })
   })
 
   test('validates cafe, in-app, and https destinations', () => {
@@ -265,6 +283,10 @@ describe('ad campaigns', () => {
       { destination_kind: 'external', shop_id: null, destination_url: 'https://example.com' },
       '',
     )).toBe('https://example.com')
+    expect(missingAdDestinationSqlCopy(
+      "Could not find the 'destination_kind' column of 'ad_campaigns' in the schema cache",
+    )).toMatch(/20261123_ad_campaign_destinations/)
+    expect(missingAdDestinationSqlCopy('Could not save this ad.')).toBeNull()
   })
 
   test('filters ads by cafe name, overlapping window, and state', () => {

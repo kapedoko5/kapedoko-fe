@@ -1,4 +1,6 @@
-import type { AdCampaignState, AdDestinationKind } from '~/types/admin'
+import type { AdCampaignState, AdDestinationKind, CafeVibeTag } from '~/types/admin'
+import type { CafeAmenityStatus } from '../types/shop'
+import { trustedPositive } from './amenity-status'
 
 export function campaignWindowError(startsAt: string, endsAt: string, now = new Date()): string | null {
   const start = new Date(startsAt)
@@ -55,7 +57,7 @@ const INTERNAL_CAFE_ID = new RegExp(`^/app/cafes/(${AD_UUID})$`)
 const INTERNAL_EVENT_ID = new RegExp(`^/app/events/(${AD_UUID})$`)
 
 export function bannerFileHint(): string {
-  return 'JPG, PNG, or WebP. Wide ~3:1, at least 640px across, under 4 MB. 1920×640 works well. Home shows it at 150px on phone, 200px on tablet, and 240px on desktop.'
+  return 'JPG, PNG, or WebP. Wide ~3:1, at least 640px across, under 4 MB. 1920×640 works well. Home shows the full 3:1 frame, up to 640px tall.'
 }
 
 export function bannerFileError(file: File | null, required = true): string | null {
@@ -93,8 +95,19 @@ export function featuredAdCopy(cafeName: string, label?: string | null): { name:
   }
 }
 
-export function adBannerIsBleed(label?: string | null): boolean {
-  return !(label?.trim())
+export function adBannerIsBleed(_label?: string | null): boolean {
+  return true
+}
+
+export function featuredCafeSignals(cafe: {
+  work?: { wifiStatus?: CafeAmenityStatus; outletsStatus?: CafeAmenityStatus } | null
+  vibeTags?: CafeVibeTag[] | null
+}): { wifi: boolean; outlets: boolean; vibeTags: CafeVibeTag[] } {
+  return {
+    wifi: cafe.work?.wifiStatus ? trustedPositive(cafe.work.wifiStatus) : false,
+    outlets: cafe.work?.outletsStatus ? trustedPositive(cafe.work.outletsStatus) : false,
+    vibeTags: cafe.vibeTags ?? [],
+  }
 }
 
 export function adDestinationKind(
@@ -191,6 +204,12 @@ export function adWindowOverlaps(
   const to = windowTo ? new Date(windowTo).getTime() : Number.POSITIVE_INFINITY
   if (!Number.isFinite(from) || !Number.isFinite(to)) return false
   return start < to && end > from
+}
+
+export function missingAdDestinationSqlCopy(message: string): string | null {
+  if (!/schema cache|does not exist|column \S+ does not exist/i.test(message)) return null
+  if (!/destination_kind|destination_url|ad_campaigns/i.test(message)) return null
+  return 'Apply db/20261123_ad_campaign_destinations.sql in the SQL editor, then try again.'
 }
 
 export function adListMatches(
