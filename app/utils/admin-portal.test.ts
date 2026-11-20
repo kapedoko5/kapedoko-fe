@@ -33,6 +33,7 @@ import {
   bannerFileHint,
   campaignWindowError,
   featuredAdCopy,
+  featuredCafeSignals,
   isAdCampaignActive,
   isExternalAdUrl,
   isInternalAdPath,
@@ -40,6 +41,7 @@ import {
   parseInternalAdPath,
   sortActiveAds,
 } from './admin-ads'
+import { resolveAmenity } from './amenity-status'
 import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, roleChangeError, suspendError } from './admin-users'
 import {
   homeCarouselShopIds,
@@ -234,6 +236,22 @@ describe('ad campaigns', () => {
     expect(adBannerIsBleed('  ')).toBe(true)
     expect(adBannerIsBleed(null)).toBe(true)
     expect(adBannerIsBleed(undefined)).toBe(true)
+  })
+
+  test('featured cafe signals show trusted wifi, outlets, and vibe tags', () => {
+    const verified = resolveAmenity({
+      audit: { result: 'available', auditedAt: '2026-09-20T00:00:00.000Z' },
+    })
+    const unknown = resolveAmenity({})
+    const tags = [{ id: 'vibe-1', slug: 'cozy', label: 'Cozy', lucideIcon: 'coffee' as const, color: '#d9793b' }]
+    expect(featuredCafeSignals({
+      work: { wifiStatus: verified, outletsStatus: verified },
+      vibeTags: tags,
+    })).toEqual({ wifi: true, outlets: true, vibeTags: tags })
+    expect(featuredCafeSignals({
+      work: { wifiStatus: unknown, outletsStatus: unknown },
+      vibeTags: [],
+    })).toEqual({ wifi: false, outlets: false, vibeTags: [] })
   })
 
   test('validates cafe, in-app, and https destinations', () => {

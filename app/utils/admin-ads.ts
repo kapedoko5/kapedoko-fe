@@ -1,4 +1,6 @@
-import type { AdCampaignState, AdDestinationKind } from '~/types/admin'
+import type { AdCampaignState, AdDestinationKind, CafeVibeTag } from '~/types/admin'
+import type { CafeAmenityStatus } from '../types/shop'
+import { trustedPositive } from './amenity-status'
 
 export function campaignWindowError(startsAt: string, endsAt: string, now = new Date()): string | null {
   const start = new Date(startsAt)
@@ -95,6 +97,17 @@ export function featuredAdCopy(cafeName: string, label?: string | null): { name:
 
 export function adBannerIsBleed(_label?: string | null): boolean {
   return true
+}
+
+export function featuredCafeSignals(cafe: {
+  work?: { wifiStatus?: CafeAmenityStatus; outletsStatus?: CafeAmenityStatus } | null
+  vibeTags?: CafeVibeTag[] | null
+}): { wifi: boolean; outlets: boolean; vibeTags: CafeVibeTag[] } {
+  return {
+    wifi: cafe.work?.wifiStatus ? trustedPositive(cafe.work.wifiStatus) : false,
+    outlets: cafe.work?.outletsStatus ? trustedPositive(cafe.work.outletsStatus) : false,
+    vibeTags: cafe.vibeTags ?? [],
+  }
 }
 
 export function adDestinationKind(
