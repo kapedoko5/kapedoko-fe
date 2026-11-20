@@ -230,6 +230,7 @@ onBeforeUnmount(() => {
   margin-inline: auto;
   min-height: 100%;
   overflow-x: clip;
+  padding-bottom: var(--kd-tabbar-inset);
   background: var(--cafe-background, #f2f2f2);
 }
 

@@ -30,9 +30,9 @@
           v-if="variant !== 'page'"
           class="cafe-detail__navigate"
           :href="mapsHref"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Navigate to this cafe in Google Maps"
+          :target="mapsOpensInNewTab ? '_blank' : undefined"
+          :rel="mapsOpensInNewTab ? 'noopener noreferrer' : undefined"
+          aria-label="Navigate to this cafe in Maps"
           @click="onNavigate"
         >
           <span class="cafe-detail__action-face cafe-detail__action-face--primary">
@@ -212,9 +212,9 @@
         <a
           class="cafe-detail__navigate"
           :href="mapsHref"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Navigate to this cafe in Google Maps"
+          :target="mapsOpensInNewTab ? '_blank' : undefined"
+          :rel="mapsOpensInNewTab ? 'noopener noreferrer' : undefined"
+          aria-label="Navigate to this cafe in Maps"
           @click="onNavigate"
         >
           <span class="cafe-detail__action-face cafe-detail__action-face--primary">
@@ -508,6 +508,7 @@
 </template>
 
 <script lang="ts" setup>
+import { Capacitor } from '@capacitor/core'
 import { Armchair, BadgeAlert, BadgeCheck, ChevronLeft, ChevronRight, CircleHelp, Coffee, Heart, Leaf, MessageCircle, Navigation, Phone, Plug, Split, Star, Unplug, Users, Wallet, Wifi, WifiOff, X } from 'lucide-vue-next'
 import { cafePricePesoMarks, cafePriceTierLabel } from '~/utils/cafe-price-marks'
 import {
@@ -520,7 +521,12 @@ import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { Cafe } from '~/types/cafe'
 import { cafeThemeStyle } from '~/utils/cafe-theme'
 import { isKapedokoMark, KAPEDOKO_BEAN_PIN_SRC } from '~/utils/logo'
-import { googleMapsDirectionsUrl } from '~/utils/maps'
+import {
+  directionsUrl,
+  mapsAppForClient,
+  mapsLinkOpensInNewTab,
+  type MapsAppKind,
+} from '~/utils/maps'
 import {
   amenityAriaLabel,
   amenityFactMeta,
@@ -797,7 +803,19 @@ const vibePresses = computed(() =>
   })),
 )
 
-const mapsHref = computed(() => googleMapsDirectionsUrl(props.cafe.lat, props.cafe.lng))
+const mapsKind = shallowRef<MapsAppKind>('google')
+const mapsPlatform = shallowRef('web')
+const syncMapsApp = () => {
+  mapsPlatform.value = Capacitor.getPlatform()
+  mapsKind.value = mapsAppForClient({
+    platform: mapsPlatform.value,
+    userAgent: import.meta.client ? navigator.userAgent : '',
+  })
+}
+if (import.meta.client) syncMapsApp()
+onMounted(syncMapsApp)
+const mapsHref = computed(() => directionsUrl(props.cafe.lat, props.cafe.lng, mapsKind.value))
+const mapsOpensInNewTab = computed(() => mapsLinkOpensInNewTab(mapsKind.value, mapsPlatform.value))
 
 watch(
   () => props.cafe.id,
@@ -2342,7 +2360,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail--page :deep(.cafe-owner) {
-  margin-bottom: calc(20px + env(safe-area-inset-bottom));
+  margin-bottom: calc(20px + max(var(--kd-tabbar-inset), env(safe-area-inset-bottom)));
 }
 
 :root.is-android .cafe-detail__leave,
