@@ -24,6 +24,7 @@ import {
   parseDeletedAdminShop,
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
+import { missingAdDestinationSqlCopy } from '~/utils/admin-ads'
 import { missingPartnershipSqlCopy } from '~/utils/admin-placements'
 import { placementFeaturesPayload } from '~/utils/placement-features'
 import { missingCafeThemeSqlCopy } from '~/utils/cafe-theme'
@@ -926,12 +927,18 @@ export function useAdminData() {
     }
     if (payload.id) {
       const { data, error: updateError } = await supabase.from('ad_campaigns').update(row).eq('id', payload.id).select().single()
-      if (updateError || !data) throw new Error(updateError?.message || 'Could not save this ad.')
+      if (updateError || !data) {
+        const message = updateError?.message || 'Could not save this ad.'
+        throw new Error(missingAdDestinationSqlCopy(message) || message)
+      }
       ads.value = ads.value.map((item) => (item.id === payload.id ? (data as AdCampaignRow) : item))
       return data as AdCampaignRow
     }
     const { data, error: insertError } = await supabase.from('ad_campaigns').insert(row).select().single()
-    if (insertError || !data) throw new Error(insertError?.message || 'Could not save this ad.')
+    if (insertError || !data) {
+      const message = insertError?.message || 'Could not save this ad.'
+      throw new Error(missingAdDestinationSqlCopy(message) || message)
+    }
     ads.value = [data as AdCampaignRow, ...ads.value]
     return data as AdCampaignRow
   }

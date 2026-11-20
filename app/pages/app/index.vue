@@ -33,22 +33,28 @@
           </form>
 
         <section
-          v-if="homeAds.length > 0"
+          v-if="homeBanners.length > 0"
           class="home-partners"
-          :aria-label="usingLiveAds ? 'Featured banners' : 'Featured cafes'"
+          aria-label="Featured banners"
         >
-          <div class="home-partners__track" role="list">
+          <div
+            ref="bannerTrack"
+            class="home-partners__track"
+            role="list"
+            aria-roledescription="carousel"
+            @pointerenter="holdBannerSwipe"
+            @pointerleave="releaseBannerSwipe"
+            @pointerdown="bumpBannerSwipe"
+            @scroll.passive="onBannerScroll"
+            @scrollend.passive="onBannerScrollEnd"
+          >
             <button
-              v-for="ad in homeAds"
+              v-for="ad in homeBanners"
               :key="ad.id"
               type="button"
               class="home-partners__card"
               :class="[
-                ad.kind === 'ad'
-                  ? 'home-partners__card--sponsored'
-                  : ad.kind === 'promoted'
-                    ? 'home-partners__card--sponsored'
-                    : 'home-partners__card--partner',
+                'home-partners__card--sponsored',
                 { 'home-partners__card--bleed': ad.bleed },
               ]"
               role="listitem"
@@ -61,14 +67,9 @@
                   class="home-partners__image"
                   :src="ad.image"
                   alt=""
-                  :width="ad.bleed ? 640 : 320"
-                  height="150"
+                  :width="ad.bleed ? 1920 : 320"
+                  :height="ad.bleed ? 640 : 150"
                 />
-                <span v-if="ad.badge" class="home-partners__badge">{{ ad.badge }}</span>
-              </span>
-              <span v-if="!ad.bleed" class="home-partners__copy" aria-hidden="true">
-                <span class="home-partners__name">{{ ad.name }}</span>
-                <span v-if="ad.place" class="home-partners__place">{{ ad.place }}</span>
               </span>
             </button>
           </div>
@@ -89,6 +90,61 @@
             {{ filter.label }}
           </button>
         </div>
+
+        <section
+          v-if="featuredCafes.length > 0"
+          class="home-partners"
+          aria-labelledby="home-featured-cafes-title"
+        >
+          <h2 id="home-featured-cafes-title" class="home-partners__title">Our featured cafes</h2>
+          <div class="home-partners__track" role="list">
+            <button
+              v-for="ad in featuredCafes"
+              :key="ad.id"
+              type="button"
+              class="home-partners__card home-partners__card--cafe"
+              :class="ad.kind === 'promoted' ? 'home-partners__card--sponsored' : 'home-partners__card--partner'"
+              role="listitem"
+              :aria-label="ad.ariaLabel"
+              :ref="(el) => bindPromoEl(ad.id, el)"
+              @click="openPromotion(ad)"
+            >
+              <span class="home-partners__media">
+                <img
+                  class="home-partners__image"
+                  :src="ad.image"
+                  alt=""
+                  width="120"
+                  height="120"
+                />
+                <span v-if="ad.badge" class="home-partners__badge">{{ ad.badge }}</span>
+              </span>
+              <span class="home-partners__copy" aria-hidden="true">
+                <span class="home-partners__name">{{ ad.name }}</span>
+                <span v-if="ad.place" class="home-partners__place">{{ ad.place }}</span>
+                <span v-if="ad.wifi || ad.outlets || ad.vibeTags.length" class="home-partners__facts">
+                  <span v-if="ad.wifi" class="home-partners__amenity">
+                    <Wifi :size="12" :stroke-width="2.25" />
+                    WiFi
+                  </span>
+                  <span v-if="ad.outlets" class="home-partners__amenity">
+                    <Plug :size="12" :stroke-width="2.25" />
+                    Outlets
+                  </span>
+                  <span
+                    v-for="tag in ad.vibeTags"
+                    :key="tag.id"
+                    class="home-partners__vibe"
+                    :style="vibeTagColorStyle(tag.color)"
+                  >
+                    <component :is="vibeTagLucideComponent(tag.lucideIcon)" :size="11" :stroke-width="2.25" />
+                    {{ tag.label }}
+                  </span>
+                </span>
+              </span>
+            </button>
+          </div>
+        </section>
 
         <section
           v-if="nearbyEvents.length > 0"
@@ -238,7 +294,7 @@
 
 <script lang="ts" setup>
 import { Capacitor } from '@capacitor/core'
-import { onIonViewWillEnter } from '@ionic/vue'
+import { onIonViewDidLeave, onIonViewWillEnter } from '@ionic/vue'
 import { BatteryCharging, CircleAlert, Coffee, Flame, Hourglass, Navigation, Plug, Plus, RefreshCw, Search, Wifi, Zap } from 'lucide-vue-next'
 import AppDetailPane from '~/components/AppDetailPane.vue'
 import CafeCard from '~/components/cafe/CafeCard.vue'
@@ -246,7 +302,8 @@ import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
 import EventDetailContent from '~/components/event/EventDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
 import type { AdDestinationKind } from '~/types/admin'
-import { adBannerIsBleed, featuredAdCopy, parseInternalAdPath } from '~/utils/admin-ads'
+import { adBannerIsBleed, featuredAdCopy, featuredCafeSignals, parseInternalAdPath } from '~/utils/admin-ads'
+import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
 import { watchImpression } from '~/utils/analytics-impression'
 import { CARD_IMPRESSION_MS, CARD_IMPRESSION_RATIO } from '~/utils/shop-traffic'
 import { CAFE_FILTERS, type CafeFilterIcon, type CafeFilterId } from '~/utils/cafe-filters'
@@ -318,49 +375,53 @@ const placementCafes = computed(() => {
   return [...promoted, ...partners]
 })
 
-const usingLiveAds = computed(() => liveAds.value.length > 0)
-
-const homeAds = computed(() => {
-  if (usingLiveAds.value) {
-    return liveAds.value.map((ad) => {
-      const bleed = adBannerIsBleed(ad.label)
-      const copy = ad.destinationKind === 'cafe'
-        ? featuredAdCopy(ad.name, ad.label)
-        : { name: ad.label.trim() || ad.name, place: '' }
-      return {
-        id: ad.id,
-        shopId: ad.shopId,
-        name: copy.name,
-        place: copy.place,
-        image: ad.image,
-        badge: '',
-        kind: 'ad' as const,
-        bleed,
-        destinationKind: ad.destinationKind,
-        destinationUrl: ad.destinationUrl,
-        ariaLabel: copy.place
-          ? `Ad: ${copy.name}, ${copy.place}`
-          : `Ad: ${copy.name}`,
-      }
-    })
+const homeBanners = computed(() => liveAds.value.map((ad) => {
+  const bleed = adBannerIsBleed(ad.label)
+  const copy = ad.destinationKind === 'cafe'
+    ? featuredAdCopy(ad.name, ad.label)
+    : { name: ad.label.trim() || ad.name, place: '' }
+  return {
+    id: ad.id,
+    shopId: ad.shopId,
+    name: copy.name,
+    place: copy.place,
+    image: ad.image,
+    badge: '',
+    kind: 'ad' as const,
+    bleed,
+    destinationKind: ad.destinationKind,
+    destinationUrl: ad.destinationUrl,
+    ariaLabel: copy.place
+      ? `Ad: ${copy.name}, ${copy.place}`
+      : `Ad: ${copy.name}`,
   }
-  return placementCafes.value.map((cafe) => {
-    const badge = cafe.markerTier === 'promoted' ? 'Sponsored' : 'Partner'
-    return {
-      id: cafe.id,
-      shopId: cafe.id,
-      name: cafe.name,
-      place: cafe.address,
-      image: '/assets/partner-ad-placeholder.svg',
-      badge,
-      kind: cafe.markerTier === 'promoted' ? 'promoted' as const : 'partner' as const,
-      bleed: false,
-      destinationKind: 'cafe' as const,
-      destinationUrl: null as string | null,
-      ariaLabel: `${badge}: ${cafe.name}`,
-    }
-  })
-})
+}))
+
+const featuredCafes = computed(() => placementCafes.value.map((cafe) => {
+  const badge = cafe.markerTier === 'promoted' ? 'Sponsored' : 'Partner'
+  const signals = featuredCafeSignals(cafe)
+  const extras = [
+    signals.wifi ? 'WiFi' : '',
+    signals.outlets ? 'Outlets' : '',
+    ...signals.vibeTags.map((tag) => tag.label),
+  ].filter(Boolean)
+  return {
+    id: cafe.id,
+    shopId: cafe.id,
+    name: cafe.name,
+    place: cafe.address,
+    image: '/assets/partner-ad-placeholder.svg',
+    badge,
+    kind: cafe.markerTier === 'promoted' ? 'promoted' as const : 'partner' as const,
+    bleed: false,
+    destinationKind: 'cafe' as const,
+    destinationUrl: null as string | null,
+    wifi: signals.wifi,
+    outlets: signals.outlets,
+    vibeTags: signals.vibeTags,
+    ariaLabel: extras.length ? `${badge}: ${cafe.name}. ${extras.join(', ')}` : `${badge}: ${cafe.name}`,
+  }
+}))
 
 const firstNameFrom = (value: unknown): string => {
   if (typeof value !== 'string') return ''
@@ -557,6 +618,84 @@ const openPromotion = async (ad: {
   }
 }
 
+const BANNER_SWIPE_MS = 6000
+const bannerTrack = ref<HTMLElement | null>(null)
+let bannerTimer: ReturnType<typeof window.setInterval> | null = null
+let bannerHold = false
+let bannerAnimating = false
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const stopBannerSwipe = () => {
+  if (bannerTimer) {
+    window.clearInterval(bannerTimer)
+    bannerTimer = null
+  }
+}
+
+const bannerCards = () => {
+  const track = bannerTrack.value
+  if (!track) return []
+  return [...track.querySelectorAll<HTMLElement>(':scope > .home-partners__card')]
+}
+
+const advanceBanner = () => {
+  const track = bannerTrack.value
+  if (!track || bannerHold || prefersReducedMotion()) return
+  const cards = bannerCards()
+  if (cards.length < 2) return
+  const start = cards[0]?.offsetLeft ?? 0
+  const next = cards.find((card) => card.offsetLeft - start > track.scrollLeft + 8)
+  const atEnd = !next || track.scrollLeft + track.clientWidth >= track.scrollWidth - 8
+  bannerAnimating = true
+  if (atEnd || !next) {
+    track.scrollTo({ left: 0, behavior: 'auto' })
+    track.scrollLeft = 0
+    window.setTimeout(() => {
+      bannerAnimating = false
+    }, 50)
+    return
+  }
+  track.scrollTo({
+    left: Math.max(0, next.offsetLeft - start),
+    behavior: 'smooth',
+  })
+  window.setTimeout(() => {
+    bannerAnimating = false
+  }, 700)
+}
+
+const startBannerSwipe = () => {
+  stopBannerSwipe()
+  if (homeBanners.value.length < 2 || prefersReducedMotion() || bannerHold) return
+  bannerTimer = window.setInterval(advanceBanner, BANNER_SWIPE_MS)
+}
+
+const holdBannerSwipe = () => {
+  bannerHold = true
+  stopBannerSwipe()
+}
+
+const releaseBannerSwipe = () => {
+  bannerHold = false
+  startBannerSwipe()
+}
+
+const bumpBannerSwipe = () => {
+  if (bannerHold) return
+  startBannerSwipe()
+}
+
+const onBannerScroll = () => {
+  if (bannerAnimating) return
+  bumpBannerSwipe()
+}
+
+const onBannerScrollEnd = () => {
+  bannerAnimating = false
+}
+
 const promoEls = new Map<string, Element>()
 const promoStops = new Map<string, () => void>()
 
@@ -564,7 +703,8 @@ const startPromoWatch = (id: string, node: Element) => {
   promoStops.get(id)?.()
   promoStops.delete(id)
   if (consent.value !== 'granted') return
-  const ad = homeAds.value.find((item) => item.id === id)
+  const ad = homeBanners.value.find((item) => item.id === id)
+    ?? featuredCafes.value.find((item) => item.id === id)
   if (!ad) return
   promoStops.set(id, watchImpression(node, {
     ratio: CARD_IMPRESSION_RATIO,
@@ -596,7 +736,14 @@ watch(consent, (value) => {
   for (const [id, node] of promoEls) startPromoWatch(id, node)
 })
 
+const onBannerVisibility = () => {
+  if (document.hidden) stopBannerSwipe()
+  else startBannerSwipe()
+}
+
 onBeforeUnmount(() => {
+  stopBannerSwipe()
+  window.removeEventListener('visibilitychange', onBannerVisibility)
   for (const stop of promoStops.values()) stop()
   promoStops.clear()
   promoEls.clear()
@@ -609,6 +756,16 @@ const addCafe = async () => {
 onIonViewWillEnter(() => {
   hydrateNearbyRadius()
   if (status.value === 'error') void refresh()
+  startBannerSwipe()
+})
+
+onIonViewDidLeave(() => {
+  stopBannerSwipe()
+})
+
+watch(homeBanners, async () => {
+  await nextTick()
+  startBannerSwipe()
 })
 
 watch(user, (next) => {
@@ -617,6 +774,7 @@ watch(user, (next) => {
 })
 
 onMounted(() => {
+  window.addEventListener('visibilitychange', onBannerVisibility)
   if (Capacitor.getPlatform() === 'android') {
     document.documentElement.classList.add('is-android')
   }
@@ -725,8 +883,19 @@ onMounted(() => {
   margin: 0 0 4px;
 }
 
+.home-partners__title {
+  margin: 0;
+  padding: 4px 20px 8px;
+  color: var(--kd-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
 .home-partners__track {
   display: flex;
+  align-items: flex-start;
   gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -779,11 +948,126 @@ onMounted(() => {
 }
 
 .home-partners__card--bleed {
+  --ad-banner-height: auto;
   grid-template-columns: minmax(0, 1fr);
+  width: min(100%, 1920px);
+  height: auto;
+  min-height: 0;
+  max-width: 1920px;
+  max-height: 640px;
+  aspect-ratio: 1920 / 640;
+  border: 0;
+  background: #faf8f5;
 }
 
 .home-partners__card:only-child {
   flex-basis: 100%;
+}
+
+.home-partners__card--bleed:only-child {
+  flex-basis: min(100%, 1920px);
+  margin-inline: auto;
+}
+
+.home-partners__card--cafe {
+  --ad-banner-height: 120px;
+  --ad-media-col: 120px;
+  grid-template-columns: 120px minmax(0, 1fr);
+  flex: 0 0 360px;
+  width: 360px;
+  height: 120px;
+  min-height: 120px;
+  max-height: 120px;
+}
+
+.home-partners__card--cafe:only-child {
+  flex-basis: 360px;
+}
+
+.home-partners__card--cafe .home-partners__media {
+  width: 120px;
+  height: 120px;
+  aspect-ratio: 1 / 1;
+}
+
+.home-partners__card--cafe .home-partners__image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.home-partners__card--cafe .home-partners__copy {
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.home-partners__card--cafe .home-partners__name {
+  font-size: 0.86rem;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.home-partners__card--cafe .home-partners__place {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.home-partners__facts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.home-partners__facts::-webkit-scrollbar {
+  display: none;
+}
+
+.home-partners__amenity,
+.home-partners__vibe {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.home-partners__amenity {
+  background: color-mix(in srgb, var(--kd-ink) 8%, #faf8f5);
+  color: var(--kd-ink);
+}
+
+.home-partners__amenity :deep(svg) {
+  flex-shrink: 0;
+  color: var(--kd-primary);
+}
+
+.home-partners__vibe {
+  border: 1px solid var(--vibe-color, var(--kd-accent));
+  background: color-mix(in srgb, var(--vibe-color, var(--kd-accent)) 22%, #faf8f5);
+  color: var(--kd-ink);
+}
+
+.home-partners__vibe :deep(svg) {
+  flex-shrink: 0;
+  color: var(--vibe-color, var(--kd-accent));
+}
+
+.home-partners__card--cafe .home-partners__badge {
+  left: 6px;
+  bottom: 6px;
+  padding: 1px 5px;
+  font-size: 0.65rem;
 }
 
 .home-partners__card:active {
@@ -805,6 +1089,11 @@ onMounted(() => {
   }
 }
 
+.home-partners__card.home-partners__card--bleed:hover,
+.home-partners__card.home-partners__card--bleed:active {
+  background: #faf8f5;
+}
+
 .home-partners__media {
   position: relative;
   display: block;
@@ -817,12 +1106,22 @@ onMounted(() => {
   background: var(--kd-accent);
 }
 
+.home-partners__card--bleed .home-partners__media,
+.home-partners__card--sponsored.home-partners__card--bleed .home-partners__media {
+  background: #faf8f5;
+}
+
 .home-partners__image {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.home-partners__card--bleed .home-partners__image {
+  object-fit: contain;
+  object-position: center;
 }
 
 .home-partners__badge {

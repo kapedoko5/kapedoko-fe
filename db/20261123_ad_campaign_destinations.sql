@@ -192,3 +192,5 @@ where enabled
   and ends_at > now();
 
 grant select on public.active_ad_campaigns to anon, authenticated;
+
+notify pgrst, 'reload schema';
