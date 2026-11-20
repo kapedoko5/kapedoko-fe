@@ -1,9 +1,11 @@
 <template>
   <section class="details" aria-labelledby="details-title">
     <div class="details__intro">
-      <h2 id="details-title">Hours and a number to call</h2>
+      <h2 id="details-title">{{ showPrice ? 'Hours, a number, and a peso range' : 'Hours and a number to call' }}</h2>
       <p class="details__lede">
-        Hours are required. A phone number is optional.
+        {{ showPrice
+          ? 'Hours are required. A phone number and a typical menu price are optional.'
+          : 'Hours are required. A phone number is optional.' }}
       </p>
     </div>
 
@@ -23,6 +25,30 @@
     </label>
     <p v-if="phoneIssue" id="details-phone-error" class="details__error" role="alert">
       {{ phoneIssue }}
+    </p>
+
+    <label v-if="showPrice" class="details__field">
+      <span>Menu price range (₱)</span>
+      <span class="details__peso">
+        <span class="details__peso-mark" aria-hidden="true">₱</span>
+        <input
+          :value="price"
+          type="text"
+          name="menu-price"
+          inputmode="numeric"
+          autocomplete="off"
+          placeholder="200"
+          :aria-invalid="Boolean(priceIssue)"
+          :aria-describedby="priceIssue ? 'details-price-error' : 'details-price-hint'"
+          @input="emit('update:price', ($event.target as HTMLInputElement).value)"
+        />
+      </span>
+    </label>
+    <p v-if="showPrice && !priceIssue" id="details-price-hint" class="details__hint">
+      Typical drink or plate people order.
+    </p>
+    <p v-if="showPrice && priceIssue" id="details-price-error" class="details__error" role="alert">
+      {{ priceIssue }}
     </p>
 
     <div class="details__hours">
@@ -105,7 +131,7 @@
 import { DAY_KEYS, DAY_LABELS, type DayHours, type DayKey, type WeeklyHours } from '~/types/shop'
 import { allDayEveryDay, sameHoursEveryDay } from '~/utils/hours'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   phone: string
   sameEveryDay: boolean
   allDay: boolean
@@ -114,10 +140,20 @@ const props = defineProps<{
   weekly: WeeklyHours
   phoneIssue?: string | null
   hoursIssue?: string | null
-}>()
+  showPrice?: boolean
+  price?: string
+  priceIssue?: string | null
+}>(), {
+  phoneIssue: null,
+  hoursIssue: null,
+  showPrice: false,
+  price: '',
+  priceIssue: null,
+})
 
 const emit = defineEmits<{
   'update:phone': [value: string]
+  'update:price': [value: string]
   'update:sameEveryDay': [value: boolean]
   'update:allDay': [value: boolean]
   'update:openTime': [value: string]
@@ -251,12 +287,67 @@ watch(
   border-color: var(--kd-destructive);
 }
 
-.details__error {
+.details__error,
+.details__hint {
   margin: 0;
-  color: var(--kd-destructive);
   font-size: 0.7875rem;
-  font-weight: 700;
   line-height: 1.35;
+}
+
+.details__error {
+  color: var(--kd-destructive);
+  font-weight: 700;
+}
+
+.details__hint {
+  color: color-mix(in srgb, var(--kd-ink) 68%, #faf8f5);
+  font-weight: 400;
+}
+
+.details__peso {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
+  border-radius: 16px;
+  background: #f2f2f2;
+}
+
+.details__peso:focus-within {
+  outline: 2px solid var(--kd-primary);
+  outline-offset: 2px;
+}
+
+.details__peso-mark {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0 0 16px;
+  color: var(--kd-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.details__peso input {
+  min-height: 44px;
+  height: 44px;
+  padding: 0 16px 0 8px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+}
+
+.details__peso input:focus {
+  outline: none;
+}
+
+.details__field:has(.details__peso) input[aria-invalid='true'] {
+  border: 0;
+}
+
+.details__field:has(.details__peso[aria-invalid='true']),
+.details__peso:has(input[aria-invalid='true']) {
+  border-color: var(--kd-destructive);
 }
 
 .details__hours-label {
@@ -339,7 +430,9 @@ watch(
 :root.is-android .details__field input,
 :root.is-android .details__time input,
 :root.is-android .details__day select,
-:root.is-android .details__day input {
+:root.is-android .details__day input,
+:root.is-android .details__peso,
+:root.is-android .details__peso input {
   min-height: 48px;
   height: 48px;
 }

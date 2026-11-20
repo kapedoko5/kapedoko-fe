@@ -17,6 +17,7 @@ import {
   isValidLongitude,
   missingAdminCafeMediaSqlCopy,
   missingDeleteAdminShopCopy,
+  missingMenuPriceSqlCopy,
   parseDeletedAdminShop,
   shopStatusWord,
   uniqueDeletableAdminObjectKeys,
@@ -67,6 +68,7 @@ describe('admin cafe validation', () => {
       phone: null,
       hours: null,
       logo: null,
+      price: null,
     })
     expect(adminCafeHasErrors(input)).toBe(false)
     expect(isValidLatitude(16.4023)).toBe(true)
@@ -138,6 +140,9 @@ describe('admin cafe validation', () => {
     expect(missingAdminCafeMediaSqlCopy('Could not find the function public.publish_admin_poster')).toMatch(/20261117_admin_cafe_media/)
     expect(missingAdminCafeMediaSqlCopy('column shops.gallery_object_keys does not exist')).toMatch(/20261114_owner_cafe_media/)
     expect(missingAdminCafeMediaSqlCopy('Cafe was not found')).toBeNull()
+    expect(missingMenuPriceSqlCopy('Could not find the function public.update_admin_shop with p_menu_price_php')).toMatch(/20261124_menu_price_budget_vibe/)
+    expect(missingMenuPriceSqlCopy('Could not find the function public.publish_admin_poster')).toBeNull()
+    expect(missingMenuPriceSqlCopy('Cafe was not found')).toBeNull()
   })
 
   test('rejects missing pin and short names without requiring Metro Manila', () => {

@@ -73,6 +73,7 @@ export interface ShopRow {
   logo_object_key: string | null
   gallery_object_keys?: string[] | null
   contact_number: string | null
+  menu_price_php?: number | null
   status: ShopStatus
   submitted_by: string | null
   reviewed_by: string | null

@@ -192,6 +192,7 @@ export function mapShopToCafe(
     status: open ? 'Open' : shop.hours ? 'Closed' : 'Hours to confirm',
     hoursHint,
     phone: shop.contact_number ?? undefined,
+    menuPricePhp: shop.menu_price_php ?? null,
     amenities,
     work,
     popular: (stats?.total_reviews ?? 0) >= REVIEW_THRESHOLD && (stats?.recommend_pct ?? 0) >= 70,

@@ -330,6 +330,7 @@ describe('approved shop catalog fetch', () => {
 
     expect(isMissingShopGalleryColumn(missing)).toBe(true)
     expect(APPROVED_SHOP_COLUMNS).toContain('gallery_object_keys')
+    expect(APPROVED_SHOP_COLUMNS).toContain('menu_price_php')
     const rows = await fetchApprovedShopRows(supabase)
     expect(rows).toHaveLength(1)
     const cafe = await fetchApprovedCafeById(supabase, '', shopId(1))

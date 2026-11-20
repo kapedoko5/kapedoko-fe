@@ -67,6 +67,21 @@ describe('owner cafe facts', () => {
     })
     expect(issues.pin).toBe('Pin the cafe on the map.')
     expect(issues.name).toBeNull()
+    expect(issues.price).toBeNull()
+  })
+
+  test('rejects a junk peso amount', () => {
+    const issues = ownerCafeErrors({
+      name: 'Harbor',
+      address: '1 Session Road, Baguio City',
+      lat: 16.4,
+      lng: 120.6,
+      phone: '',
+      hours: allDayEveryDay(),
+      logoFile: null,
+      price: 'cheap',
+    })
+    expect(issues.price).toMatch(/whole peso/)
   })
 
   test('treats all-day hours as open and names the live window', () => {
