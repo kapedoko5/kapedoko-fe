@@ -17,6 +17,7 @@ describe('admin routes', () => {
       '/admin/events',
       '/admin/badges',
       '/admin/vibe-tags',
+      '/admin/theme',
       '/admin/users',
       '/admin/moderation',
     ])
@@ -40,6 +41,7 @@ describe('admin routes', () => {
     expect(adminNavIdFromPath('/admin/badges/new')).toBe('badges')
     expect(adminNavIdFromPath('/admin/vibe-tags')).toBe('vibe-tags')
     expect(adminNavIdFromPath('/admin/vibe-tags/new')).toBe('vibe-tags')
+    expect(adminNavIdFromPath('/admin/theme')).toBe('theme')
     expect(adminNavIdFromPath('/admin')).toBe('dashboard')
     expect(adminNavIdFromPath('/admin/analytics')).toBe('analytics')
     expect(adminNavIdFromPath('/admin/analytics/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')).toBe('analytics')
@@ -130,6 +132,7 @@ describe('admin routes', () => {
     expect(adminBackNav('/admin/events')).toBeNull()
     expect(adminBackNav('/admin/badges')).toBeNull()
     expect(adminBackNav('/admin/vibe-tags')).toBeNull()
+    expect(adminBackNav('/admin/theme')).toBeNull()
     expect(adminBackNav('/admin/verifications')).toBeNull()
   })
 })

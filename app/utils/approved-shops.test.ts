@@ -17,6 +17,7 @@ import {
   groupAmenityRows,
   groupBadgeRows,
   isMissingShopGalleryColumn,
+  isMissingShopThemeColumn,
   POSTGREST_PAGE_SIZE,
   resetApprovedShopSelectForTests,
   SHOP_ID_CHUNK,
@@ -336,6 +337,58 @@ describe('approved shop catalog fetch', () => {
     expect(cafe?.id).toBe(shopId(1))
     expect(selects.some((columns) => columns.includes('gallery_object_keys'))).toBe(true)
     expect(selects.some((columns) => !columns.includes('gallery_object_keys'))).toBe(true)
+    resetApprovedShopSelectForTests()
+  })
+
+  test('retries shop catalog without theme columns when they are missing', async () => {
+    resetApprovedShopSelectForTests()
+    const shops = [shopRow(1)]
+    const selects: string[] = []
+    const missing = { code: '42703', message: 'column shops.theme_button_hex does not exist' }
+    const supabase = {
+      async rpc() {
+        return { data: { amenities: [], payments: [], stats: [], tiers: [] }, error: null }
+      },
+      from() {
+        const builder: Record<string, unknown> = {}
+        const chain = () => builder
+        Object.assign(builder, {
+          select(columns: string) {
+            selects.push(columns)
+            return builder
+          },
+          eq: chain,
+          order: chain,
+          limit: () => Promise.resolve(
+            selects.at(-1)?.includes('theme_button_hex')
+              ? { data: null, error: missing }
+              : { data: shops, error: null },
+          ),
+          range: () => Promise.resolve(
+            selects.at(-1)?.includes('theme_button_hex')
+              ? { data: null, error: missing }
+              : { data: shops, error: null },
+          ),
+          maybeSingle: () => Promise.resolve(
+            selects.at(-1)?.includes('theme_button_hex')
+              ? { data: null, error: missing }
+              : { data: shops[0], error: null },
+          ),
+        })
+        return builder
+      },
+    }
+
+    expect(isMissingShopThemeColumn(missing)).toBe(true)
+    expect(APPROVED_SHOP_COLUMNS).toContain('theme_button_hex')
+    expect(APPROVED_SHOP_COLUMNS).toContain('theme_text_hex')
+    expect(APPROVED_SHOP_COLUMNS).toContain('theme_background_hex')
+    const rows = await fetchApprovedShopRows(supabase)
+    expect(rows).toHaveLength(1)
+    const cafe = await fetchApprovedCafeById(supabase, '', shopId(1))
+    expect(cafe?.id).toBe(shopId(1))
+    expect(selects.some((columns) => columns.includes('theme_button_hex'))).toBe(true)
+    expect(selects.some((columns) => !columns.includes('theme_button_hex'))).toBe(true)
     resetApprovedShopSelectForTests()
   })
 })

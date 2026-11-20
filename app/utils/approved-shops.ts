@@ -39,12 +39,24 @@ import type { CafeFilterId } from './cafe-filters'
 const APPROVED_SHOP_COLUMNS_CORE =
   'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,contact_number,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
 
+const APPROVED_SHOP_GALLERY_COLUMNS = 'gallery_object_keys'
+const APPROVED_SHOP_THEME_COLUMNS = 'theme_button_hex,theme_text_hex,theme_background_hex'
+
 export const APPROVED_SHOP_COLUMNS =
-  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,gallery_object_keys,contact_number,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
+  `${APPROVED_SHOP_COLUMNS_CORE},${APPROVED_SHOP_GALLERY_COLUMNS},${APPROVED_SHOP_THEME_COLUMNS}`
 
-let shopColumnSelect = APPROVED_SHOP_COLUMNS
+let includeGalleryColumns = true
+let includeThemeColumns = true
 
-export function isMissingShopGalleryColumn(error: unknown): boolean {
+function shopColumnSelect(): string {
+  const extra = [
+    includeGalleryColumns ? APPROVED_SHOP_GALLERY_COLUMNS : '',
+    includeThemeColumns ? APPROVED_SHOP_THEME_COLUMNS : '',
+  ].filter(Boolean)
+  return extra.length ? `${APPROVED_SHOP_COLUMNS_CORE},${extra.join(',')}` : APPROVED_SHOP_COLUMNS_CORE
+}
+
+function shopColumnErrorMessage(error: unknown): { message: string; code: string } {
   const message = error instanceof Error
     ? error.message
     : typeof error === 'object' && error !== null && 'message' in error
@@ -53,26 +65,46 @@ export function isMissingShopGalleryColumn(error: unknown): boolean {
   const code = typeof error === 'object' && error !== null && 'code' in error
     ? String((error as { code?: unknown }).code ?? '')
     : ''
-  return /gallery_object_keys/i.test(message)
+  return { message, code }
+}
+
+function isMissingColumn(error: unknown, column: string): boolean {
+  const { message, code } = shopColumnErrorMessage(error)
+  return new RegExp(column, 'i').test(message)
     && (/does not exist|schema cache/i.test(message) || code === '42703')
 }
 
-export function resetApprovedShopSelectForTests(): void {
-  shopColumnSelect = APPROVED_SHOP_COLUMNS
+export function isMissingShopGalleryColumn(error: unknown): boolean {
+  return isMissingColumn(error, 'gallery_object_keys')
 }
 
-function dropGalleryColumnSelect(): boolean {
-  if (shopColumnSelect === APPROVED_SHOP_COLUMNS_CORE) return false
-  shopColumnSelect = APPROVED_SHOP_COLUMNS_CORE
-  return true
+export function isMissingShopThemeColumn(error: unknown): boolean {
+  return isMissingColumn(error, 'theme_button_hex|theme_text_hex|theme_background_hex')
+}
+
+export function resetApprovedShopSelectForTests(): void {
+  includeGalleryColumns = true
+  includeThemeColumns = true
+}
+
+function dropOptionalShopColumns(error: unknown): boolean {
+  if (includeGalleryColumns && isMissingShopGalleryColumn(error)) {
+    includeGalleryColumns = false
+    return true
+  }
+  if (includeThemeColumns && isMissingShopThemeColumn(error)) {
+    includeThemeColumns = false
+    return true
+  }
+  return false
 }
 
 async function withShopGalleryFallback<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run()
   } catch (error) {
-    if (!isMissingShopGalleryColumn(error) || !dropGalleryColumnSelect()) throw error
-    return await run()
+    if (!dropOptionalShopColumns(error)) throw error
+    return await withShopGalleryFallback(run)
   }
 }
 
@@ -467,7 +499,7 @@ function approvedShopQuery(
 ) {
   let request = supabase
     .from('shops')
-    .select(shopColumnSelect)
+    .select(shopColumnSelect())
     .eq('status', 'approved')
 
   if (options.ids) request = request.in('id', options.ids)
@@ -741,7 +773,7 @@ export async function fetchApprovedCafeById(
   const shop = await withShopGalleryFallback(async () => {
     const { data, error } = await supabase
       .from('shops')
-      .select(shopColumnSelect)
+      .select(shopColumnSelect())
       .eq('id', shopId)
       .eq('status', 'approved')
       .maybeSingle()

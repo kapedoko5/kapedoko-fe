@@ -1,5 +1,9 @@
 <template>
-  <div class="cafe-detail" :class="`cafe-detail--${variant}`">
+  <div
+    class="cafe-detail"
+    :class="[`cafe-detail--${variant}`, preview && 'cafe-detail--preview']"
+    :style="themeStyle"
+  >
     <header class="cafe-detail__header">
       <div class="cafe-detail__title-row">
         <h2>{{ cafe.name }}</h2>
@@ -9,6 +13,7 @@
           :aria-pressed="saved"
           :aria-label="saved ? `Remove ${cafe.name} from saved cafes` : `Save ${cafe.name}`"
           @click="onSave"
+          :tabindex="preview ? -1 : undefined"
         >
           <Heart :size="18" :stroke-width="1.75" :fill="saved ? 'currentColor' : 'none'" />
         </button>
@@ -334,20 +339,20 @@
         <button
           type="button"
           class="cafe-detail__leave"
-          @click="emit('checkin')"
+          @click="onCheckin"
         >
           I’m working here
         </button>
         <button
           type="button"
           class="cafe-detail__leave cafe-detail__leave--quiet"
-          @click="emit('review')"
+          @click="onReview"
         >
           Leave a review
         </button>
       </div>
 
-      <div class="cafe-detail__map">
+      <div v-if="!preview" class="cafe-detail__map">
         <ClientOnly>
           <CafePinMap
             :lat="cafe.lat"
@@ -500,6 +505,7 @@ import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import CafeOwnerCard from '~/components/cafe/CafeOwnerCard.vue'
 import CafePinMap from '~/components/map/CafePinMap.client.vue'
 import type { Cafe } from '~/types/cafe'
+import { cafeThemeStyle } from '~/utils/cafe-theme'
 import { isKapedokoMark, KAPEDOKO_BEAN_PIN_SRC } from '~/utils/logo'
 import { googleMapsDirectionsUrl } from '~/utils/maps'
 import {
@@ -520,8 +526,9 @@ const props = withDefaults(
     cafe: Cafe
     variant?: 'sheet' | 'page'
     showClose?: boolean
+    preview?: boolean
   }>(),
-  { variant: 'sheet', showClose: false },
+  { variant: 'sheet', showClose: false, preview: false },
 )
 
 const emit = defineEmits<{
@@ -566,7 +573,13 @@ const reportNotice = ref('')
 const ownReviewId = ref<string | null>(null)
 const ownReviewChecked = ref(false)
 let ownReviewRequest = 0
-const saved = computed(() => favorites.isSaved(props.cafe.id))
+const saved = computed(() => props.preview ? false : favorites.isSaved(props.cafe.id))
+const preview = computed(() => props.preview)
+const themeStyle = computed(() => cafeThemeStyle(
+  props.cafe.themeButtonHex,
+  props.cafe.themeTextHex,
+  props.cafe.themeBackgroundHex,
+))
 const monthCopy = computed(() => monthCheckInCopy(props.cafe.checkIns30d))
 const meterSeats = BUSYNESS_METER_SEATS
 const crowdFill = computed(() => busynessMeterFill(props.cafe.busyness?.level))
@@ -597,8 +610,13 @@ const refreshOwnReview = async () => {
 const shopId = computed(() => (isShopId(props.cafe.id) ? props.cafe.id : ''))
 
 watch(
-  () => [props.cafe.id, user.value?.id ?? ''] as const,
+  () => [props.cafe.id, user.value?.id ?? '', props.preview] as const,
   () => {
+    if (props.preview) {
+      ownReviewChecked.value = true
+      ownReviewId.value = null
+      return
+    }
     void refreshOwnReview()
   },
   { immediate: true },
@@ -607,15 +625,37 @@ watch(
 const canReportReview = (reviewId: string) => ownReviewChecked.value && ownReviewId.value !== reviewId
 
 const onSave = () => {
+  if (props.preview) return
   void favorites.toggle(props.cafe.id)
 }
 
 const trackAction = (type: Extract<ShopTrafficKind, 'navigate' | 'call' | 'photo_view'>) => {
+  if (props.preview) return
   record(props.cafe.id, type, currentTrafficSurface())
 }
 
-const onNavigate = () => trackAction('navigate')
-const onCall = () => trackAction('call')
+const onNavigate = (event?: Event) => {
+  if (props.preview) {
+    event?.preventDefault()
+    return
+  }
+  trackAction('navigate')
+}
+const onCall = (event?: Event) => {
+  if (props.preview) {
+    event?.preventDefault()
+    return
+  }
+  trackAction('call')
+}
+const onCheckin = () => {
+  if (props.preview) return
+  emit('checkin')
+}
+const onReview = () => {
+  if (props.preview) return
+  emit('review')
+}
 
 const reportTarget = async (target: 'review' | 'shop_photo', reviewId?: string) => {
   reportNotice.value = ''
@@ -1108,14 +1148,19 @@ const onGalleryWheel = (event: WheelEvent) => {
 
 <style scoped>
 .cafe-detail {
+  --cafe-button: var(--kd-accent);
+  --cafe-text: var(--kd-ink);
+  --cafe-on-button: var(--kd-ink);
+  --cafe-background: #ffffff;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: #ffffff;
-  color: var(--kd-ink);
+  background: var(--cafe-background);
+  color: var(--cafe-text);
   padding: 8px 0 0;
   font-family: 'Kumbh Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: color 180ms ease, background-color 180ms ease;
 }
 
 .cafe-detail--sheet {
@@ -1131,7 +1176,13 @@ const onGalleryWheel = (event: WheelEvent) => {
   min-height: 100%;
   overflow-x: clip;
   padding-top: 0;
-  background: #f2f2f2;
+  --cafe-background: #f2f2f2;
+  background: var(--cafe-background);
+}
+
+.cafe-detail--preview {
+  pointer-events: none;
+  user-select: none;
 }
 
 .cafe-detail--page .cafe-detail__header {
@@ -1290,12 +1341,13 @@ const onGalleryWheel = (event: WheelEvent) => {
   margin: 0;
   min-width: 0;
   flex: 1;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
   font-size: 1.325rem;
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
   overflow-wrap: anywhere;
+  transition: color 180ms ease;
 }
 
 .cafe-detail__save {
@@ -1308,15 +1360,15 @@ const onGalleryWheel = (event: WheelEvent) => {
   border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
   border-radius: 16px;
   background: #faf8f5;
-  color: var(--kd-accent);
+  color: var(--cafe-button);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
 .cafe-detail__save[aria-pressed='true'] {
-  border-color: var(--kd-accent);
-  background: var(--kd-accent);
-  color: var(--kd-ink);
+  border-color: var(--cafe-button);
+  background: var(--cafe-button);
+  color: var(--cafe-on-button);
 }
 
 .cafe-detail__close {
@@ -1382,9 +1434,9 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail__action-face--primary {
-  border: 1px solid var(--kd-accent);
-  background: var(--kd-accent);
-  color: var(--kd-ink);
+  border: 1px solid var(--cafe-button);
+  background: var(--cafe-button);
+  color: var(--cafe-on-button);
 }
 
 .cafe-detail__action-face--quiet {
@@ -1400,7 +1452,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   flex-wrap: wrap;
   gap: 10px;
   margin: 8px 0 0;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.2;
@@ -1478,7 +1530,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 
 .cafe-detail__vibe-label {
   margin: 8px 0 0;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.2;
@@ -1703,7 +1755,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 
 .cafe-detail__address {
   margin: 10px 0 0;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
   font-size: 0.75rem;
   line-height: 1.35;
 }
@@ -1714,7 +1766,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
 }
 
 .cafe-detail__score {
@@ -1725,11 +1777,11 @@ const onGalleryWheel = (event: WheelEvent) => {
 .cafe-detail__stars {
   display: flex;
   gap: 2px;
-  color: var(--kd-accent);
+  color: var(--cafe-button);
 }
 
 .cafe-detail__rating-label {
-  color: var(--kd-ink);
+  color: var(--cafe-text);
   font-size: 0.75rem;
   font-weight: 400;
 }
@@ -1770,7 +1822,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 .cafe-detail__hours {
   margin: 0;
   min-width: 0;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.2;
@@ -1814,14 +1866,14 @@ const onGalleryWheel = (event: WheelEvent) => {
 }
 
 .cafe-detail--page .cafe-detail__leave {
-  border-color: var(--kd-accent);
-  background: var(--kd-accent);
-  color: var(--kd-ink);
+  border-color: var(--cafe-button);
+  background: var(--cafe-button);
+  color: var(--cafe-on-button);
 }
 
 .cafe-detail--page .cafe-detail__leave--quiet {
   border-color: color-mix(in srgb, var(--kd-ink) 34%, transparent);
-  background: #ffffff;
+  background: var(--cafe-background);
 }
 
 .cafe-detail__poster {
@@ -2093,7 +2145,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   display: flex;
   gap: 12px;
   margin-top: 22px;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
 }
 
 .cafe-detail__insight > :first-child {
@@ -2168,7 +2220,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 
 .cafe-detail__reviews h3 {
   margin: 0 0 12px;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
   font-size: 0.95rem;
   font-weight: 700;
 }
@@ -2179,7 +2231,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   align-items: center;
   gap: 8px;
   padding: 12px 20px 8px;
-  color: var(--kd-ink);
+  color: var(--cafe-text);
   text-align: center;
 }
 
@@ -2197,7 +2249,7 @@ const onGalleryWheel = (event: WheelEvent) => {
 .cafe-review {
   padding: 16px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--kd-ink) 12%, transparent);
-  color: var(--kd-ink);
+  color: var(--cafe-text);
 }
 
 .cafe-review:last-child {
@@ -2297,7 +2349,7 @@ const onGalleryWheel = (event: WheelEvent) => {
   }
 
   .cafe-detail--page .cafe-detail__leave:hover {
-    background: var(--kd-accent);
+    background: var(--cafe-button);
     box-shadow: inset 0 3px 0 color-mix(in srgb, var(--kd-ink) 22%, transparent);
   }
 
@@ -2307,7 +2359,23 @@ const onGalleryWheel = (event: WheelEvent) => {
   }
 }
 
+.cafe-detail__save,
+.cafe-detail__action-face--primary,
+.cafe-detail--page .cafe-detail__leave,
+.cafe-detail__stars {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .cafe-detail,
+  .cafe-detail__header h2,
+  .cafe-detail__save,
+  .cafe-detail__action-face--primary,
+  .cafe-detail--page .cafe-detail__leave,
+  .cafe-detail__stars {
+    transition: none;
+  }
+
   .cafe-gallery[open],
   .cafe-gallery[open]::backdrop,
   .cafe-gallery__image {

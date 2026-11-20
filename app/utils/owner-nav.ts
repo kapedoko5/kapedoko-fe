@@ -5,6 +5,7 @@ export const OWNER_NAV = [
   { id: 'cafes', label: 'Cafes', href: '/owner/cafes' },
   { id: 'analytics', label: 'Analytics', href: '/owner/analytics' },
   { id: 'ads', label: 'Ads', href: '/owner/ads' },
+  { id: 'theme', label: 'Theme', href: '/owner/theme' },
   { id: 'claims', label: 'Claims', href: '/owner/claims' },
 ] as const
 
@@ -26,6 +27,7 @@ export function ownerNavIdFromPath(path: string): OwnerNavId {
   if (current.startsWith('/owner/cafes')) return 'cafes'
   if (current.startsWith('/owner/analytics')) return 'analytics'
   if (current.startsWith('/owner/ads')) return 'ads'
+  if (current.startsWith('/owner/theme')) return 'theme'
   if (current.startsWith('/owner/claims')) return 'claims'
   return 'desk'
 }

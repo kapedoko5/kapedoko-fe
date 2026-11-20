@@ -211,6 +211,9 @@ export function mapShopToCafe(
     seating: seating ?? null,
     badges: [],
     vibeTags: [],
+    themeButtonHex: shop.theme_button_hex ?? null,
+    themeTextHex: shop.theme_text_hex ?? null,
+    themeBackgroundHex: shop.theme_background_hex ?? null,
   }
 }
 

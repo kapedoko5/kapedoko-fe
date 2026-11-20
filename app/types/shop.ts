@@ -72,6 +72,9 @@ export interface ShopRow {
   cover_photo_url: string | null
   logo_object_key: string | null
   gallery_object_keys?: string[] | null
+  theme_button_hex?: string | null
+  theme_text_hex?: string | null
+  theme_background_hex?: string | null
   contact_number: string | null
   status: ShopStatus
   submitted_by: string | null
