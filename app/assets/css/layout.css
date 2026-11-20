@@ -255,12 +255,12 @@ html[data-kd-nav="float"] .map-locate {
   bottom: calc(var(--kd-tabbar-inset) + 60px);
 }
 
-html[data-kd-nav="float"] .search,
-html[data-kd-nav="float"] .cafe-page,
-html[data-kd-nav="float"] .event-page,
-html[data-kd-nav="float"] .submit,
-html[data-kd-nav="float"] .review,
-html[data-kd-nav="float"] .checkin,
-html[data-kd-nav="float"] .owner-page {
+html:is([data-kd-nav="bar"], [data-kd-nav="float"]) .search,
+html:is([data-kd-nav="bar"], [data-kd-nav="float"]) .cafe-page,
+html:is([data-kd-nav="bar"], [data-kd-nav="float"]) .event-page,
+html:is([data-kd-nav="bar"], [data-kd-nav="float"]) .submit,
+html:is([data-kd-nav="bar"], [data-kd-nav="float"]) .review,
+html:is([data-kd-nav="bar"], [data-kd-nav="float"]) .checkin,
+html:is([data-kd-nav="bar"], [data-kd-nav="float"]) .owner-page {
   padding-bottom: var(--kd-tabbar-inset);
 }

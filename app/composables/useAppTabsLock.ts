@@ -189,8 +189,13 @@ export function useAppTabBar(mode: AppTabBarMode) {
   const pageStamp = useState('kd-app-tab-page-stamp', () => 0)
   const revealAppTabBar = useRevealAppTabBar()
 
+  const livePath = () => resolveAppPath(
+    route.path,
+    import.meta.client ? `${window.location.pathname}${window.location.hash}` : '',
+  ) || route.path
+
   const claim = () => {
-    if (mode === 'hide' && holdTabBarShow && tabBarModeForPath(route.path) === 'show') return
+    if (mode === 'hide' && holdTabBarShow && tabBarModeForPath(livePath()) === 'show') return
     if (mode === 'hide') holdTabBarShow = false
     pageStamp.value += 1
     pageMode.value = mode

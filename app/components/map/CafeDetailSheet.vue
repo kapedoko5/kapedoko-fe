@@ -8,10 +8,11 @@
     :backdrop-breakpoint="compact ? EXPANDED : undefined"
     :show-backdrop="false"
     class="cafe-detail-modal"
+    :style="sheetThemeStyle"
     @didPresent="onPresent"
     @didDismiss="onDismiss"
   >
-    <div class="cafe-sheet">
+    <div class="cafe-sheet" :style="sheetThemeStyle">
       <CafeDetailContent
         v-if="cafe"
         :cafe="cafe"
@@ -28,6 +29,7 @@
 <script lang="ts" setup>
 import type { Cafe } from '~/types/cafe'
 import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
+import { cafeThemeStyle } from '~/utils/cafe-theme'
 
 const SHEET_HEIGHT = 0.88
 const PEEK_VIEWPORT = 0.62
@@ -36,10 +38,16 @@ const EXPANDED = 1
 const BREAKPOINTS = [0, PEEK, EXPANDED]
 const { compact } = useViewportLayout()
 
-defineProps<{
+const props = defineProps<{
   open: boolean
   cafe: Cafe | null
 }>()
+
+const sheetThemeStyle = computed(() => cafeThemeStyle(
+  props.cafe?.themeButtonHex,
+  props.cafe?.themeTextHex,
+  props.cafe?.themeBackgroundHex,
+))
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
@@ -66,7 +74,7 @@ ion-modal.cafe-detail-modal {
   --height: 88%;
   --width: 100%;
   --border-radius: 16px;
-  --background: #ffffff;
+  --background: var(--cafe-background, #ffffff);
   --box-shadow: 0 -4px 20px color-mix(in srgb, #1c1917 12%, transparent);
   --backdrop-opacity: 0;
 }
@@ -99,6 +107,7 @@ ion-modal.cafe-detail-modal .ion-page {
   min-height: 0;
   height: 100%;
   overflow: hidden;
+  background: var(--cafe-background, #ffffff);
 }
 
 ion-modal.cafe-detail-modal::part(handle) {

@@ -12,7 +12,7 @@
 
       <div v-if="tilesFailed" class="cafe-pin-map__fail" role="alert">
         <p>Map didn’t load.</p>
-        <a :href="mapsHref" target="_blank" rel="noopener noreferrer">Open in Google Maps</a>
+        <a :href="mapsHref" target="_blank" rel="noopener noreferrer">Open in Maps</a>
       </div>
 
       <div class="cafe-pin-map__tools">
