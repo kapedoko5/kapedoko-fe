@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   defaultPlacementFeatures,
   parsePlacementFeatures,
+  placementFeaturesPayload,
   placementFeaturesSummary,
 } from './placement-features'
 
@@ -11,12 +12,14 @@ describe('placement feature defaults', () => {
       featured_photos: true,
       ad_poster: false,
       analytics: false,
+      theme: false,
       home_carousel: false,
     })
     expect(defaultPlacementFeatures('sponsored')).toMatchObject({
       featured_photos: true,
       ad_poster: true,
       analytics: true,
+      theme: true,
       home_carousel: false,
     })
   })
@@ -34,6 +37,19 @@ describe('placement feature defaults', () => {
       kind: 'sponsored',
       show_on_home: true,
     }).ad_poster).toBe(true)
+    expect(placementFeaturesPayload({
+      featured_photos: true,
+      ad_poster: true,
+      analytics: true,
+      theme: true,
+      home_carousel: false,
+    })).toEqual({
+      featured_photos: true,
+      ad_poster: true,
+      analytics: true,
+      theme: true,
+      home_carousel: false,
+    })
     expect(placementFeaturesSummary(defaultPlacementFeatures('partner'))).toMatch(/Full featured photos/)
     expect(parsePlacementFeatures({
       kind: 'partner',

@@ -18,7 +18,10 @@ describe('owner nav', () => {
     expect(ownerNavIdFromPath('/owner/analytics')).toBe('analytics')
     expect(ownerNavIdFromPath('/owner/ads')).toBe('ads')
     expect(OWNER_NAV.find((item) => item.id === 'ads')?.label).toBe('Ad Poster')
+    expect(ownerNavIdFromPath('/owner/theme')).toBe('theme')
     expect(ownerNavIdFromPath('/owner/claims')).toBe('claims')
+    expect(OWNER_NAV.map((item) => item.id)).toContain('theme')
+    expect(OWNER_NAV.find((item) => item.id === 'theme')?.href).toBe('/owner/theme')
     expect(ownerNavIdFromPath('/owner/claims/?x=1')).toBe('claims')
   })
 

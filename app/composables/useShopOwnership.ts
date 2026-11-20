@@ -4,6 +4,7 @@ import { isPlacementActive } from '~/utils/marker-tier'
 import { parsePlacementFeatures, type PlacementFeatureId, type PlacementFeatures } from '~/utils/placement-features'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import { authUserId } from '~/utils/auth'
+import { missingCafeThemeSqlCopy } from '~/utils/cafe-theme'
 import { missingOwnerMediaSqlCopy, type ShopPosterRow } from '~/utils/owner-ads'
 import { uploadPresignedImage } from '~/utils/presign-upload'
 import type { OwnerVerifyDraft } from '~/utils/owner-verify'
@@ -22,7 +23,8 @@ async function uploadOwnerMedia(file: File, purpose: OwnerUploadPurpose): Promis
 
 function ownerWriteError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback
-  return missingOwnerMediaSqlCopy(message)
+  return missingCafeThemeSqlCopy(message)
+    ?? missingOwnerMediaSqlCopy(message)
     ?? missingShopOwnerSqlCopy(message)
     ?? (message.trim() || fallback)
 }
@@ -431,6 +433,44 @@ export function useShopOwnership() {
     }
   }
 
+  const applyOwnedShopTheme = async (
+    shopIds: string[],
+    buttonHex: string | null,
+    textHex: string | null,
+    backgroundHex: string | null,
+  ) => {
+    if (shopIds.length === 0) {
+      error.value = 'Choose at least one cafe.'
+      throw new Error(error.value)
+    }
+    if (shopIds.some((id) => !featuresByShop.value[id]?.theme)) {
+      error.value = 'Theme is off until a partnership turns it on for a cafe you manage.'
+      throw new Error(error.value)
+    }
+    saving.value = true
+    error.value = ''
+    try {
+      const { data, error: rpcError } = await supabase.rpc('apply_owner_shop_theme', {
+        p_shop_ids: shopIds,
+        p_button_hex: buttonHex,
+        p_text_hex: textHex,
+        p_background_hex: backgroundHex,
+      })
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as ShopRow[]
+      if (rpcError || rows.length === 0) {
+        throw new Error(ownerWriteError(rpcError?.message || 'Could not stamp this look.', 'Could not stamp this look.'))
+      }
+      const byId = new Map(rows.map((row) => [row.id, row]))
+      ownedShops.value = ownedShops.value.map((item) => byId.get(item.id) ?? item)
+      return rows
+    } catch (err) {
+      error.value = ownerWriteError(err, 'Could not stamp this look.')
+      throw new Error(error.value)
+    } finally {
+      saving.value = false
+    }
+  }
+
   const loadPosters = async () => {
     const { data, error: rpcError } = await supabase.rpc('list_my_shop_posters')
     if (rpcError) throw new Error(ownerWriteError(rpcError.message, 'Could not load posters.'))
@@ -571,6 +611,7 @@ export function useShopOwnership() {
     submitClaim,
     withdrawClaim,
     updateOwnedShop,
+    applyOwnedShopTheme,
     loadPosters,
     publishPoster,
     endPoster,

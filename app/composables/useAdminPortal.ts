@@ -25,6 +25,8 @@ import {
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
 import { missingPartnershipSqlCopy } from '~/utils/admin-placements'
+import { placementFeaturesPayload } from '~/utils/placement-features'
+import { missingCafeThemeSqlCopy } from '~/utils/cafe-theme'
 import type { ShopPosterRow } from '~/utils/owner-ads'
 import { fetchAdminShopRows } from '~/utils/approved-shops'
 import { chunkImportDrafts, pendingImportDrafts } from '~/utils/cafe-csv-import'
@@ -497,7 +499,7 @@ export function useAdminData() {
         p_starts_at: kind === 'standard' ? null : new Date(startsAt).toISOString(),
         p_ends_at: kind === 'standard' ? null : new Date(endsAt).toISOString(),
         p_show_on_home: kind === 'standard' ? false : (features?.home_carousel ?? showOnHome),
-        p_features: kind === 'standard' ? null : features,
+        p_features: kind === 'standard' ? null : placementFeaturesPayload(features),
       })
       if (rpcError) throw new Error(rpcError.message)
       await loadPlacements()
@@ -796,6 +798,44 @@ export function useAdminData() {
       return done
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Could not stamp this logo.'
+      throw err
+    } finally {
+      savingId.value = null
+    }
+  }
+
+  const applyShopTheme = async (
+    shopIds: string[],
+    buttonHex: string | null,
+    textHex: string | null,
+    backgroundHex: string | null,
+  ) => {
+    const ids = [...new Set(shopIds)]
+    if (ids.length === 0) {
+      error.value = 'Tick at least one cafe.'
+      throw new Error(error.value)
+    }
+    savingId.value = ids.length === 1 ? ids[0]! : 'theme'
+    error.value = ''
+    try {
+      const { data, error: rpcError } = await supabase.rpc('apply_admin_shop_theme', {
+        p_shop_ids: ids,
+        p_button_hex: buttonHex,
+        p_text_hex: textHex,
+        p_background_hex: backgroundHex,
+      })
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as ShopRow[]
+      if (rpcError || rows.length === 0) {
+        throw new Error(
+          missingCafeThemeSqlCopy(rpcError?.message || '')
+          || rpcError?.message
+          || 'Could not stamp this look.',
+        )
+      }
+      mergeUpdatedShops(rows)
+      return rows
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Could not stamp this look.'
       throw err
     } finally {
       savingId.value = null
@@ -1262,6 +1302,7 @@ export function useAdminData() {
     updateShop,
     updateShopLogo,
     updateShopLogos,
+    applyShopTheme,
     deleteShop,
     resolveReport,
     saveAd,
