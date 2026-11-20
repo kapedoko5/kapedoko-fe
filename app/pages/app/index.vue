@@ -39,15 +39,18 @@
         >
           <div class="home-partners__track" role="list">
             <button
-              v-for="(ad, index) in homeAds"
+              v-for="ad in homeAds"
               :key="ad.id"
               type="button"
               class="home-partners__card"
-              :class="ad.kind === 'ad'
-                ? 'home-partners__card--sponsored'
-                : ad.kind === 'promoted'
+              :class="[
+                ad.kind === 'ad'
                   ? 'home-partners__card--sponsored'
-                  : 'home-partners__card--partner'"
+                  : ad.kind === 'promoted'
+                    ? 'home-partners__card--sponsored'
+                    : 'home-partners__card--partner',
+                { 'home-partners__card--bleed': ad.bleed },
+              ]"
               role="listitem"
               :aria-label="ad.ariaLabel"
               :ref="(el) => bindPromoEl(ad.id, el)"
@@ -58,17 +61,14 @@
                   class="home-partners__image"
                   :src="ad.image"
                   alt=""
-                  width="108"
-                  height="128"
+                  :width="ad.bleed ? 640 : 320"
+                  height="150"
                 />
-                <span class="home-partners__badge">{{ ad.badge }}</span>
+                <span v-if="ad.badge" class="home-partners__badge">{{ ad.badge }}</span>
               </span>
-              <span class="home-partners__copy" aria-hidden="true">
+              <span v-if="!ad.bleed" class="home-partners__copy" aria-hidden="true">
                 <span class="home-partners__name">{{ ad.name }}</span>
                 <span v-if="ad.place" class="home-partners__place">{{ ad.place }}</span>
-                <span v-if="homeAds.length > 1" class="home-partners__index">
-                  {{ index + 1 }} of {{ homeAds.length }}
-                </span>
               </span>
             </button>
           </div>
@@ -245,7 +245,8 @@ import CafeCard from '~/components/cafe/CafeCard.vue'
 import CafeDetailContent from '~/components/cafe/CafeDetailContent.vue'
 import EventDetailContent from '~/components/event/EventDetailContent.vue'
 import type { Cafe } from '~/types/cafe'
-import { featuredAdCopy } from '~/utils/admin-ads'
+import type { AdDestinationKind } from '~/types/admin'
+import { adBannerIsBleed, featuredAdCopy, parseInternalAdPath } from '~/utils/admin-ads'
 import { watchImpression } from '~/utils/analytics-impression'
 import { CARD_IMPRESSION_MS, CARD_IMPRESSION_RATIO } from '~/utils/shop-traffic'
 import { CAFE_FILTERS, type CafeFilterIcon, type CafeFilterId } from '~/utils/cafe-filters'
@@ -321,23 +322,29 @@ const usingLiveAds = computed(() => liveAds.value.length > 0)
 
 const homeAds = computed(() => {
   if (usingLiveAds.value) {
-    return liveAds.value.map((ad, index) => {
-      const copy = featuredAdCopy(ad.name, ad.label)
+    return liveAds.value.map((ad) => {
+      const bleed = adBannerIsBleed(ad.label)
+      const copy = ad.destinationKind === 'cafe'
+        ? featuredAdCopy(ad.name, ad.label)
+        : { name: ad.label.trim() || ad.name, place: '' }
       return {
         id: ad.id,
         shopId: ad.shopId,
         name: copy.name,
         place: copy.place,
         image: ad.image,
-        badge: 'Ad',
+        badge: '',
         kind: 'ad' as const,
+        bleed,
+        destinationKind: ad.destinationKind,
+        destinationUrl: ad.destinationUrl,
         ariaLabel: copy.place
-          ? `Ad: ${copy.name}, ${copy.place}, ${index + 1} of ${liveAds.value.length}`
-          : `Ad: ${copy.name}, ${index + 1} of ${liveAds.value.length}`,
+          ? `Ad: ${copy.name}, ${copy.place}`
+          : `Ad: ${copy.name}`,
       }
     })
   }
-  return placementCafes.value.map((cafe, index) => {
+  return placementCafes.value.map((cafe) => {
     const badge = cafe.markerTier === 'promoted' ? 'Sponsored' : 'Partner'
     return {
       id: cafe.id,
@@ -347,7 +354,10 @@ const homeAds = computed(() => {
       image: '/assets/partner-ad-placeholder.svg',
       badge,
       kind: cafe.markerTier === 'promoted' ? 'promoted' as const : 'partner' as const,
-      ariaLabel: `${badge}: ${cafe.name}, ${index + 1} of ${placementCafes.value.length}`,
+      bleed: false,
+      destinationKind: 'cafe' as const,
+      destinationUrl: null as string | null,
+      ariaLabel: `${badge}: ${cafe.name}`,
     }
   })
 })
@@ -504,12 +514,47 @@ const openEvent = async (id: string) => {
   await openEventPane(id, fallback)
 }
 
-const openPromotion = async (ad: { id: string; shopId: string; kind: 'ad' | 'promoted' | 'partner' }) => {
-  record(ad.shopId, 'card_click', 'promotion')
-  const fallback = placementList.value.find((item) => item.id === ad.shopId)
-    || pagedCafes.value.find((item) => item.id === ad.shopId)
-    || null
-  await openCafePane(ad.shopId, fallback, 'promotion')
+const openPromotion = async (ad: {
+  id: string
+  shopId: string | null
+  kind: 'ad' | 'promoted' | 'partner'
+  destinationKind?: AdDestinationKind
+  destinationUrl?: string | null
+}) => {
+  if (ad.shopId) record(ad.shopId, 'card_click', 'promotion')
+  if (ad.kind !== 'ad') {
+    if (!ad.shopId) return
+    const fallback = placementList.value.find((item) => item.id === ad.shopId)
+      || pagedCafes.value.find((item) => item.id === ad.shopId)
+      || null
+    await openCafePane(ad.shopId, fallback, 'promotion')
+    return
+  }
+
+  const kind = ad.destinationKind ?? 'cafe'
+  if (kind === 'cafe' && ad.shopId) {
+    const fallback = placementList.value.find((item) => item.id === ad.shopId)
+      || pagedCafes.value.find((item) => item.id === ad.shopId)
+      || null
+    await openCafePane(ad.shopId, fallback, 'promotion')
+    return
+  }
+  if (kind === 'external' && ad.destinationUrl) {
+    window.open(ad.destinationUrl, '_blank', 'noopener,noreferrer')
+    return
+  }
+  if (kind === 'internal' && ad.destinationUrl) {
+    const parsed = parseInternalAdPath(ad.destinationUrl)
+    if (parsed?.type === 'cafe') {
+      await openCafePane(parsed.id, null, 'promotion')
+      return
+    }
+    if (parsed?.type === 'event') {
+      await openEventPane(parsed.id)
+      return
+    }
+    if (parsed) await navigateTo(ad.destinationUrl)
+  }
 }
 
 const promoEls = new Map<string, Element>()
@@ -525,7 +570,7 @@ const startPromoWatch = (id: string, node: Element) => {
     ratio: CARD_IMPRESSION_RATIO,
     dwellMs: CARD_IMPRESSION_MS,
     onView: () => {
-      record(ad.shopId, 'card_impression', 'promotion')
+      if (ad.shopId) record(ad.shopId, 'card_impression', 'promotion')
     },
   }))
 }
@@ -696,13 +741,17 @@ onMounted(() => {
 }
 
 .home-partners__card {
+  --ad-banner-height: 150px;
+  --ad-media-col: minmax(168px, 1.8fr);
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
+  grid-template-columns: var(--ad-media-col) minmax(120px, 1fr);
   align-items: stretch;
   flex: 0 0 calc(100% - 56px);
   scroll-snap-align: start;
   min-width: 0;
-  min-height: 128px;
+  height: var(--ad-banner-height);
+  min-height: var(--ad-banner-height);
+  max-height: var(--ad-banner-height);
   padding: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--kd-ink) 28%, transparent);
@@ -713,6 +762,24 @@ onMounted(() => {
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 600px) {
+  .home-partners__card {
+    --ad-banner-height: 200px;
+    --ad-media-col: minmax(240px, 2fr);
+  }
+}
+
+@media (min-width: 840px) {
+  .home-partners__card {
+    --ad-banner-height: 240px;
+    --ad-media-col: minmax(360px, 2.4fr);
+  }
+}
+
+.home-partners__card--bleed {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .home-partners__card:only-child {
@@ -741,7 +808,8 @@ onMounted(() => {
 .home-partners__media {
   position: relative;
   display: block;
-  min-height: 128px;
+  min-height: 0;
+  height: 100%;
   background: var(--kd-primary);
 }
 
@@ -796,8 +864,7 @@ onMounted(() => {
   letter-spacing: -0.02em;
 }
 
-.home-partners__place,
-.home-partners__index {
+.home-partners__place {
   color: color-mix(in srgb, var(--kd-ink) 78%, #faf8f5);
 }
 
@@ -809,13 +876,6 @@ onMounted(() => {
   line-clamp: 2;
   font-size: 0.75rem;
   font-weight: 400;
-  line-height: 1.3;
-}
-
-.home-partners__index {
-  margin-top: 4px;
-  font-size: 0.75rem;
-  font-weight: 700;
   line-height: 1.3;
 }
 

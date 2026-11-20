@@ -22,11 +22,35 @@ import {
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import type { CafeVibeTag, VibeTagLucideId, VibeTagNameRow } from '~/types/admin'
+import {
+  DEFAULT_CAFE_PRICE_MARKS,
+  MENU_PRICE_PHP_MAX,
+  cafePricePesoMarks,
+  cafePriceTier,
+  cafePriceTierLabel,
+  shouldStampBudgetFriendly,
+  type CafePriceMarks,
+  type CafePriceTier,
+} from './cafe-price-marks'
+
+export {
+  DEFAULT_CAFE_PRICE_MARKS,
+  MENU_PRICE_PHP_MAX,
+  cafePricePesoMarks,
+  cafePriceTier,
+  cafePriceTierLabel,
+  shouldStampBudgetFriendly,
+}
+
+export type { CafePriceMarks, CafePriceTier }
 
 export const VIBE_TAG_LABEL_MAX = 40
 export const VIBE_TAG_MAX = 5
 export const VIBE_TAG_DEFAULT_LUCIDE: VibeTagLucideId = 'coffee'
 export const VIBE_TAG_DEFAULT_COLOR = '#D9793B'
+export const BUDGET_FRIENDLY_SLUG = 'budget-friendly'
+export const BUDGET_FRIENDLY_MAX_PHP = DEFAULT_CAFE_PRICE_MARKS.budgetMaxPhp
+export const MENU_PRICE_SPECIALTY_MIN_PHP = DEFAULT_CAFE_PRICE_MARKS.midMaxPhp + 1
 
 const VIBE_TAG_COLOR_RE = /^#[0-9A-Fa-f]{6}$/
 
@@ -157,4 +181,70 @@ export function vibeTagPickerCount(selected: number, hidden = 0): string {
 
 export function enabledVibeTags(rows: VibeTagNameRow[]): VibeTagNameRow[] {
   return rows.filter((row) => row.enabled).sort((a, b) => a.label.localeCompare(b.label))
+}
+
+export function isBudgetFriendlyTag(tag: { slug: string }): boolean {
+  return tag.slug === BUDGET_FRIENDLY_SLUG
+}
+
+export function menuPriceError(value: string): string | null {
+  const digits = value.trim().replace(/[₱,\s]/g, '')
+  if (!digits) return null
+  if (!/^\d+$/.test(digits)) return 'Use a whole peso amount, like 200.'
+  const amount = Number(digits)
+  if (amount < 1 || amount > MENU_PRICE_PHP_MAX) return 'Use a peso amount from 1 to 99,999.'
+  return null
+}
+
+export function parseMenuPricePhp(value: string): number | null {
+  if (menuPriceError(value)) return null
+  const digits = value.trim().replace(/[₱,\s]/g, '')
+  if (!digits) return null
+  return Number(digits)
+}
+
+export function formatMenuPricePhp(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value) || value < 1) return ''
+  return String(Math.trunc(value))
+}
+
+export function pickerVibeTags(rows: VibeTagNameRow[]): VibeTagNameRow[] {
+  return enabledVibeTags(rows).filter((row) => !isBudgetFriendlyTag(row))
+}
+
+export function budgetFriendlyTagId(rows: VibeTagNameRow[]): string | null {
+  return rows.find((row) => isBudgetFriendlyTag(row) && row.enabled)?.id ?? null
+}
+
+export function vibeIdsWithoutBudgetFriendly(ids: string[], rows: VibeTagNameRow[]): string[] {
+  const budgetIds = new Set(rows.filter(isBudgetFriendlyTag).map((row) => row.id))
+  return ids.filter((id) => !budgetIds.has(id))
+}
+
+export function selectedUserVibeTagIds(
+  assigned: { tag_id: string }[],
+  rows: VibeTagNameRow[],
+): string[] {
+  const pickable = new Set(pickerVibeTags(rows).map((row) => row.id))
+  return assigned.flatMap((row) => (pickable.has(row.tag_id) ? [row.tag_id] : []))
+}
+
+export function hiddenUserVibeTagCount(
+  assigned: { tag_id: string }[],
+  rows: VibeTagNameRow[],
+): number {
+  const enabled = new Set(enabledVibeTags(rows).map((row) => row.id))
+  const budgetIds = new Set(rows.filter(isBudgetFriendlyTag).map((row) => row.id))
+  return assigned.filter((row) => !enabled.has(row.tag_id) && !budgetIds.has(row.tag_id)).length
+}
+
+export function assignedVibeTagIdsForPrice(
+  enabledIds: string[],
+  rows: VibeTagNameRow[],
+  menuPricePhp: number | null | undefined,
+  marks: CafePriceMarks = DEFAULT_CAFE_PRICE_MARKS,
+): string[] {
+  const userIds = vibeIdsWithoutBudgetFriendly(enabledIds, rows)
+  const budgetId = shouldStampBudgetFriendly(menuPricePhp, marks) ? budgetFriendlyTagId(rows) : null
+  return budgetId && !userIds.includes(budgetId) ? [...userIds, budgetId] : userIds
 }

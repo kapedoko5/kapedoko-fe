@@ -2,6 +2,7 @@ import { addressError, cafeNameError } from './identity'
 import { isValidWeeklyHours } from './hours'
 import { isValidPhone } from './phone'
 import { logoFileError } from './logo'
+import { menuPriceError } from './admin-vibe-tags'
 import type { ShopStatus, WeeklyHours } from '../types/shop'
 
 export function shopStatusWord(status: ShopStatus): string {
@@ -19,6 +20,7 @@ export interface AdminCafeInput {
   phone: string
   hours: WeeklyHours | null
   logoFile: File | null
+  price?: string
 }
 
 export function isValidLatitude(value: number | null | undefined): boolean {
@@ -36,6 +38,7 @@ export function adminCafeErrors(input: AdminCafeInput): {
   phone: string | null
   hours: string | null
   logo: string | null
+  price: string | null
 } {
   const phone = input.phone.trim()
   return {
@@ -45,6 +48,7 @@ export function adminCafeErrors(input: AdminCafeInput): {
     phone: !phone || isValidPhone(phone) ? null : 'Use a phone number like 0917 123 4567.',
     hours: isValidWeeklyHours(input.hours) ? null : 'Check the opening hours and try again.',
     logo: logoFileError(input.logoFile),
+    price: menuPriceError(input.price ?? ''),
   }
 }
 
@@ -104,6 +108,13 @@ export function missingAdminCafeMediaSqlCopy(message: string): string | null {
     return null
   }
   return 'Apply db/20261114_owner_cafe_media.sql and db/20261117_admin_cafe_media.sql in the SQL editor, then try again.'
+}
+
+export function missingMenuPriceSqlCopy(message: string): string | null {
+  if (!/p_menu_price_php|menu_price_php|sync_budget_friendly_vibe/i.test(message)) {
+    return null
+  }
+  return 'Apply db/20261124_menu_price_budget_vibe.sql in the SQL editor, then try again.'
 }
 
 export function adminCafePosterLede(): string {

@@ -37,14 +37,14 @@ import {
 import type { CafeFilterId } from './cafe-filters'
 
 const APPROVED_SHOP_COLUMNS_CORE =
-  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,contact_number,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
+  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,contact_number,menu_price_php,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
 
 export const APPROVED_SHOP_COLUMNS =
-  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,gallery_object_keys,contact_number,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
+  'id,name,description,address,latitude,longitude,categories,hours,cover_photo_url,logo_object_key,gallery_object_keys,contact_number,menu_price_php,status,submitted_by,reviewed_by,reviewed_at,rejection_reason,created_at,updated_at'
 
 let shopColumnSelect = APPROVED_SHOP_COLUMNS
 
-export function isMissingShopGalleryColumn(error: unknown): boolean {
+function shopColumnError(error: unknown): { message: string; code: string } {
   const message = error instanceof Error
     ? error.message
     : typeof error === 'object' && error !== null && 'message' in error
@@ -53,7 +53,18 @@ export function isMissingShopGalleryColumn(error: unknown): boolean {
   const code = typeof error === 'object' && error !== null && 'code' in error
     ? String((error as { code?: unknown }).code ?? '')
     : ''
+  return { message, code }
+}
+
+export function isMissingShopGalleryColumn(error: unknown): boolean {
+  const { message, code } = shopColumnError(error)
   return /gallery_object_keys/i.test(message)
+    && (/does not exist|schema cache/i.test(message) || code === '42703')
+}
+
+export function isMissingMenuPriceColumn(error: unknown): boolean {
+  const { message, code } = shopColumnError(error)
+  return /menu_price_php/i.test(message)
     && (/does not exist|schema cache/i.test(message) || code === '42703')
 }
 
@@ -67,12 +78,22 @@ function dropGalleryColumnSelect(): boolean {
   return true
 }
 
+function dropMenuPriceColumnSelect(): boolean {
+  if (!shopColumnSelect.includes('menu_price_php')) return false
+  shopColumnSelect = shopColumnSelect.replace(',menu_price_php', '')
+  return true
+}
+
 async function withShopGalleryFallback<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run()
   } catch (error) {
-    if (!isMissingShopGalleryColumn(error) || !dropGalleryColumnSelect()) throw error
-    return await run()
+    const retry = (
+      (isMissingShopGalleryColumn(error) && dropGalleryColumnSelect())
+      || (isMissingMenuPriceColumn(error) && dropMenuPriceColumnSelect())
+    )
+    if (!retry) throw error
+    return await withShopGalleryFallback(run)
   }
 }
 

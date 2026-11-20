@@ -17,11 +17,29 @@ import {
   isValidLongitude,
   missingAdminCafeMediaSqlCopy,
   missingDeleteAdminShopCopy,
+  missingMenuPriceSqlCopy,
   parseDeletedAdminShop,
   shopStatusWord,
   uniqueDeletableAdminObjectKeys,
 } from './admin-shop'
-import { bannerAspectError, bannerFileError, campaignWindowError, featuredAdCopy, isAdCampaignActive, sortActiveAds } from './admin-ads'
+import {
+  adBannerIsBleed,
+  adCampaignState,
+  adDestinationError,
+  adDestinationLabel,
+  adListMatches,
+  adWindowOverlaps,
+  bannerAspectError,
+  bannerFileError,
+  bannerFileHint,
+  campaignWindowError,
+  featuredAdCopy,
+  isAdCampaignActive,
+  isExternalAdUrl,
+  isInternalAdPath,
+  parseInternalAdPath,
+  sortActiveAds,
+} from './admin-ads'
 import { edgeFunctionErrorMessage, mapAdminSearchUser, missingAdminSearchSqlCopy, roleChangeError, suspendError } from './admin-users'
 import { placementKindFromTier, placementLifecycle, placementWindowError } from './admin-placements'
 import { adminNavIdFromPath, toLocalInput } from './admin-nav'
@@ -50,6 +68,7 @@ describe('admin cafe validation', () => {
       phone: null,
       hours: null,
       logo: null,
+      price: null,
     })
     expect(adminCafeHasErrors(input)).toBe(false)
     expect(isValidLatitude(16.4023)).toBe(true)
@@ -121,6 +140,9 @@ describe('admin cafe validation', () => {
     expect(missingAdminCafeMediaSqlCopy('Could not find the function public.publish_admin_poster')).toMatch(/20261117_admin_cafe_media/)
     expect(missingAdminCafeMediaSqlCopy('column shops.gallery_object_keys does not exist')).toMatch(/20261114_owner_cafe_media/)
     expect(missingAdminCafeMediaSqlCopy('Cafe was not found')).toBeNull()
+    expect(missingMenuPriceSqlCopy('Could not find the function public.update_admin_shop with p_menu_price_php')).toMatch(/20261124_menu_price_budget_vibe/)
+    expect(missingMenuPriceSqlCopy('Could not find the function public.publish_admin_poster')).toBeNull()
+    expect(missingMenuPriceSqlCopy('Cafe was not found')).toBeNull()
   })
 
   test('rejects missing pin and short names without requiring Metro Manila', () => {
@@ -186,6 +208,13 @@ describe('ad campaigns', () => {
     expect(bannerAspectError(1200, 400)).toBeNull()
     expect(bannerAspectError(400, 400)).toMatch(/640/)
     expect(bannerAspectError(1600, 1600)).toMatch(/wide/)
+    expect(bannerFileHint()).toMatch(/JPG, PNG, or WebP/)
+    expect(bannerFileHint()).toMatch(/3:1/)
+    expect(bannerFileHint()).toMatch(/640/)
+    expect(bannerFileHint()).toMatch(/4 MB/)
+    expect(bannerFileHint()).toMatch(/150px on phone/)
+    expect(bannerFileHint()).toMatch(/200px on tablet/)
+    expect(bannerFileHint()).toMatch(/240px on desktop/)
   })
 
   test('shows an internal ad label under the cafe name when it is set', () => {
@@ -196,6 +225,82 @@ describe('ad campaigns', () => {
     expect(featuredAdCopy('% Arabica', '  ')).toEqual({ name: '% Arabica', place: '' })
     expect(featuredAdCopy('% Arabica', '% Arabica')).toEqual({ name: '% Arabica', place: '' })
     expect(featuredAdCopy('% Arabica', null)).toEqual({ name: '% Arabica', place: '' })
+  })
+
+  test('bleeds the banner card when the internal label is empty', () => {
+    expect(adBannerIsBleed('Summer blend')).toBe(false)
+    expect(adBannerIsBleed('  ')).toBe(true)
+    expect(adBannerIsBleed(null)).toBe(true)
+    expect(adBannerIsBleed(undefined)).toBe(true)
+  })
+
+  test('validates cafe, in-app, and https destinations', () => {
+    expect(adDestinationError('cafe', '', '')).toMatch(/cafe/)
+    expect(adDestinationError('cafe', 'shop-1', '')).toBeNull()
+    expect(isInternalAdPath('/app')).toBe(true)
+    expect(isInternalAdPath('/app/map')).toBe(true)
+    expect(isInternalAdPath('/app/search')).toBe(true)
+    expect(isInternalAdPath('/app/cafes/11111111-1111-4111-8111-111111111111')).toBe(true)
+    expect(isInternalAdPath('/app/events/11111111-1111-4111-8111-111111111111')).toBe(true)
+    expect(isInternalAdPath('/admin/ads')).toBe(false)
+    expect(isInternalAdPath('/app//map')).toBe(false)
+    expect(adDestinationError('internal', '', '/owner/ads')).toMatch(/in-app/)
+    expect(adDestinationError('internal', '', '/app/map')).toBeNull()
+    expect(isExternalAdUrl('https://example.com/promo')).toBe(true)
+    expect(isExternalAdUrl('http://example.com')).toBe(false)
+    expect(isExternalAdUrl('javascript:alert(1)')).toBe(false)
+    expect(adDestinationError('external', '', 'https://example.com')).toBeNull()
+    expect(parseInternalAdPath('/app/events/11111111-1111-4111-8111-111111111111')).toEqual({
+      type: 'event',
+      id: '11111111-1111-4111-8111-111111111111',
+    })
+    expect(adDestinationLabel(
+      { destination_kind: 'external', shop_id: null, destination_url: 'https://example.com' },
+      '',
+    )).toBe('https://example.com')
+  })
+
+  test('filters ads by cafe name, overlapping window, and state', () => {
+    const now = new Date('2026-09-15T12:00:00.000Z')
+    const live = {
+      shop_id: 'shop-1',
+      destination_url: null as string | null,
+      starts_at: '2026-09-01T00:00:00.000Z',
+      ends_at: '2026-10-01T00:00:00.000Z',
+      enabled: true,
+      cancelled_at: null as string | null,
+    }
+    expect(adCampaignState(live, now)).toBe('live')
+    expect(adWindowOverlaps(live.starts_at, live.ends_at, '2026-09-20T00:00:00.000Z', '2026-09-25T00:00:00.000Z')).toBe(true)
+    expect(adWindowOverlaps(live.starts_at, live.ends_at, '2026-10-02T00:00:00.000Z', '2026-10-03T00:00:00.000Z')).toBe(false)
+    expect(adListMatches(live, {
+      cafeQuery: 'arabica',
+      windowFrom: '',
+      windowTo: '',
+      state: 'all',
+    }, '% Arabica', now)).toBe(true)
+    expect(adListMatches(live, {
+      cafeQuery: 'yardstick',
+      windowFrom: '',
+      windowTo: '',
+      state: 'all',
+    }, '% Arabica', now)).toBe(false)
+    expect(adListMatches({
+      ...live,
+      shop_id: null,
+      destination_url: 'https://example.com/fall',
+    }, {
+      cafeQuery: 'example.com',
+      windowFrom: '',
+      windowTo: '',
+      state: 'live',
+    }, '', now)).toBe(true)
+    expect(adListMatches(live, {
+      cafeQuery: '',
+      windowFrom: '',
+      windowTo: '',
+      state: 'scheduled',
+    }, '% Arabica', now)).toBe(false)
   })
 })
 

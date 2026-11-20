@@ -1,5 +1,6 @@
 import type {
   AdCampaignRow,
+  AdDestinationKind,
   AdminDashboardCounts,
   AdminUserRow,
   AdminUsersResponse,
@@ -20,9 +21,11 @@ import { adminLogoPayload } from '~/utils/admin-logos'
 import {
   missingAdminCafeMediaSqlCopy,
   missingDeleteAdminShopCopy,
+  missingMenuPriceSqlCopy,
   parseDeletedAdminShop,
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
+import { assignedVibeTagIdsForPrice, vibeIdsWithoutBudgetFriendly } from '~/utils/admin-vibe-tags'
 import type { ShopPosterRow } from '~/utils/owner-ads'
 import { fetchAdminShopRows } from '~/utils/approved-shops'
 import { chunkImportDrafts, pendingImportDrafts } from '~/utils/cafe-csv-import'
@@ -94,6 +97,7 @@ export function useAdminData() {
   const loadSeq = useState('kd-admin-load-seq', () => 0)
   const error = ref('')
   const savingId = useState<string | null>('kd-admin-saving-id', () => null)
+  const priceMarks = useCafePriceMarks()
 
   const putShop = (row: ShopRow, at: 'start' | 'inline' = 'inline') => {
     loadSeq.value += 1
@@ -251,16 +255,16 @@ export function useAdminData() {
     }
   }
 
-  const putShopVibeTags = (shopId: string, enabledIds: string[]) => {
+  const putShopVibeTags = (shopId: string, enabledIds: string[], menuPricePhp: number | null = null) => {
     const hidden = shopVibeTags.value.filter((row) => {
       if (row.shop_id !== shopId) return false
       const name = vibeTagNames.value.find((item) => item.id === row.tag_id)
-      return Boolean(name && !name.enabled)
+      return Boolean(name && !name.enabled && name.slug !== 'budget-friendly')
     })
     shopVibeTags.value = [
       ...shopVibeTags.value.filter((row) => row.shop_id !== shopId),
       ...hidden,
-      ...enabledIds.map((tag_id) => ({ shop_id: shopId, tag_id })),
+      ...assignedVibeTagIdsForPrice(enabledIds, vibeTagNames.value, menuPricePhp, priceMarks.marks.value).map((tag_id) => ({ shop_id: shopId, tag_id })),
     ]
   }
 
@@ -330,7 +334,7 @@ export function useAdminData() {
       }
       const applied = await loadShops(seq)
       if (!applied) return
-      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadEvents(), loadBadgeCatalog(), loadVibeTags(), loadClaims(), loadCheckIns()])
+      if (!keep) await Promise.all([loadPlacements(), loadReports(), loadAds(), loadEvents(), loadBadgeCatalog(), loadVibeTags(), loadClaims(), loadCheckIns(), priceMarks.load()])
       if (seq !== loadSeq.value) return
       status.value = 'ready'
     } catch (err) {
@@ -521,6 +525,7 @@ export function useAdminData() {
     contact_number: string | null
     logoFile: File | null
     logoObjectKey?: string | null
+    menu_price_php?: number | null
   }) => {
     const planned = adminLogoPayload({
       logoFile: input.logoFile,
@@ -536,8 +541,15 @@ export function useAdminData() {
       p_hours: input.hours,
       p_contact_number: input.contact_number,
       p_logo_object_key: logoKey,
+      p_menu_price_php: input.menu_price_php ?? null,
     })
-    if (rpcError || !data) throw new Error(rpcError?.message || 'Could not create this cafe.')
+    if (rpcError || !data) {
+      throw new Error(
+        missingMenuPriceSqlCopy(rpcError?.message || '')
+        || rpcError?.message
+        || 'Could not create this cafe.',
+      )
+    }
     const created = (Array.isArray(data) ? data[0] : data) as ShopRow
     putShop(created, 'start')
     return created
@@ -600,6 +612,7 @@ export function useAdminData() {
       galleryObjectKeys?: string[]
       posterFile?: File | null
       vibeTagIds?: string[]
+      menu_price_php: number | null
     },
   ) => {
     let logoKey = adminLogoPayload({
@@ -622,20 +635,24 @@ export function useAdminData() {
       p_hours: input.hours,
       p_contact_number: input.contact_number,
       p_logo_object_key: logoKey,
+      p_menu_price_php: input.menu_price_php,
     }
     if (extraKeys) payload.p_gallery_object_keys = extraKeys
-    if (input.vibeTagIds) payload.p_vibe_tag_ids = input.vibeTagIds
+    if (input.vibeTagIds) {
+      payload.p_vibe_tag_ids = vibeIdsWithoutBudgetFriendly(input.vibeTagIds, vibeTagNames.value)
+    }
     const { data, error: rpcError } = await supabase.rpc('update_admin_shop', payload)
     if (rpcError || !data) {
       throw new Error(
-        missingAdminCafeMediaSqlCopy(rpcError?.message || '')
+        missingMenuPriceSqlCopy(rpcError?.message || '')
+        || missingAdminCafeMediaSqlCopy(rpcError?.message || '')
         || rpcError?.message
         || 'Could not save this cafe.',
       )
     }
     const updated = (Array.isArray(data) ? data[0] : data) as ShopRow
     putShop(updated)
-    if (input.vibeTagIds) putShopVibeTags(shopId, input.vibeTagIds)
+    if (input.vibeTagIds) putShopVibeTags(shopId, input.vibeTagIds, input.menu_price_php)
     return updated
   }
 
@@ -704,6 +721,7 @@ export function useAdminData() {
       contact_number: shop.contact_number,
       logoFile: null,
       logoObjectKey: logoKey,
+      menu_price_php: shop.menu_price_php ?? null,
     })
   }
 
@@ -824,7 +842,9 @@ export function useAdminData() {
 
   const saveAd = async (payload: {
     id?: string
-    shop_id: string
+    destination_kind: AdDestinationKind
+    shop_id: string | null
+    destination_url: string | null
     bannerFile: File | null
     banner_object_key?: string | null
     starts_at: string
@@ -836,8 +856,11 @@ export function useAdminData() {
     let bannerKey = payload.banner_object_key ?? null
     if (payload.bannerFile) bannerKey = await uploadAdminAsset(payload.bannerFile, 'ad-banner')
     if (!bannerKey) throw new Error('Upload a banner image.')
+    const cafeLinked = payload.destination_kind === 'cafe'
     const row = {
-      shop_id: payload.shop_id,
+      shop_id: cafeLinked ? payload.shop_id : null,
+      destination_kind: payload.destination_kind,
+      destination_url: cafeLinked ? null : payload.destination_url,
       banner_object_key: bannerKey,
       starts_at: new Date(payload.starts_at).toISOString(),
       ends_at: new Date(payload.ends_at).toISOString(),
@@ -1140,6 +1163,22 @@ export function useAdminData() {
     ads.value = ads.value.map((item) => (item.id === id ? (data as AdCampaignRow) : item))
   }
 
+  const reorderAds = async (ids: string[]) => {
+    const total = ids.length
+    const saved = await Promise.all(ids.map(async (id, index) => {
+      const { data, error: updateError } = await supabase
+        .from('ad_campaigns')
+        .update({ priority: total - index })
+        .eq('id', id)
+        .select()
+        .single()
+      if (updateError || !data) throw new Error(updateError?.message || 'Could not reorder these ads.')
+      return data as AdCampaignRow
+    }))
+    const byId = new Map(saved.map((row) => [row.id, row]))
+    ads.value = ads.value.map((item) => byId.get(item.id) ?? item)
+  }
+
   const moderateClaim = async (
     claim: ShopClaimRow,
     next: Extract<ShopClaimRow['status'], 'verified' | 'rejected'>,
@@ -1210,6 +1249,7 @@ export function useAdminData() {
     deleteShop,
     resolveReport,
     saveAd,
+    reorderAds,
     cancelAd,
     saveEvent,
     cancelEvent,

@@ -2,6 +2,8 @@ import type { ShopVibeTagRow, VibeTagNameRow } from '~/types/admin'
 import type { ShopAmenityVerificationRow, ShopClaimRow, ShopOwnerPublic, ShopRow, ShopVerifiedOwnerRow, WeeklyHours } from '~/types/shop'
 import { adminLogoPayload } from '~/utils/admin-logos'
 import { authUserId } from '~/utils/auth'
+import { assignedVibeTagIdsForPrice, vibeIdsWithoutBudgetFriendly } from '~/utils/admin-vibe-tags'
+import { missingMenuPriceSqlCopy } from '~/utils/admin-shop'
 import { missingOwnerMediaSqlCopy, type ShopPosterRow } from '~/utils/owner-ads'
 import { uploadPresignedImage } from '~/utils/presign-upload'
 import type { OwnerVerifyDraft } from '~/utils/owner-verify'
@@ -20,7 +22,8 @@ async function uploadOwnerMedia(file: File, purpose: OwnerUploadPurpose): Promis
 
 function ownerWriteError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : typeof err === 'string' ? err : fallback
-  return missingOwnerMediaSqlCopy(message)
+  return missingMenuPriceSqlCopy(message)
+    ?? missingOwnerMediaSqlCopy(message)
     ?? missingShopOwnerSqlCopy(message)
     ?? (message.trim() || fallback)
 }
@@ -58,6 +61,7 @@ export function useShopOwnership() {
   const status = useState<'idle' | 'loading' | 'ready' | 'error'>('kd-owner-status', () => 'idle')
   const error = useState('kd-owner-error', () => '')
   const saving = useState('kd-owner-saving', () => false)
+  const priceMarks = useCafePriceMarks()
 
   const currentUserId = async (): Promise<string | null> => {
     const { data } = await supabase.auth.getSession()
@@ -153,6 +157,7 @@ export function useShopOwnership() {
       } catch {
         ownedShops.value = []
       }
+      await priceMarks.load()
       if (seq !== loadSeq) return
       status.value = 'ready'
     } catch (err) {
@@ -354,6 +359,7 @@ export function useShopOwnership() {
       galleryFiles?: File[]
       galleryObjectKeys?: string[]
       vibeTagIds?: string[]
+      menu_price_php: number | null
     },
   ) => {
     saving.value = true
@@ -378,7 +384,10 @@ export function useShopOwnership() {
         p_contact_number: input.contact_number,
         p_logo_object_key: logoKey,
         p_gallery_object_keys: extraKeys,
-        ...(input.vibeTagIds ? { p_vibe_tag_ids: input.vibeTagIds } : {}),
+        p_menu_price_php: input.menu_price_php,
+        ...(input.vibeTagIds
+          ? { p_vibe_tag_ids: vibeIdsWithoutBudgetFriendly(input.vibeTagIds, vibeTagNames.value) }
+          : {}),
       })
       const updated = (Array.isArray(data) ? data[0] : data) as ShopRow | null
       if (rpcError || !updated) {
@@ -388,12 +397,14 @@ export function useShopOwnership() {
       if (input.vibeTagIds) {
         const hidden = shopVibeTags.value.filter((row) => {
           if (row.shop_id !== shopId) return false
-          return !vibeTagNames.value.some((item) => item.id === row.tag_id)
+          const name = vibeTagNames.value.find((item) => item.id === row.tag_id)
+          return Boolean(name && !name.enabled && name.slug !== 'budget-friendly')
         })
         shopVibeTags.value = [
           ...shopVibeTags.value.filter((row) => row.shop_id !== shopId),
           ...hidden,
-          ...input.vibeTagIds.map((tag_id) => ({ shop_id: shopId, tag_id })),
+          ...assignedVibeTagIdsForPrice(input.vibeTagIds, vibeTagNames.value, input.menu_price_php, priceMarks.marks.value)
+            .map((tag_id) => ({ shop_id: shopId, tag_id })),
         ]
       }
       if (updated.name) {

@@ -14,7 +14,14 @@
           />
         </span>
         <span class="bag__copy">
-          <span class="bag__name">{{ cafe.name }}</span>
+          <span class="bag__title">
+            <span class="bag__name">{{ cafe.name }}</span>
+            <span
+              v-if="priceMarks"
+              class="bag__pesos"
+              :aria-label="priceAria"
+            >{{ priceMarks }}</span>
+          </span>
           <span v-if="cafe.badges?.length" class="bag__badges">
             <CafeBadgeChip
               v-for="badge in cafe.badges"
@@ -99,7 +106,11 @@
 
 <script lang="ts" setup>
 import { Armchair, BadgeCheck, Clock, Heart, Navigation, Plug, Unplug, Wallet, Wifi, WifiOff } from 'lucide-vue-next'
-import { vibeTagColorStyle, vibeTagLucideComponent } from '~/utils/admin-vibe-tags'
+import { cafePricePesoMarks, cafePriceTierLabel } from '~/utils/cafe-price-marks'
+import {
+  vibeTagColorStyle,
+  vibeTagLucideComponent,
+} from '~/utils/admin-vibe-tags'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import type { Cafe } from '~/types/cafe'
 import { watchImpression } from '~/utils/analytics-impression'
@@ -114,7 +125,7 @@ import { paymentCard, paymentTeamPress } from '~/utils/cafe-payment'
 import { seatingBagAria, seatingBagValue, seatingStamp } from '~/utils/cafe-seating'
 
 const props = defineProps<{
-  cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment' | 'seating' | 'badges' | 'vibeTags'>
+  cafe: Pick<Cafe, 'id' | 'name' | 'address' | 'image' | 'open' | 'status' | 'amenities' | 'work' | 'rating' | 'hoursHint' | 'payment' | 'seating' | 'badges' | 'vibeTags' | 'menuPricePhp'>
   selected?: boolean
   distanceLabel?: string
   surface?: ShopTrafficSurface
@@ -127,12 +138,15 @@ const emit = defineEmits<{
 const favorites = useFavorites()
 const { consent } = useAnalytics()
 const { record } = useShopTrafficCapture()
+const { marks } = useCafePriceMarks()
 const rootRef = ref<HTMLElement | null>(null)
 const broken = ref(false)
 const saved = computed(() => favorites.isSaved(props.cafe.id))
 const usingAppLogo = computed(() => broken.value || isKapedokoMark(props.cafe.image))
 const photoSrc = computed(() => cafeDisplayLogo(broken.value ? null : props.cafe.image))
 const closed = computed(() => props.cafe.status === 'Closed')
+const priceMarks = computed(() => cafePricePesoMarks(props.cafe.menuPricePhp, marks.value))
+const priceAria = computed(() => cafePriceTierLabel(props.cafe.menuPricePhp, marks.value) ?? undefined)
 
 const wifiStatus = computed(() => props.cafe.work?.wifiStatus)
 const outletStatus = computed(() => props.cafe.work?.outletsStatus)
@@ -319,12 +333,30 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.bag__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
 .bag__name {
+  min-width: 0;
   color: #1c1917;
   font-size: 1.325rem;
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
+}
+
+.bag__pesos {
+  flex: 0 0 auto;
+  color: var(--kd-primary);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.08em;
 }
 
 .bag__badges {

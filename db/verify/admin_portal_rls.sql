@@ -32,6 +32,8 @@
 -- insert (as admin) a campaign with ends_at in the past, then:
 -- select * from public.active_ad_campaigns;
 -- Expected: only enabled, in-window, non-cancelled rows.
+-- Cafe ads still require an approved shop. Internal / external
+-- destination rows may appear without a shop_id.
 
 -- Admin can create a hidden cafe outside coverage via RPC.
 -- select public.create_admin_shop(

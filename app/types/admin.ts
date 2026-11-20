@@ -12,6 +12,7 @@ export type AdminNavId =
   | 'events'
   | 'badges'
   | 'vibe-tags'
+  | 'price-marks'
   | 'users'
   | 'moderation'
 
@@ -165,9 +166,13 @@ export interface ActiveShopVibeTagRow {
   color: string
 }
 
+export type AdDestinationKind = 'cafe' | 'internal' | 'external'
+
+export type AdCampaignState = 'live' | 'scheduled' | 'ended'
+
 export interface AdCampaignRow {
   id: string
-  shop_id: string
+  shop_id: string | null
   banner_object_key: string
   starts_at: string
   ends_at: string
@@ -175,6 +180,8 @@ export interface AdCampaignRow {
   cancelled_at: string | null
   label: string | null
   priority: number
+  destination_kind: AdDestinationKind
+  destination_url: string | null
   created_by: string | null
   updated_by: string | null
   created_at: string
@@ -183,12 +190,14 @@ export interface AdCampaignRow {
 
 export interface ActiveAdCampaignRow {
   id: string
-  shop_id: string
+  shop_id: string | null
   banner_object_key: string
   starts_at: string
   ends_at: string
   priority: number
   label: string | null
+  destination_kind: AdDestinationKind
+  destination_url: string | null
 }
 
 export type PlacementLifecycle = 'current' | 'scheduled' | 'ended'

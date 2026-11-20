@@ -1,4 +1,5 @@
 import type { ShopClaimRow, ShopClaimStatus, ShopRow, WeeklyHours } from '../types/shop'
+import { menuPriceError } from './admin-vibe-tags'
 import { addressError, cafeNameError } from './identity'
 import { formatHoursHint, isOpenNow, isValidWeeklyHours } from './hours'
 import { logoFileError } from './logo'
@@ -13,6 +14,7 @@ export interface OwnerCafeInput {
   phone: string
   hours: WeeklyHours | null
   logoFile: File | null
+  price?: string
 }
 
 export function isValidOwnerLatitude(value: number | null | undefined): boolean {
@@ -30,6 +32,7 @@ export function ownerCafeErrors(input: OwnerCafeInput): {
   phone: string | null
   hours: string | null
   logo: string | null
+  price: string | null
 } {
   const phone = input.phone.trim()
   return {
@@ -39,6 +42,7 @@ export function ownerCafeErrors(input: OwnerCafeInput): {
     phone: !phone || isValidPhone(phone) ? null : 'Use a phone number like 0917 123 4567.',
     hours: isValidWeeklyHours(input.hours) ? null : 'Check the opening hours and try again.',
     logo: logoFileError(input.logoFile),
+    price: menuPriceError(input.price ?? ''),
   }
 }
 
