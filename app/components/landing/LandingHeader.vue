@@ -11,6 +11,9 @@
         />
       </button>
       <nav class="landing-header__nav" aria-label="Landing">
+        <button type="button" class="landing-header__link" @click="scrollTo('vibes')">
+          Vibes
+        </button>
         <button type="button" class="landing-header__link" @click="scrollTo('how-it-works')">
           How it works
         </button>
@@ -83,6 +86,7 @@ const scrollTo = (id: string) => {
 
 .landing-header__link {
   display: none;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -124,7 +128,8 @@ const scrollTo = (id: string) => {
 
 @media (min-width: 600px) {
   .landing-header__link {
-    display: inline;
+    display: inline-flex;
+    align-items: center;
   }
 }
 

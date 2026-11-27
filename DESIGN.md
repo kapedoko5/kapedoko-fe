@@ -134,9 +134,9 @@ components:
 
 KapeDoko reads like specialty coffee packaging laid on a cool off-white shelf: dark ink for reading, teal for brand chrome, and orange for actions and highlights. The product name stays **kapé DOKO** / **KapeDoko**. Home is a stack of bag labels — shop name with an optional logo slot, a small Closed line when closed, origin, then Hours / WiFi / Outlets as icon-plus-words — not photo cards, not a route plate, not a dashboard of chips and stars.
 
-Density is quiet and vertical. Shelf, header, filters, and the bottom menu sit on flat cool field `#F2F2F2`. Each bag-label face (and partner cards) uses a flat warm white `#FAF8F5` inside the hairline border — no stipple or shipping-tooth texture. Depth comes from that bordered flat face and ink rules, not lift shadows or textured panels. Map, Saved, and Profile keep their own layouts but inherit this palette and type. Web `/` is the same shelf at persuade scale: the offer “Filter your next brew.” in the display clamp, a demo bag whose filter stamps reprint Hours / WiFi / Outlets, a work-path bag, then a close panel. Native shells skip `/` and open `/app`.
+Density is quiet and vertical. Shelf, header, filters, and the bottom menu sit on flat cool field `#F2F2F2`. Each bag-label face (and partner cards) uses a flat warm white `#FAF8F5` inside the hairline border — no stipple or shipping-tooth texture. Depth comes from that bordered flat face and ink rules, not lift shadows or textured panels. Map, Saved, and Profile keep their own layouts but inherit this palette and type. Web `/` is the same shelf loosened into a playful **sticker sheet** (issue #70): the offer “Filter your next brew.” in the display clamp beside a flat CSS phone showing a mini Home, peeled stickers (WiFi ✓, Plugs ✓, a vibe, a doodled cup), then a WiFi/Plugs filter spotlight, a vibe sticker spotlight, three numbered how-it-works stamps, a proof board, and a big orange close stamp. Native shells skip `/` and open `/app`.
 
-Rejected by this system: warm enamel as the full-page field, Satoshi or condensed all-caps UI faces, floating elevated cards, icon-only bottom navigation without words, and a "Review WiFi and outlets" control on the bag label. Do not use orange as small body text on stock (≈2.8:1) — put ink on orange fills instead. Web `/` refuses a photo hero and a SaaS icon-card grid; work-readiness is printed in words.
+Rejected by this system: warm enamel as the full-page field, Satoshi or condensed all-caps UI faces, floating elevated cards, icon-only bottom navigation without words, and a "Review WiFi and outlets" control on the bag label. Do not use orange as small body text on stock (≈2.8:1) — put ink on orange fills instead. Web `/` refuses a photo hero and a SaaS icon-card grid; work-readiness is printed in words. Royalty-free photos may appear on `/` only as small decorative polaroid stickers (never as the hero, never presented as a listed shop).
 
 **Key Characteristics:**
 - Cool shelf field `#F2F2F2`; flat warm-white label faces `#FAF8F5`
@@ -144,7 +144,8 @@ Rejected by this system: warm enamel as the full-page field, Satoshi or condense
 - Kumbh Sans only — variable Google Font, regular and bold, sentence case
 - Bag labels: 16px corners, logo slot left of name, Closed in brick under the name, facts as icon plus words
 - Menu is Lucide icon plus word; an orange mark slides to the active tab; active label is teal
-- Web `/` offer “Filter your next brew.” at `clamp(2rem, 7vw, 4.15rem)`; demo bag reprints Hours / WiFi / Outlets; native shells skip this page
+- Web `/` offer “Filter your next brew.” at `clamp(2rem, 7vw, 4.15rem)`; sample bags and filter stamps prove the product; native shells skip this page
+- Web `/` only: tilted stickers, hand-drawn inline-SVG doodles, numbered stamps, polaroid stickers — all flat print
 
 ## Colors
 
@@ -203,16 +204,18 @@ Web `/` is a marketing shelf on the same field, not a second identity. Compact s
 ### Named Rules
 **The Shelf Rule.** Home is greeting + wordmark → search → optional partner placement → filters → bag labels. Do not introduce photo grids or map-first chrome. Compact stays one column; medium and expanded may sit labels side by side as the same bag, never as a different card type.
 
-**The Persuade Shelf Rule.** Web `/` is sticky wordmark + Open the app, then the offer beside a demo bag (stacked below 840px). Native shells skip this page. Do not add a photo hero or icon-card grid to the marketing shelf.
+**The Persuade Shelf Rule.** Web `/` is sticky wordmark (Vibes + How it works links from 600px) + Open the app, then the offer beside the phone stage (stacked below 840px), then Filter spotlight → Vibe spotlight → How it works → Proof → Close. Native shells skip this page. Do not add a photo hero or icon-card grid to the marketing shelf.
+
+**The Sticker Sheet Rule (web `/` only).** Stickers, stamps, and polaroids may tilt (±1–8°), use 1.5–2px ink borders, a folded peel corner, and orange / teal / ink / stock fills. Doodles are inline SVG in ink with orange or teal accents, always `aria-hidden`. Photos are royalty-free (e.g. Pexels) and only inside polaroid stickers, `NuxtImg` webp, lazy, decorative. Sample cafes are fictional and print “Sample · <area>”. No invented counts or testimonials; show stats only from a live source. `/app` keeps the calmer label system.
 
 ## Elevation & Depth
 
-Flat print. No ambient drop shadows on labels, chips, or the tab bar. Presence comes from the flat label face, 1px ink-mix borders, and occasional inset press marks on active controls. Focus is a 2px teal outline, not a glow.
+Flat print. No ambient drop shadows on labels, chips, or the tab bar — on web `/` too: sticker depth comes from thicker ink borders, tilt, and peel corners, never blur shadows. Presence comes from the flat label face, 1px ink-mix borders, and occasional inset press marks on active controls. Focus is a 2px teal outline, not a glow.
 
-Motion is short paper behavior: labels settle in (~460ms ease-out), fact blocks reprint with a vertical clip (~520ms), filter list swaps fade/slide 8px (~220ms), saving fills the right heart strip (~280ms), and the bottom menu’s orange active mark slides to the selected tab (~220ms) with a short stamp press on tap. On medium+ a cafe or event tap reprints a detail sheet from the right spine of the shelf (~480ms clip, then the white face prints ~520ms) and dismiss clips it back faster (~280ms). The landing demo bag uses the same settle and reprint clips; Open the app stamps in (scale 0.98, ink inset) on press. Respect `prefers-reduced-motion: reduce` by removing spatial motion (no mark slide, no press translate, no pane clip, no bag settle or reprint) while keeping active color/weight, saved/unsaved state, and a short fade for the pane.
+Motion is short paper behavior: labels settle in (~460ms ease-out), fact blocks reprint with a vertical clip (~520ms), filter list swaps fade/slide 8px (~220ms), saving fills the right heart strip (~280ms), and the bottom menu’s orange active mark slides to the selected tab (~220ms) with a short stamp press on tap. On medium+ a cafe or event tap reprints a detail sheet from the right spine of the shelf (~480ms clip, then the white face prints ~520ms) and dismiss clips it back faster (~280ms). The landing demo bag uses the same settle and reprint clips; Open the app stamps in (scale 0.98, ink inset) on press. On web `/`, sections fade + rise 12px once on scroll (`useRevealOnScroll`), stickers spring-slap in (~520ms overshoot), doodled steam drifts, and hover tilts apply only on fine pointers. Reduced motion shows every section and sticker in place, untilted, with no steam. Respect `prefers-reduced-motion: reduce` by removing spatial motion (no mark slide, no press translate, no pane clip, no bag settle or reprint) while keeping active color/weight, saved/unsaved state, and a short fade for the pane.
 
 ### Named Rules
-**The Flat Print Rule.** No floating card shadows. Depth is border + flat label face only.
+**The Flat Print Rule.** No floating card shadows. Depth is border + flat label face only. (Relaxed for web `/` in #70: tilt and heavier ink borders allowed, still no shadows.)
 
 ## Shapes
 
@@ -269,8 +272,15 @@ Shelf field `#F2F2F2`, 12% ink hairline, min-height 64px, 20px gutter. Wordmark 
 ### Demo Bag
 Landing-only proof of the bag label: matte stock, 16px corners, 34% ink border, 20px padding, no logo slot and no save spine. Name + origin, then Hours / WiFi / Outlets as icon-plus-words. Filter stamps above reprint those three lines with the same ~520ms vertical clip as Home. Caption under the bag stays quiet label type and states the sample is not a listed shop.
 
-### Proof Sheet
-One matte-stock work-path bag (16px corners, 34% ink border) under a stake heading and the unconfirmed-reviews rule. Visitor sentences print Hours-style as icon-plus-words: search, stamps, Closed, and the pin. Owner claim sits with the Philippines place copy, not on the bag.
+### Landing Sticker Sheet (web `/`, #70)
+- **Phone stage:** `LandingPhone` — flat ink bezel, shelf screen with mini greeting, search rule, filter chips, and mini `LandingSampleBag`s. `aria-hidden`.
+- **Stickers:** `LandingSticker` — die-cut label with peel corner, tone paper / accent / teal / ink, spring slap-on.
+- **Filter spotlight:** WiFi / Plugs chips (`aria-pressed`, labels from `CAFE_FILTERS`, matching via `cafeMatchesFilter`) narrow 6 sample bags to 2 with a `TransitionGroup`; an `aria-live` stamp reads “6 → 2”.
+- **Vibe spotlight:** `VibeSticker` grid (shared with the vibe modal) from the live vibe catalog, loaded when the section scrolls in, with a 6-sticker fallback; picking one reprints a sample bag's vibe row.
+- **How it works:** three numbered orange stamps with doodles.
+- **Proof:** trust line, a live “N cafes on the map” stamp (same `countApprovedShops` query as Home; hidden on error), city chips, owner claim, polaroid board. No invented numbers.
+- **Close:** big orange stamp panel (ink text, ink button) repeating Open the app / Create an account; footer keeps Privacy and Sign in.
+- **Shared extractions:** `vibe/VibeSticker.vue` (vibe modal + landing), `cafe/CafeAmenityStamp.vue` (CafeCard + landing sample bags).
 
 ## Do's and Don'ts
 
@@ -293,10 +303,10 @@ One matte-stock work-path bag (16px corners, 34% ink border) under a stake headi
 - **Don't** ship icon-only menu destinations or replace amenity facts with icon-only rows.
 - **Don't** add a "Review WiFi and outlets" control on bag labels.
 - **Don't** fill the logo slot with the KapeDoko mark or invent logos.
-- **Don't** add drop shadows or pill chips to this identity.
+- **Don't** add drop shadows or pill chips to this identity (stickers on `/` included).
 - **Don't** rename the product away from kapé DOKO / KapeDoko.
 - **Don't** bring back the bag-stock tooth/stipple on labels, shelf, header, or bottom menu.
 - **Don't** invent prices, ratings, or coverage claims as design system content.
 - **Don't** carry the persuade display clamp into `/app` cafe names.
-- **Don't** put a photo hero or a SaaS icon-card grid on web `/`.
+- **Don't** put a photo hero or a SaaS icon-card grid on web `/`. Polaroid stickers with royalty-free photos are fine; existing `public/assets/cafes/*` photos are not used on `/`.
 - **Don't** serve the landing page inside native shells.

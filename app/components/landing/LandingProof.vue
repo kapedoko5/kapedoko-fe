@@ -1,133 +1,167 @@
 <template>
-  <section id="how-it-works" class="landing-proof" aria-labelledby="landing-proof-title">
-    <div class="landing-container">
-      <h2 id="landing-proof-title">A drink is a bad way to find there is no socket.</h2>
-      <p class="landing-proof__rule">
-        WiFi and outlets stay unconfirmed until enough reviews.
-      </p>
+  <section
+    id="proof"
+    ref="root"
+    class="landing-proof landing-reveal"
+    :class="{ 'is-revealed': revealed }"
+    aria-labelledby="landing-proof-title"
+  >
+    <div class="landing-container landing-proof__grid">
+      <div class="landing-proof__copy">
+        <h2 id="landing-proof-title">Checked by people who actually sat there.</h2>
+        <p class="lead">
+          WiFi and outlet stamps come from reviews, owners, and our own visits, and each says which. No paid stars, no made-up scores.
+        </p>
+        <p v-if="shopCount" class="landing-proof__stat">
+          <span class="landing-proof__stat-num">{{ shopCount.toLocaleString('en-PH') }}</span>
+          cafes on the map right now
+        </p>
+        <ul class="landing-proof__cities" aria-label="Cities on the map">
+          <li v-for="(city, index) in cities" :key="city" class="landing-proof__city" :style="{ '--tilt': tilts[index % tilts.length] }">
+            <MapPin :size="16" :stroke-width="2.25" aria-hidden="true" />
+            {{ city }}
+          </li>
+        </ul>
+        <p class="landing-proof__claim">
+          Own a cafe?
+          <NuxtLink to="/login?redirect=/app">Sign in</NuxtLink>
+          and claim it. An admin verifies before hours, contact, and logo can be edited. Public submissions cover the Philippines only.
+        </p>
+      </div>
 
-      <article class="path-bag">
-        <div class="path-bag__mast">
-          <p class="path-bag__name">How it works</p>
-        </div>
-        <div class="path-bag__lines">
-          <p class="path-bag__line">
-            <Search :size="18" :stroke-width="2.25" aria-hidden="true" />
-            <span>Search a shop by name, or look nearby.</span>
-          </p>
-          <p class="path-bag__line">
-            <Tag :size="18" :stroke-width="2.25" aria-hidden="true" />
-            <span>One stamp at a time: Near You, Popular, WiFi, or Plugs. Fast WiFi, Long-stay WiFi, and Reliable outlets sit on those same stamps.</span>
-          </p>
-          <p class="path-bag__line">
-            <Clock :size="18" :stroke-width="2.25" aria-hidden="true" />
-            <span>A shut shop still prints Closed under the name.</span>
-          </p>
-          <p class="path-bag__line">
-            <MapPin :size="18" :stroke-width="2.25" aria-hidden="true" />
-            <span>The pin is that shop. A gathering within 5 km is a separate teal pin.</span>
-          </p>
-        </div>
-      </article>
+      <div class="landing-proof__board" aria-hidden="true">
+        <LandingPolaroid class="landing-proof__polaroid landing-proof__polaroid--a" src="/assets/landing/corner-seat.jpg" caption="Corner seat" tilt="-5deg" />
+        <LandingPolaroid class="landing-proof__polaroid landing-proof__polaroid--b" src="/assets/landing/iced-latte.jpg" caption="Iced, obviously" tilt="4deg" />
+        <LandingSticker class="landing-proof__tape" tone="teal" tilt="-6deg" :stuck="revealed" :delay="200">
+          <BadgeCheck :size="16" :stroke-width="2.5" /> Team checked
+        </LandingSticker>
+      </div>
     </div>
   </section>
 </template>
 
 <script lang="ts" setup>
-import { Clock, MapPin, Search, Tag } from 'lucide-vue-next'
+import { BadgeCheck, MapPin } from 'lucide-vue-next'
+import LandingPolaroid from '~/components/landing/LandingPolaroid.vue'
+import LandingSticker from '~/components/landing/LandingSticker.vue'
+import { countApprovedShops } from '~/utils/approved-shops'
+
+const root = ref<HTMLElement | null>(null)
+const { revealed } = useRevealOnScroll(root)
+const supabase = useSupabaseClient()
+
+// Live count from the same query Home uses ("12 of N shops"). No number prints if it fails.
+const shopCount = ref<number | null>(null)
+watch(revealed, async (on) => {
+  if (!on || shopCount.value !== null) return
+  try {
+    const count = await countApprovedShops(supabase)
+    shopCount.value = count > 0 ? count : null
+  } catch {
+    shopCount.value = null
+  }
+}, { immediate: true })
+
+const cities = ['Metro Manila', 'Cebu', 'Davao']
+const tilts = ['-2deg', '1.5deg', '-1deg']
 </script>
 
 <style scoped>
 .landing-proof {
-  padding-block: var(--space-3xl) var(--space-2xl);
+  padding-block: var(--space-2xl);
+  border-top: 1px solid var(--color-rule-2);
   scroll-margin-top: var(--landing-header-height);
 }
 
-.landing-proof h2 {
-  margin-bottom: var(--space-md);
-  max-width: 18ch;
-}
-
-.landing-proof__rule {
-  max-width: 36rem;
-  margin-bottom: var(--space-xl);
-  color: var(--color-ink);
-  font-size: var(--text-lead);
-  line-height: 1.4;
-}
-
-.path-bag {
-  display: flex;
-  flex-direction: column;
+.landing-proof__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-xl);
-  padding: var(--space-xl) var(--space-xl) var(--space-lg);
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--color-ink) 34%, transparent);
+}
+
+.landing-proof__copy { min-width: 0; }
+.landing-proof__copy .lead { margin-top: var(--space-md); }
+
+.landing-proof__stat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-lg);
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.landing-proof__stat-num {
+  display: inline-block;
+  padding: 2px 12px;
+  border: 2px solid var(--color-ink);
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-size: var(--text-2xl);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  rotate: -3deg;
+}
+
+.landing-proof__cities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: var(--space-lg) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-proof__city {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--space-sm);
+  border: 1.5px solid var(--color-ink);
   border-radius: var(--radius-card);
   background: var(--color-paper-2);
-  color: var(--color-ink);
-}
-
-.path-bag__mast {
-  min-width: 0;
-}
-
-.path-bag__name {
-  margin: 0;
-  font-size: var(--text-3xl);
+  font-size: var(--text-md);
   font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: var(--tracking-display);
-  overflow-wrap: break-word;
+  rotate: var(--tilt);
 }
 
-.path-bag__lines {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-  margin: 0;
-  padding-top: var(--space-lg);
-  border-top: 1px solid var(--color-rule-2);
-}
+.landing-proof__city :deep(svg) { color: var(--color-accent); }
 
-.path-bag__line {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  margin: 0;
-  max-width: 42rem;
+.landing-proof__claim {
+  max-width: 36rem;
+  margin-top: var(--space-lg);
   font-size: var(--text-md);
   line-height: 1.45;
 }
 
-.path-bag__line :deep(svg) {
-  color: var(--color-accent);
-  width: 1.15em;
-  height: 1.15em;
-  margin-top: 0.2em;
-  flex-shrink: 0;
+.landing-proof__board {
+  position: relative;
+  min-height: 320px;
+  max-width: 420px;
+  width: 100%;
+  justify-self: center;
 }
 
+.landing-proof__polaroid { position: absolute; width: 46%; }
+.landing-proof__polaroid--a { top: 0; left: 4%; }
+.landing-proof__polaroid--b { top: 18%; right: 4%; }
+.landing-proof__tape { position: absolute; bottom: 4%; left: 30%; }
+
 @media (min-width: 840px) {
-  .landing-proof {
-    padding-block: var(--space-3xl);
+  .landing-proof { padding-block: var(--space-3xl); }
+  .landing-proof__grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: var(--space-2xl);
+    align-items: center;
   }
+  .landing-proof__board { min-height: 380px; }
+}
 
-  .landing-proof h2 {
-    margin-bottom: var(--space-lg);
-  }
-
-  .landing-proof__rule {
-    margin-bottom: var(--space-2xl);
-  }
-
-  .path-bag {
-    padding: var(--space-2xl) var(--space-2xl) var(--space-xl);
-  }
-
-  .path-bag__line {
-    font-size: var(--text-lg);
-    line-height: 1.4;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .landing-proof__city,
+  .landing-proof__stat-num { rotate: 0deg; }
 }
 </style>
