@@ -1891,6 +1891,8 @@ const onGalleryWheel = (event: WheelEvent) => {
   overflow-y: auto;
   padding: 0 20px calc(16px + env(safe-area-inset-bottom));
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   scrollbar-width: thin;
   scrollbar-color: var(--kd-ink-25) transparent;
 }

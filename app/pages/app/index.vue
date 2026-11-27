@@ -191,6 +191,21 @@
             <span>{{ locationNote }}</span>
           </template>
         </p>
+        <div v-if="vibeIds.length" class="home-vibes" role="group" aria-label="Today's vibe">
+          <span class="home-vibes__lead">Today's vibe</span>
+          <button
+            type="button"
+            class="home-vibes__chip"
+            v-for="tag in pickedVibes"
+            :key="tag.id"
+            :style="vibeTagColorStyle(tag.color)"
+            @click="openVibeModal"
+          >
+            <component :is="vibeTagLucideComponent(tag.lucide_icon)" :size="13" :stroke-width="2.25" aria-hidden="true" />
+            {{ tag.label }}
+          </button>
+          <button type="button" class="home-vibes__clear" @click="clearVibes">Clear</button>
+        </div>
         <div v-if="showNearbyTicket" class="home-aside">
           <p v-if="amenityHint" class="home-state home-state--note">{{ amenityHint }}</p>
           <button
@@ -460,6 +475,10 @@ const locationReady = computed(() => (
   || locationStatus.value === 'unavailable'
 ))
 
+const { tagIds: vibeIds, picked: pickedVibes, hydrate: hydrateVibes, loadCatalog: loadVibeCatalog, clear: clearVibes, openModal: openVibeModal } = useVibeFilter()
+hydrateVibes()
+void loadVibeCatalog()
+
 const {
   cafes: pagedCafes,
   total: cafeTotal,
@@ -478,6 +497,7 @@ const {
   radiusMeters,
   nearby: computed(() => nearbyUnderFilter.value && activeFilter.value !== 'near'),
   locationReady,
+  vibeTagIds: vibeIds,
 })
 
 const activeFilterMeta = computed(() => filters.find((filter) => filter.id === activeFilter.value) ?? filters[0]!)
@@ -508,7 +528,7 @@ const locationNote = computed(() => {
 })
 
 const listKey = computed(() => (
-  `${activeFilter.value}|${submittedQuery.value}|${nearbyRadiusKm.value}|${origin.value ? 'geo' : 'nogeo'}|${nearbyOn.value ? 'nearby' : 'all'}`
+  `${activeFilter.value}|${vibeIds.value.join(',')}|${submittedQuery.value}|${nearbyRadiusKm.value}|${origin.value ? 'geo' : 'nogeo'}|${nearbyOn.value ? 'nearby' : 'all'}`
 ))
 
 const shopCountLabel = computed(() => (
@@ -525,6 +545,7 @@ const emptyCopy = computed(() => {
   if (activeFilter.value === 'near' && origin.value) {
     return `No coffee shops within ${nearbyRadiusKm.value} km.`
   }
+  if (vibeIds.value.length) return 'No coffee shops match today\'s vibe. Change it or clear it.'
   return 'No coffee shops match that filter.'
 })
 
@@ -1711,5 +1732,64 @@ onMounted(() => {
     animation: none;
     box-shadow: none;
   }
+}
+
+.home-vibes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px 12px;
+}
+
+.home-vibes__lead {
+  margin-right: 4px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--kd-ink);
+  white-space: nowrap;
+}
+
+.home-vibes__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--vibe-color, var(--kd-accent));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vibe-color, var(--kd-accent)) 16%, #faf8f5);
+  color: var(--kd-ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.home-vibes__chip :deep(svg) {
+  flex-shrink: 0;
+  color: var(--vibe-color, var(--kd-accent));
+}
+
+.home-vibes__clear {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--kd-primary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.home-vibes__chip:focus-visible,
+.home-vibes__clear:focus-visible {
+  outline: 2px solid var(--kd-primary);
+  outline-offset: 2px;
 }
 </style>
