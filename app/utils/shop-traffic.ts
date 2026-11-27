@@ -22,8 +22,13 @@ export const SHOP_TRAFFIC_SURFACES = [
 
 export type ShopTrafficSurface = (typeof SHOP_TRAFFIC_SURFACES)[number]
 
-export const TRAFFIC_TABS = ['statistics', 'records', 'traffic', 'promotion'] as const
+export const TRAFFIC_TABS = ['statistics', 'records', 'traffic', 'promotion', 'vibes'] as const
 export type TrafficTabId = (typeof TRAFFIC_TABS)[number]
+
+/** Tabs a desk may show. Vibes compares many cafes, so it is admin only. */
+export function availableTrafficTabs(tone: 'admin' | 'owner'): readonly TrafficTabId[] {
+  return tone === 'admin' ? TRAFFIC_TABS : TRAFFIC_TABS.filter((id) => id !== 'vibes')
+}
 
 export const TRAFFIC_LEDGER_SURFACES = SHOP_TRAFFIC_SURFACES.filter(
   (surface): surface is Exclude<ShopTrafficSurface, 'promotion'> => surface !== 'promotion',

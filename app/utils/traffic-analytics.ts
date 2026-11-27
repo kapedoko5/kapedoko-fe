@@ -253,13 +253,17 @@ function firstQueryValue(value: unknown): string {
 }
 
 /** Read ?tab=&range= defensively. Anything unknown falls back to defaults. */
-export function parseAnalyticsQuery(query: Record<string, unknown> | null | undefined): {
+export function parseAnalyticsQuery(
+  query: Record<string, unknown> | null | undefined,
+  /** Tabs this desk offers. A tab outside the list falls back to the default. */
+  allowedTabs: readonly TrafficTabId[] = TRAFFIC_TABS,
+): {
   tab: TrafficTabId
   range: TrafficRangeDays
 } {
   const rawTab = firstQueryValue(query?.tab)
   const rawRange = firstQueryValue(query?.range)
-  const tab = (TRAFFIC_TABS as readonly string[]).includes(rawTab)
+  const tab = (allowedTabs as readonly string[]).includes(rawTab)
     ? (rawTab as TrafficTabId)
     : DEFAULT_TRAFFIC_TAB
   const parsed = /^\d{1,3}$/.test(rawRange) ? Number(rawRange) : NaN

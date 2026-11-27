@@ -28,6 +28,7 @@
         :events-error="eventsError"
         :ad-summary="adStats.summary.value"
         :benchmark="benchmark.rows.value"
+        :listing="listing"
         @range="onRange"
         @records="onRecords"
         @more-events="onMore"
@@ -43,6 +44,9 @@ import EmptyState from '~/components/desk/analytics/EmptyState.vue'
 import OwnerShell from '~/components/owner-portal/OwnerShell.vue'
 import { shopIdFromRoute } from '~/utils/approved-shops'
 import { settleOwnerIonPages } from '~/utils/owner-nav'
+import { completenessInputFromShop, verifiedAmenityGroups } from '~/utils/listing-completeness'
+import { selectedUserVibeTagIds } from '~/utils/admin-vibe-tags'
+import { ownerGalleryMax } from '~/utils/owner-ads'
 import { parseAnalyticsQuery } from '~/utils/traffic-analytics'
 import { ownerAnalyticsEmptyCopy, type ShopTrafficRecordsQuery, type TrafficRangeDays } from '~/utils/shop-traffic'
 
@@ -61,6 +65,13 @@ const {
   error: portalError,
   access,
   loadDesk,
+  loadPosters,
+  loadVerifications,
+  shopById,
+  shopVibeTags,
+  vibeTagNames,
+  verifications,
+  posters,
 } = portal
 
 const desk = useShopTrafficDesk()
@@ -102,6 +113,25 @@ const ownedNames = computed(() =>
 )
 const ownedCafe = computed(() => ownedNames.value.find((shop) => shop.id === shopId.value) || null)
 const cafeName = computed(() => ownedCafe.value?.name || '')
+// Facts for the completeness score. Posters and amenity proofs load on their own
+// and fail quietly: until they arrive those two items simply read as not done.
+const listing = computed(() => {
+  const shop = shopById(shopId.value)
+  if (!shop || !ownedCafe.value) return null
+  return completenessInputFromShop(shop, {
+    photoCap: ownerGalleryMax(portal.hasFeature(shop.id, 'featured_photos')),
+    vibeCount: selectedUserVibeTagIds(
+      shopVibeTags.value.filter((row) => row.shop_id === shop.id),
+      vibeTagNames.value,
+    ).length,
+    verifiedAmenityCount: verifiedAmenityGroups(verifications.value, shop.id),
+    hasPoster: posters.value.some((row) => row.shop_id === shop.id),
+  })
+})
+const loadListingExtras = async () => {
+  await Promise.allSettled([loadPosters(), loadVerifications()])
+}
+
 const pageStatus = computed(() => {
   if (access.value === 'forbidden') return 'forbidden' as const
   if (portalStatus.value === 'loading' || portalStatus.value === 'idle') return portalStatus.value
@@ -148,6 +178,7 @@ const onMore = () => {
 const boot = async () => {
   await loadDesk()
   reload(range.value)
+  void loadListingExtras()
 }
 
 onMounted(() => {

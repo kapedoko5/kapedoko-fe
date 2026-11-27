@@ -7,6 +7,7 @@ import {
   nextTrafficSort,
   sortCafeTraffic,
   formatTrafficRatio,
+  availableTrafficTabs,
   isTrafficTabId,
   ownerAnalyticsEmptyCopy,
   ownerAnalyticsLockedCopy,
@@ -265,7 +266,10 @@ describe('tabs and ranges', () => {
     expect(isTrafficTabId('records')).toBe(true)
     expect(isTrafficTabId('traffic')).toBe(true)
     expect(isTrafficTabId('promotion')).toBe(true)
+    expect(isTrafficTabId('vibes')).toBe(true)
     expect(isTrafficTabId('funnels')).toBe(false)
+    expect(availableTrafficTabs('admin')).toContain('vibes')
+    expect(availableTrafficTabs('owner')).not.toContain('vibes')
     expect(TRAFFIC_LEDGER_SURFACES).toEqual(['home', 'search', 'map', 'favorites', 'direct', 'share'])
     expect(promotionEmptyCopy()).toBe('No promotion traffic in this window yet.')
     expect(promotionEmptyCopy('xyz')).toBe('No cafes match that search.')

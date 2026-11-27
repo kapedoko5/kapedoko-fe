@@ -34,6 +34,8 @@
           :days="range"
         />
         <template v-else>
+          <AnalyticsInsights v-if="insights.length" :insights="insights" />
+
           <PromotionSplit
             v-if="tab === 'promotion' && adSummary && (tone === 'admin' || hasAdTraffic(adSummary))"
             :tone="tone"
@@ -79,6 +81,18 @@
           </template>
         </CafeLedger>
 
+        <template v-if="tab === 'statistics'">
+          <AnalyticsCompleteness v-if="completeness" :completeness="completeness" />
+          <AnalyticsPeakHours
+            v-if="showPeakHours"
+            :tone="tone"
+            :checkins="checkinGrid"
+            :visits="trafficGrid"
+            :days="range"
+          />
+          <AnalyticsVisitorVoice v-if="showVoice" :summary="voiceSummary" :days="range" />
+        </template>
+
         <template v-if="tab === 'promotion'">
           <div class="analytics-panel__filters">
             <div :class="toolbarClass" role="group" aria-label="Record type">
@@ -113,6 +127,10 @@
             @more="emit('more-events')"
           />
         </template>
+      </template>
+
+      <template v-else-if="tab === 'vibes'">
+        <AnalyticsVibes :rows="vibeTrafficRows" :status="vibesStatus" />
       </template>
 
       <template v-else-if="tab === 'records'">
@@ -231,6 +249,11 @@ import ActivityLog from '~/components/desk/analytics/ActivityLog.vue'
 import CafeLedger, { type LedgerColumn, type LedgerRow } from '~/components/desk/analytics/CafeLedger.vue'
 import EmptyState from '~/components/desk/analytics/EmptyState.vue'
 import Funnel from '~/components/desk/analytics/Funnel.vue'
+import AnalyticsCompleteness from '~/components/desk/analytics/AnalyticsCompleteness.vue'
+import AnalyticsInsights from '~/components/desk/analytics/AnalyticsInsights.vue'
+import AnalyticsPeakHours from '~/components/desk/analytics/AnalyticsPeakHours.vue'
+import AnalyticsVibes from '~/components/desk/analytics/AnalyticsVibes.vue'
+import AnalyticsVisitorVoice from '~/components/desk/analytics/AnalyticsVisitorVoice.vue'
 import BenchmarkCard from '~/components/desk/analytics/BenchmarkCard.vue'
 import PromotionSplit from '~/components/desk/analytics/PromotionSplit.vue'
 import KpiStrip, { type KpiCard } from '~/components/desk/analytics/KpiStrip.vue'
@@ -245,8 +268,8 @@ import {
 import {
   TRAFFIC_LEDGER_SURFACES,
   TRAFFIC_PAGE_SIZE,
-  TRAFFIC_TABS,
   availableTrafficRanges,
+  availableTrafficTabs,
   cafeAnalyticsPath,
   filterCafeTraffic,
   filterDailyRows,
@@ -278,6 +301,10 @@ import {
 } from '~/utils/shop-traffic'
 import { hasAdTraffic, type AdPlacementSummary } from '~/utils/ad-attribution'
 import type { BenchmarkRow } from '~/utils/traffic-benchmark'
+import { buildInsights } from '~/utils/analytics-insights'
+import { scoreListing, type ListingCompletenessInput } from '~/utils/listing-completeness'
+import { ownerCafeEditPath } from '~/utils/owner-nav'
+import { perVibeTraffic } from '~/utils/traffic-vibes'
 import { trafficRollupMissing } from '~/composables/useShopTrafficDesk'
 import {
   analyticsEmptyKind,
@@ -303,6 +330,8 @@ const props = defineProps<{
   adSummary?: AdPlacementSummary | null
   /** Peer benchmark rows. Omit or leave empty to hide the card. */
   benchmark?: BenchmarkRow[] | null
+  /** Owner cafe desk only: listing facts for the completeness score and photo hint. */
+  listing?: ListingCompletenessInput | null
 }>()
 
 const emit = defineEmits<{
@@ -313,7 +342,11 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const basePath = route.path
-const initial = parseAnalyticsQuery(route.query)
+const focusedShopId = computed(() => props.shopId?.trim() || '')
+const isCafeDesk = computed(() => Boolean(focusedShopId.value))
+// Vibes compares many cafes, so only the admin all-cafes board offers it.
+const tabIds = computed(() => availableTrafficTabs(props.tone).filter((id) => id !== 'vibes' || (props.tone === 'admin' && !isCafeDesk.value)))
+const initial = parseAnalyticsQuery(route.query, tabIds.value)
 
 const tab = ref<TrafficTabId>(initial.tab)
 const range = ref<TrafficRangeDays>(initial.range)
@@ -335,8 +368,12 @@ const TAB_LABEL: Record<TrafficTabId, string> = {
   records: 'Records',
   traffic: 'Traffic',
   promotion: 'Promotion',
+  vibes: 'Vibes',
 }
-const tabs = TRAFFIC_TABS.map((id) => ({ id, label: TAB_LABEL[id] }))
+const tabs = computed(() => tabIds.value.map((id) => ({ id, label: TAB_LABEL[id] })))
+watch(tabIds, (list) => {
+  if (!list.includes(tab.value)) tab.value = 'statistics'
+})
 // 90 days needs the rollup RPC. Until it is deployed, only the ranges the view can serve show.
 const ranges = computed(() => availableTrafficRanges(!trafficRollupMissing.value))
 watch(ranges, (list) => {
@@ -383,8 +420,6 @@ const chipClass = computed(() => (props.tone === 'admin' ? 'admin-chip' : 'owner
 const toolbarClass = computed(() => (props.tone === 'admin' ? 'admin-toolbar' : 'owner-toolbar'))
 const emptyClass = computed(() => (props.tone === 'admin' ? 'admin-empty' : 'owner-empty'))
 
-const focusedShopId = computed(() => props.shopId?.trim() || '')
-const isCafeDesk = computed(() => Boolean(focusedShopId.value))
 const cafeHref = (shopId: string) => cafeAnalyticsPath(props.tone, shopId)
 
 const today = computed(() => manilaDateString(new Date()))
@@ -403,7 +438,55 @@ const previousTally = computed(() => tallyFromDaily(previousOverviewRows.value))
 const emptyKind = computed(() => analyticsEmptyKind(tally.value, previousTally.value))
 const series = computed(() => dailySeries(overviewRows.value, split.value.currentFrom, split.value.currentTo))
 const funnel = computed(() => funnelSteps(tally.value))
+const insights = computed(() => {
+  if (tab.value !== 'statistics' || !(props.tone === 'owner' || isCafeDesk.value)) return []
+  return buildInsights({
+    current: tally.value,
+    previous: previousTally.value,
+    currentRows: currentRows.value,
+    photoCount: props.listing?.photoCount ?? null,
+    photoCap: props.listing?.photoCap ?? null,
+    checkinGrid: checkinGrid.value,
+    editorPath: props.tone === 'owner' && focusedShopId.value ? ownerCafeEditPath(focusedShopId.value) : null,
+  })
+})
 const sources = computed(() => rankSources(currentRows.value))
+
+const audience = useShopAudience()
+const { checkinGrid, trafficGrid, vibesStatus } = audience
+
+// Check-ins, traffic by hour and reviews load for the cafes in view. The admin
+// all-cafes board skips check-ins and reviews (too broad) but still asks for
+// traffic by hour, which the server sums.
+const scopeIds = computed(() => {
+  if (focusedShopId.value) return [focusedShopId.value]
+  return props.tone === 'owner' ? props.names.map((shop) => shop.id) : []
+})
+const scopeKey = computed(() => scopeIds.value.join(','))
+let audienceKey = ''
+watch(
+  [scopeKey, range, tab],
+  () => {
+    if (tab.value !== 'statistics') return
+    if (props.tone === 'owner' && scopeIds.value.length === 0) return
+    const key = `${scopeKey.value}|${range.value}`
+    if (key === audienceKey) return
+    audienceKey = key
+    void audience.loadCheckinHourly(scopeIds.value)
+    void audience.loadTrafficHourly(range.value, scopeIds.value.length ? scopeIds.value : null)
+    void audience.loadReviews(scopeIds.value, range.value)
+  },
+  { immediate: true },
+)
+watch(tab, (id) => {
+  if (id === 'vibes' && vibesStatus.value === 'idle') void audience.loadVibes()
+}, { immediate: true })
+
+const showPeakHours = computed(() => Boolean(checkinGrid.value || trafficGrid.value))
+const showVoice = computed(() => scopeIds.value.length > 0 && audience.reviewsReady.value)
+const voiceSummary = computed(() => audience.reviewSummary(range.value))
+const completeness = computed(() =>
+  props.tone === 'owner' && props.listing ? scoreListing(props.listing) : null)
 
 const count = (value: number) => formatTrafficCount(value)
 const kpiCards = computed<KpiCard[]>(() => {
@@ -464,6 +547,10 @@ const filteredRows = computed(() => filterDailyRows(currentRows.value, {
 }))
 const cafeRows = computed(() => perCafeTraffic(filteredRows.value, props.names))
 const statsCafeRows = computed(() => perCafeTraffic(overviewRows.value, props.names))
+const vibeTrafficRows = computed(() =>
+  tab.value === 'vibes'
+    ? perVibeTraffic(perCafeTraffic(currentRows.value, props.names), audience.vibes.value)
+    : [])
 const surfaceRows = computed(() => perSurfaceTraffic(currentRows.value))
 const recordsDaily = computed(() => filterDailyRows(overviewRows.value, {
   fromDay: split.value.currentFrom,

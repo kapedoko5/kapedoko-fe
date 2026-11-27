@@ -12,7 +12,7 @@ import {
   rankSources,
   splitTrafficPeriods,
 } from './traffic-analytics'
-import { tallyFromDaily, type ShopTrafficDailyRow } from './shop-traffic'
+import { availableTrafficTabs, tallyFromDaily, type ShopTrafficDailyRow } from './shop-traffic'
 
 const row = (
   partial: Partial<ShopTrafficDailyRow> & Pick<ShopTrafficDailyRow, 'kind' | 'hits'>,
@@ -196,6 +196,17 @@ describe('url query', () => {
     expect(parseAnalyticsQuery({ tab: 42, range: {} })).toEqual({ tab: 'statistics', range: 30 })
     expect(parseAnalyticsQuery(null)).toEqual({ tab: 'statistics', range: 30 })
     expect(parseAnalyticsQuery(undefined)).toEqual({ tab: 'statistics', range: 30 })
+  })
+
+  test('vibes is a valid tab only where the desk offers it', () => {
+    expect(parseAnalyticsQuery({ tab: 'vibes' })).toEqual({ tab: 'vibes', range: 30 })
+    expect(parseAnalyticsQuery({ tab: 'vibes', range: '7' }, availableTrafficTabs('admin'))).toEqual({ tab: 'vibes', range: 7 })
+    expect(parseAnalyticsQuery({ tab: 'vibes', range: '7' }, availableTrafficTabs('owner'))).toEqual({ tab: 'statistics', range: 7 })
+    expect(parseAnalyticsQuery({ tab: 'records' }, availableTrafficTabs('owner')).tab).toBe('records')
+  })
+
+  test('builds a vibes query', () => {
+    expect(buildAnalyticsQuery({}, { tab: 'vibes', range: 30 })).toEqual({ tab: 'vibes' })
   })
 
   test('builds a query that keeps other keys and drops defaults', () => {
