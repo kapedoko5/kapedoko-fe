@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  vibeTagLabelTaken,
+  vibeTagWriteError,
   BUDGET_FRIENDLY_SLUG,
   VIBE_TAG_DEFAULT_COLOR,
   VIBE_TAG_DEFAULT_LUCIDE,

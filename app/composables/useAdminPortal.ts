@@ -26,7 +26,7 @@ import {
   uniqueDeletableAdminObjectKeys,
 } from '~/utils/admin-shop'
 import { missingAdDestinationSqlCopy } from '~/utils/admin-ads'
-import { assignedVibeTagIdsForPrice, vibeIdsWithoutBudgetFriendly } from '~/utils/admin-vibe-tags'
+import { assignedVibeTagIdsForPrice, vibeIdsWithoutBudgetFriendly, vibeTagLabelTaken, vibeTagWriteError } from '~/utils/admin-vibe-tags'
 import { missingPartnershipSqlCopy } from '~/utils/admin-placements'
 import { placementFeaturesPayload } from '~/utils/placement-features'
 import { missingCafeThemeSqlCopy } from '~/utils/cafe-theme'
@@ -1142,6 +1142,9 @@ export function useAdminData() {
       color: payload.color,
       enabled: payload.enabled,
     }
+    if (vibeTagLabelTaken(row.label, vibeTagNames.value, payload.id)) {
+      throw new Error(vibeTagWriteError({ code: '23505' }, row.label))
+    }
     let saved: VibeTagNameRow
     if (payload.id) {
       const { data, error: updateError } = await supabase
@@ -1150,12 +1153,12 @@ export function useAdminData() {
         .eq('id', payload.id)
         .select()
         .single()
-      if (updateError || !data) throw new Error(updateError?.message || 'Could not save this vibe tag.')
+      if (updateError || !data) throw new Error(vibeTagWriteError(updateError, row.label))
       saved = data as VibeTagNameRow
       vibeTagNames.value = vibeTagNames.value.map((item) => (item.id === payload.id ? saved : item))
     } else {
       const { data, error: insertError } = await supabase.from('vibe_tag_names').insert(row).select().single()
-      if (insertError || !data) throw new Error(insertError?.message || 'Could not save this vibe tag.')
+      if (insertError || !data) throw new Error(vibeTagWriteError(insertError, row.label))
       saved = data as VibeTagNameRow
       vibeTagNames.value = [saved, ...vibeTagNames.value].sort((a, b) => a.label.localeCompare(b.label))
     }
@@ -1185,7 +1188,7 @@ export function useAdminData() {
       .eq('id', id)
       .select()
       .single()
-    if (updateError || !data) throw new Error(updateError?.message || 'Could not update this vibe tag.')
+    if (updateError || !data) throw new Error(vibeTagWriteError(updateError, '', 'Could not update this vibe tag.'))
     const saved = data as VibeTagNameRow
     vibeTagNames.value = vibeTagNames.value.map((item) => (item.id === id ? saved : item))
     return saved
@@ -1196,7 +1199,7 @@ export function useAdminData() {
       throw new Error('Unassign this tag from every cafe before deleting it.')
     }
     const { error: deleteError } = await supabase.from('vibe_tag_names').delete().eq('id', row.id)
-    if (deleteError) throw new Error(deleteError.message || 'Could not delete this vibe tag.')
+    if (deleteError) throw new Error(vibeTagWriteError(deleteError, '', 'Could not delete this vibe tag.'))
     vibeTagNames.value = vibeTagNames.value.filter((item) => item.id !== row.id)
   }
 

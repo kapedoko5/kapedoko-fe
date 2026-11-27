@@ -63,7 +63,7 @@ const props = withDefaults(defineProps<{
   hiddenCount: 0,
   issue: null,
   status: 'ready',
-  lede: 'Ink up to five stamps. They print on the cafe bag and cafe page — they are not a filter.',
+  lede: 'Ink up to five stamps. They print on the cafe bag and cafe page, and guests can filter Home by them.',
   emptyCopy: 'No vibe tags yet. Ask an admin to add some.',
 })
 

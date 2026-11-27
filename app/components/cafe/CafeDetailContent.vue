@@ -651,7 +651,7 @@ const onSave = () => {
   void favorites.toggle(props.cafe.id)
 }
 
-const trackAction = (type: Extract<ShopTrafficKind, 'navigate' | 'call' | 'photo_view'>) => {
+const trackAction = (type: Extract<ShopTrafficKind, 'navigate' | 'call' | 'photo_view' | 'poster_view'>) => {
   if (props.preview) return
   record(props.cafe.id, type, currentTrafficSurface())
 }
@@ -942,7 +942,7 @@ const openGallery = () => {
 const openPoster = () => {
   if (!props.cafe.poster) return
   galleryMode.value = 'poster'
-  trackAction('photo_view')
+  trackAction('poster_view')
   showGallery()
 }
 
@@ -1891,6 +1891,8 @@ const onGalleryWheel = (event: WheelEvent) => {
   overflow-y: auto;
   padding: 0 20px calc(16px + env(safe-area-inset-bottom));
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   scrollbar-width: thin;
   scrollbar-color: var(--kd-ink-25) transparent;
 }

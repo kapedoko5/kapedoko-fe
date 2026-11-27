@@ -14,7 +14,9 @@ import {
   fetchApprovedCafesByIds,
   fetchApprovedShopPoints,
   fetchFilterShopIds,
+  fetchVibeShopIds,
 } from '~/utils/approved-shops'
+import { cafeHasAnyVibe } from '~/utils/vibe-day'
 import { boundsFromRadius } from '~/utils/geography'
 
 interface FeedRequest {
@@ -23,6 +25,7 @@ interface FeedRequest {
   origin: LatLng | null
   radiusMeters: number
   nearby: boolean
+  vibeTagIds: string[]
   mode: CafeFeedMode
 }
 
@@ -37,6 +40,7 @@ export function useCafeFeed(input: {
   radiusMeters: Ref<number>
   nearby: Ref<boolean>
   locationReady: Ref<boolean>
+  vibeTagIds?: Ref<string[]>
 }) {
   const supabase = useSupabaseClient()
   const config = useRuntimeConfig()
@@ -64,13 +68,15 @@ export function useCafeFeed(input: {
     const query = input.query.value.trim()
     const origin = input.origin.value
     const nearby = input.nearby.value
+    const vibeTagIds = [...(input.vibeTagIds?.value ?? [])].sort()
     return {
       filter,
       query,
       origin,
       radiusMeters: input.radiusMeters.value,
       nearby,
-      mode: cafeFeedMode({ filter, query, origin, nearby }),
+      vibeTagIds,
+      mode: cafeFeedMode({ filter, query, origin, nearby, vibe: vibeTagIds.length > 0 }),
     }
   }
 
@@ -88,6 +94,7 @@ export function useCafeFeed(input: {
       request.query.toLowerCase(),
       originKey(request.origin),
       radiusKey,
+      request.vibeTagIds.join(','),
     ].join('|')
   })
 
@@ -103,7 +110,7 @@ export function useCafeFeed(input: {
     query: request.query,
     filter: request.filter,
     origin: request.origin,
-  })
+  }).filter((cafe) => cafeHasAnyVibe(cafe.vibeTags.map((tag) => tag.id), request.vibeTagIds))
 
   const hydrateIds = async (ids: string[], request: FeedRequest) => {
     const fetched = await fetchApprovedCafesByIds(supabase, publicBase(), ids)
@@ -123,6 +130,11 @@ export function useCafeFeed(input: {
         if (seq !== loadSeq) return
         ranked = ranked.filter((shop) => allowed.has(shop.id))
       }
+      if (request.vibeTagIds.length) {
+        const vibed = new Set(await fetchVibeShopIds(supabase, request.vibeTagIds))
+        if (seq !== loadSeq) return
+        ranked = ranked.filter((shop) => vibed.has(shop.id))
+      }
       rankedIds = ranked.map((shop) => shop.id)
       const slice = slicePage(rankedIds, 0)
       const page = await hydrateIds(slice.page, request)
@@ -135,7 +147,15 @@ export function useCafeFeed(input: {
     }
 
     if (request.mode === 'filter') {
-      rankedIds = await fetchFilterShopIds(supabase, request.filter)
+      if (request.filter === 'near') {
+        rankedIds = await fetchVibeShopIds(supabase, request.vibeTagIds)
+      } else {
+        rankedIds = await fetchFilterShopIds(supabase, request.filter)
+        if (request.vibeTagIds.length) {
+          const vibed = new Set(await fetchVibeShopIds(supabase, request.vibeTagIds))
+          rankedIds = rankedIds.filter((id) => vibed.has(id))
+        }
+      }
       if (seq !== loadSeq) return
       const slice = slicePage(rankedIds, 0)
       const page = await hydrateIds(slice.page, request)

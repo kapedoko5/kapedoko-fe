@@ -7,9 +7,10 @@
       :error="pageError"
       :claim-count="waitingClaims.length"
     >
-      <p v-if="ownedNames.length === 0" class="owner-empty">
-        {{ liveCafes.length === 0 ? ownerAnalyticsEmptyCopy(waitingClaims.length) : ownerAnalyticsLockedCopy() }}
+      <p v-if="ownedNames.length === 0 && liveCafes.length === 0" class="owner-empty">
+        {{ ownerAnalyticsEmptyCopy(waitingClaims.length) }}
       </p>
+      <EmptyState v-else-if="ownedNames.length === 0" tone="owner" kind="locked" />
       <DeskAnalyticsBoard
         v-else
         tone="owner"
@@ -19,6 +20,8 @@
         :events-done="eventsDone"
         :events-status="eventsStatus"
         :events-error="eventsError"
+        :ad-summary="adStats.summary.value"
+        :benchmark="benchmark.rows.value"
         @range="onRange"
         @records="onRecords"
         @more-events="onMore"
@@ -28,14 +31,18 @@
 </template>
 
 <script lang="ts" setup>
+import { onIonViewWillEnter } from '@ionic/vue'
 import DeskAnalyticsBoard from '~/components/desk/DeskAnalyticsBoard.vue'
+import EmptyState from '~/components/desk/analytics/EmptyState.vue'
 import OwnerShell from '~/components/owner-portal/OwnerShell.vue'
-import { ownerAnalyticsEmptyCopy, ownerAnalyticsLockedCopy, type ShopTrafficRecordsQuery, type TrafficRangeDays } from '~/utils/shop-traffic'
+import { parseAnalyticsQuery } from '~/utils/traffic-analytics'
+import { ownerAnalyticsEmptyCopy, type ShopTrafficRecordsQuery, type TrafficRangeDays } from '~/utils/shop-traffic'
 
 definePageMeta({
   middleware: ['owner'],
 })
 
+const route = useRoute()
 const portal = useOwnerPortal()
 const {
   liveCafes,
@@ -60,7 +67,9 @@ const {
   loadEvents,
 } = desk
 
-const range = ref<TrafficRangeDays>(30)
+const adStats = useAdCampaignStats()
+const benchmark = useShopTrafficBenchmark()
+const range = ref<TrafficRangeDays>(parseAnalyticsQuery(route.query).range)
 const records = ref<ShopTrafficRecordsQuery | null>(null)
 
 const ownedNames = computed(() =>
@@ -80,15 +89,17 @@ const pageError = computed(() => portalError.value || error.value)
 const reload = (days: TrafficRangeDays) => {
   if (ownedNames.value.length === 0) return
   void loadDaily(days, ownedNames.value)
+  void adStats.loadOwnerFeatured(ownedIds(), days)
+  // A benchmark compares one cafe, so it only shows for owners with a single cafe here.
+  const only = ownedNames.value.length === 1 ? ownedNames.value[0] : null
+  if (only) void benchmark.load(only.id, days)
+  else benchmark.clear()
 }
 
 const onRange = (days: TrafficRangeDays) => {
   range.value = days
   reload(days)
-  if (records.value) {
-    records.value = { ...records.value, days }
-    void loadEvents({ ...records.value, days, shopIds: ownedIds() })
-  }
+  // Records are re-fetched by the board's own `records` event, not here.
 }
 
 const onRecords = (payload: ShopTrafficRecordsQuery) => {
@@ -101,8 +112,26 @@ const onMore = () => {
   void loadEvents({ ...records.value, append: true, shopIds: ownedIds() })
 }
 
-onMounted(async () => {
-  await loadDesk()
-  reload(range.value)
+// Share one in-flight boot so mount and view-enter do not double-load.
+let booting: Promise<void> | null = null
+const boot = () => {
+  booting ??= (async () => {
+    try {
+      await loadDesk()
+      reload(range.value)
+    } finally {
+      booting = null
+    }
+  })()
+  return booting
+}
+
+onMounted(() => {
+  void boot()
+})
+
+// Ionic keeps this page alive when you leave it, so reload when you come back.
+onIonViewWillEnter(() => {
+  void boot()
 })
 </script>

@@ -252,7 +252,7 @@
 <script lang="ts" setup>
 import { ChevronLeft, Coffee, LocateFixed, LocateOff, Map as MapIcon, Plug, Search, Wifi, X } from 'lucide-vue-next'
 import { Capacitor } from '@capacitor/core'
-import { useIonRouter } from '@ionic/vue'
+import { useIonRouter, onIonViewWillEnter, onIonViewWillLeave } from '@ionic/vue'
 import KapeMap from '~/components/map/KapeMap.client.vue'
 import NearbyCafesSheet from '~/components/map/NearbyCafesSheet.vue'
 import CafeDetailSheet from '~/components/map/CafeDetailSheet.vue'
@@ -693,7 +693,17 @@ watch(
   { immediate: true },
 )
 
+// Pinch/pan on the map must never trigger Ionic's iOS swipe-back gesture.
+const setSwipeBack = (enabled: boolean) => {
+  const outlet = document.querySelector('ion-router-outlet') as (HTMLElement & { swipeGesture?: boolean }) | null
+  if (outlet) outlet.swipeGesture = enabled
+}
+onIonViewWillEnter(() => setSwipeBack(false))
+onIonViewWillLeave(() => setSwipeBack(true))
+onBeforeUnmount(() => setSwipeBack(true))
+
 onMounted(() => {
+  setSwipeBack(false)
   if (Capacitor.getPlatform() === 'android') {
     document.documentElement.classList.add('is-android')
   }
@@ -703,6 +713,7 @@ onMounted(() => {
 
 <style scoped>
 .map-content {
+  overscroll-behavior: none;
   --background: #f2f2f2;
   --overflow: hidden;
   --padding-start: 0;
@@ -1100,6 +1111,8 @@ onMounted(() => {
 }
 
 .map-locate {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), bottom 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  min-width: 48px;
   position: absolute;
   right: 20px;
   bottom: calc(env(safe-area-inset-bottom) + 76px);
@@ -1198,7 +1211,15 @@ onMounted(() => {
   border: 0;
 }
 
+@keyframes map-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.map-search, .map-locate { animation: map-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.map-locate:active { transform: scale(0.92); }
+
 @media (prefers-reduced-motion: reduce) {
+  .map-search, .map-locate { animation: none; transition: none; }
   .map-cta,
   .map-locate,
   .map-note__you-pulse,

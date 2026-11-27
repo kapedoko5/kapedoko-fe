@@ -248,3 +248,35 @@ export function assignedVibeTagIdsForPrice(
   const budgetId = shouldStampBudgetFriendly(menuPricePhp, marks) ? budgetFriendlyTagId(rows) : null
   return budgetId && !userIds.includes(budgetId) ? [...userIds, budgetId] : userIds
 }
+
+/** Plain-language message for a failed vibe tag write. */
+export function vibeTagWriteError(
+  error: { message?: string | null, code?: string | null } | null | undefined,
+  label: string,
+  fallback = 'Could not save this vibe tag.',
+): string {
+  const message = error?.message ?? ''
+  if (error?.code === '23505' || /duplicate key|unique constraint/i.test(message)) {
+    const name = label.trim()
+    return name
+      ? `A vibe tag called "${name}" already exists. Pick a different name, or edit the existing one.`
+      : 'A vibe tag with that name already exists. Pick a different name.'
+  }
+  if (error?.code === '42501' || /row-level security|permission denied/i.test(message)) {
+    return 'You do not have permission to change vibe tags.'
+  }
+  if (/failed to fetch|network|timeout/i.test(message)) {
+    return 'Could not reach the server. Check your connection and try again.'
+  }
+  return fallback
+}
+
+/** True when another tag already uses this label, ignoring case and spacing. */
+export function vibeTagLabelTaken(
+  label: string,
+  tags: Array<{ id: string, label: string }>,
+  exceptId?: string,
+): boolean {
+  const key = label.trim().replace(/\s+/g, ' ').toLowerCase()
+  return !!key && tags.some((tag) => tag.id !== exceptId && tag.label.trim().replace(/\s+/g, ' ').toLowerCase() === key)
+}
