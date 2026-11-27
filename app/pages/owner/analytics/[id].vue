@@ -7,12 +7,15 @@
       :error="pageError"
       :claim-count="waitingClaims.length"
     >
-      <p v-if="ownedNames.length === 0" class="owner-empty">
-        {{ liveCafes.length === 0 ? ownerAnalyticsEmptyCopy(waitingClaims.length) : ownerAnalyticsLockedCopy() }}
+      <p v-if="ownedNames.length === 0 && liveCafes.length === 0" class="owner-empty">
+        {{ ownerAnalyticsEmptyCopy(waitingClaims.length) }}
       </p>
-      <p v-else-if="!ownedCafe" class="owner-empty">
-        {{ liveCafes.some((shop) => shop.id === shopId) ? ownerAnalyticsLockedCopy() : 'This listing is not yours to see yet.' }}
-      </p>
+      <EmptyState
+        v-else-if="ownedNames.length === 0 || (!ownedCafe && liveCafes.some((shop) => shop.id === shopId))"
+        tone="owner"
+        kind="locked"
+      />
+      <p v-else-if="!ownedCafe" class="owner-empty">This listing is not yours to see yet.</p>
       <DeskAnalyticsBoard
         v-else-if="shopId"
         tone="owner"
@@ -34,10 +37,12 @@
 <script lang="ts" setup>
 import { onIonViewWillEnter, useIonRouter } from '@ionic/vue'
 import DeskAnalyticsBoard from '~/components/desk/DeskAnalyticsBoard.vue'
+import EmptyState from '~/components/desk/analytics/EmptyState.vue'
 import OwnerShell from '~/components/owner-portal/OwnerShell.vue'
 import { shopIdFromRoute } from '~/utils/approved-shops'
 import { settleOwnerIonPages } from '~/utils/owner-nav'
-import { ownerAnalyticsEmptyCopy, ownerAnalyticsLockedCopy, type ShopTrafficRecordsQuery, type TrafficRangeDays } from '~/utils/shop-traffic'
+import { parseAnalyticsQuery } from '~/utils/traffic-analytics'
+import { ownerAnalyticsEmptyCopy, type ShopTrafficRecordsQuery, type TrafficRangeDays } from '~/utils/shop-traffic'
 
 definePageMeta({
   middleware: ['owner'],
@@ -69,7 +74,7 @@ const {
   loadEvents,
 } = desk
 
-const range = ref<TrafficRangeDays>(30)
+const range = ref<TrafficRangeDays>(parseAnalyticsQuery(route.query).range)
 const records = ref<ShopTrafficRecordsQuery | null>(null)
 
 function resolveShopId(): string {
@@ -121,10 +126,7 @@ const reload = (days: TrafficRangeDays) => {
 const onRange = (days: TrafficRangeDays) => {
   range.value = days
   reload(days)
-  if (records.value) {
-    records.value = { ...records.value, days }
-    void loadEvents({ ...records.value, days, shopId: shopId.value })
-  }
+  // Records are re-fetched by the board's own `records` event, not here.
 }
 
 const onRecords = (payload: ShopTrafficRecordsQuery) => {

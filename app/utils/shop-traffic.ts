@@ -27,7 +27,7 @@ export const TRAFFIC_LEDGER_SURFACES = SHOP_TRAFFIC_SURFACES.filter(
   (surface): surface is Exclude<ShopTrafficSurface, 'promotion'> => surface !== 'promotion',
 )
 
-export const TRAFFIC_RANGES = [7, 30] as const
+export const TRAFFIC_RANGES = [7, 30] as const // 90 stays hidden until the rollup RPC lands
 export type TrafficRangeDays = (typeof TRAFFIC_RANGES)[number]
 
 export const CARD_IMPRESSION_RATIO = 0.5
@@ -67,7 +67,8 @@ export type ShopTrafficTally = {
   photos: number
   engagement: number
   engagementRate: number | null
-  reach: number
+  /** Visits = cafe page opens (detail_view only; card clicks are not added). */
+  visits: number
 }
 
 export type ShopTrafficCafeRow = ShopTrafficTally & {
@@ -86,7 +87,7 @@ export type ShopTrafficBar = {
   detailViews: number
 }
 
-export type RecordsKindFilter = 'all' | 'reach' | 'impressions' | 'clicks' | 'detail' | 'engagement'
+export type RecordsKindFilter = 'all' | 'visits' | 'impressions' | 'clicks' | 'engagement'
 
 export type ShopTrafficRecordsQuery = {
   days: TrafficRangeDays
@@ -98,7 +99,7 @@ export type ShopTrafficRecordsQuery = {
 export type TrafficActivityFilter = 'all' | 'active' | 'quiet'
 export type TrafficSortKey =
   | 'name'
-  | 'reach'
+  | 'visits'
   | 'impressions'
   | 'clicks'
   | 'ctr'
@@ -142,10 +143,9 @@ const DETAIL_SOURCE_TO_SURFACE: Record<string, ShopTrafficSurface> = {
 }
 
 const RECORDS_KIND_MAP: Record<Exclude<RecordsKindFilter, 'all'>, ShopTrafficKind[]> = {
-  reach: ['card_click', 'detail_view'],
+  visits: ['detail_view'],
   impressions: ['card_impression'],
   clicks: ['card_click'],
-  detail: ['detail_view'],
   engagement: ['navigate', 'call', 'photo_view'],
 }
 
@@ -212,19 +212,17 @@ export function recordsFilterCounts(
 ): Record<RecordsKindFilter, number> {
   const counts: Record<RecordsKindFilter, number> = {
     all: 0,
-    reach: 0,
+    visits: 0,
     impressions: 0,
     clicks: 0,
-    detail: 0,
     engagement: 0,
   }
   for (const row of rows) {
     if (shopId && row.shop_id !== shopId) continue
     counts.all += row.hits
-    if (row.kind === 'card_click' || row.kind === 'detail_view') counts.reach += row.hits
     if (row.kind === 'card_impression') counts.impressions += row.hits
     else if (row.kind === 'card_click') counts.clicks += row.hits
-    else if (row.kind === 'detail_view') counts.detail += row.hits
+    else if (row.kind === 'detail_view') counts.visits += row.hits
     else counts.engagement += row.hits
   }
   return counts
@@ -239,7 +237,7 @@ export function manilaDateString(date: Date): string {
   }).format(date)
 }
 
-function shiftManilaDay(day: string, delta: number): string {
+export function shiftManilaDay(day: string, delta: number): string {
   const [year, month, date] = day.split('-').map(Number)
   const next = new Date(Date.UTC(year, (month ?? 1) - 1, (date ?? 1) + delta))
   const y = next.getUTCFullYear()
@@ -249,12 +247,12 @@ function shiftManilaDay(day: string, delta: number): string {
 }
 
 /** Inclusive start of a 7- or 30-day Manila window that ends today. */
-export function trafficRangeStartDay(days: TrafficRangeDays, now = new Date()): string {
+export function trafficRangeStartDay(days: number, now = new Date()): string {
   return shiftManilaDay(manilaDateString(now), 1 - days)
 }
 
 /** UTC instant of midnight Manila on the range start day. */
-export function trafficRangeStartIso(days: TrafficRangeDays, now = new Date()): string {
+export function trafficRangeStartIso(days: number, now = new Date()): string {
   const start = trafficRangeStartDay(days, now)
   return `${start}T00:00:00+08:00`
 }
@@ -295,7 +293,7 @@ function emptyTally(): ShopTrafficTally {
     photos: 0,
     engagement: 0,
     engagementRate: null,
-    reach: 0,
+    visits: 0,
   }
 }
 
@@ -310,7 +308,7 @@ function addKind(tally: ShopTrafficTally, kind: ShopTrafficKind, hits: number) {
 
 function finishTally(tally: ShopTrafficTally): ShopTrafficTally {
   tally.engagement = tally.navigate + tally.call + tally.photos
-  tally.reach = tally.clicks + tally.detailViews
+  tally.visits = tally.detailViews
   tally.ctr = trafficRatio(tally.clicks, tally.impressions)
   tally.engagementRate = trafficRatio(tally.engagement, tally.detailViews)
   return tally
@@ -320,6 +318,8 @@ export function filterDailyRows(
   rows: ShopTrafficDailyRow[],
   input: {
     fromDay: string
+    /** Inclusive upper bound. */
+    toDay?: string
     surfaces?: ShopTrafficSurface[] | null
     shopIds?: string[] | null
   },
@@ -328,6 +328,7 @@ export function filterDailyRows(
   const surfaces = input.surfaces ? new Set(input.surfaces) : null
   return rows.filter((row) => {
     if (row.day < input.fromDay) return false
+    if (input.toDay && row.day > input.toDay) return false
     if (shops && !shops.has(row.shop_id)) return false
     if (surfaces && !surfaces.has(row.surface)) return false
     return true
@@ -470,7 +471,7 @@ export function sortSurfaceTraffic(
     photos: row.photos,
     engagement: row.engagement,
     engagementRate: row.engagementRate,
-    reach: row.reach,
+    visits: row.visits,
   }))
 }
 

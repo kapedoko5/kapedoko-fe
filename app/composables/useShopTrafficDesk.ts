@@ -1,3 +1,4 @@
+import { createRequestGuard } from '~/utils/request-guard'
 import { SHOP_ID_GET_CHUNK, chunkIds, fetchPages } from '~/utils/approved-shops'
 import {
   RECORDS_PAGE_SIZE,
@@ -76,6 +77,8 @@ export function useShopTrafficDesk() {
   const error = ref('')
   const eventsError = ref('')
   const eventsDone = ref(false)
+  const dailyGuard = createRequestGuard()
+  const eventsGuard = createRequestGuard()
 
   const loadNames = async (owned?: ShopTrafficName[]) => {
     if (owned) {
@@ -126,13 +129,19 @@ export function useShopTrafficDesk() {
     names.value = shop ? [{ id: shop.id, name: shop.name }] : []
   }
 
+  /**
+   * Loads days * 2 so the board can compare against the previous period of equal
+   * length. A newer call makes older in-flight calls drop their results.
+   */
   const loadDaily = async (days: TrafficRangeDays, owned?: ShopTrafficName[], shopId?: string) => {
+    const isCurrent = dailyGuard.next()
     status.value = 'loading'
     error.value = ''
     try {
       if (shopId) {
         if (owned) names.value = owned.filter((shop) => shop.id === shopId)
         else await loadName(shopId)
+        if (!isCurrent()) return
         if (names.value.length === 0) {
           daily.value = []
           status.value = 'error'
@@ -141,8 +150,9 @@ export function useShopTrafficDesk() {
         }
       } else {
         await loadNames(owned)
+        if (!isCurrent()) return
       }
-      const fromDay = trafficRangeStartDay(days)
+      const fromDay = trafficRangeStartDay(days * 2)
       const rows = await fetchPages((from, to) => {
         let query = supabase
           .from('shop_traffic_daily')
@@ -157,10 +167,13 @@ export function useShopTrafficDesk() {
         else if (owned?.length) query = query.in('shop_id', owned.map((shop) => shop.id))
         return query
       })
+      if (!isCurrent()) return
       daily.value = parseDaily(rows)
       await mergeNames(daily.value.map((row) => row.shop_id))
+      if (!isCurrent()) return
       status.value = 'ready'
     } catch (err) {
+      if (!isCurrent()) return
       status.value = 'error'
       error.value = err instanceof Error ? err.message : 'Could not load analytics.'
     }
@@ -174,6 +187,7 @@ export function useShopTrafficDesk() {
     surface?: ShopTrafficSurface | null
     append?: boolean
   }) => {
+    const isCurrent = eventsGuard.next()
     eventsStatus.value = 'loading'
     eventsError.value = ''
     if (!input.append) {
@@ -194,13 +208,16 @@ export function useShopTrafficDesk() {
       if (input.shopId) query = query.eq('shop_id', input.shopId)
       else if (input.shopIds?.length) query = query.in('shop_id', input.shopIds)
       const { data, error: queryError } = await query
+      if (!isCurrent()) return
       if (queryError) throw queryError
       const page = parseEvents(data)
       events.value = input.append ? [...events.value, ...page] : page
       eventsDone.value = page.length < RECORDS_PAGE_SIZE
       await mergeNames(page.map((row) => row.shop_id))
+      if (!isCurrent()) return
       eventsStatus.value = 'ready'
     } catch (err) {
+      if (!isCurrent()) return
       eventsStatus.value = 'error'
       eventsError.value = err instanceof Error ? err.message : 'Could not load records.'
     }

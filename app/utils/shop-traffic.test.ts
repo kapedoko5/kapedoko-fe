@@ -76,7 +76,7 @@ describe('tallies', () => {
     expect(tally.clicks).toBe(2)
     expect(tally.ctr).toBe(0.2)
     expect(tally.detailViews).toBe(4)
-    expect(tally.reach).toBe(6)
+    expect(tally.visits).toBe(4)
     expect(tally.engagement).toBe(2)
     expect(tally.engagementRate).toBe(0.5)
     expect(formatTrafficRatio(tally.ctr)).toBe('20%')
@@ -120,10 +120,10 @@ describe('tallies', () => {
       row({ surface: 'search', kind: 'card_impression', hits: 8 }),
     ])
     expect(list.map((item) => item.surface)).toEqual(['home', 'search', 'map', 'favorites', 'promotion', 'direct'])
-    expect(list[0]?.reach).toBe(4)
+    expect(list[0]?.visits).toBe(1)
     expect(list[1]?.impressions).toBe(8)
     expect(list[2]?.clicks).toBe(0)
-    expect(sortSurfaceTraffic(list, 'reach', 'desc')[0]?.surface).toBe('home')
+    expect(sortSurfaceTraffic(list, 'visits', 'desc')[0]?.surface).toBe('home')
   })
 
   test('lists cafes by clicks and keeps named cafes with zeros', () => {
@@ -156,7 +156,7 @@ describe('traffic ledger', () => {
     photos: 0,
     engagement: 0,
     engagementRate: null,
-    reach: 0,
+    visits: 0,
     ...partial,
   })
 
@@ -193,23 +193,23 @@ describe('traffic ledger', () => {
     expect(nextTrafficSort('clicks', 'desc', 'clicks')).toEqual({ key: 'clicks', dir: 'asc' })
     expect(nextTrafficSort('clicks', 'desc', 'impressions')).toEqual({ key: 'impressions', dir: 'desc' })
     expect(nextTrafficSort('clicks', 'desc', 'name')).toEqual({ key: 'name', dir: 'asc' })
-    expect(nextTrafficSort('clicks', 'desc', 'reach')).toEqual({ key: 'reach', dir: 'desc' })
+    expect(nextTrafficSort('clicks', 'desc', 'visits')).toEqual({ key: 'visits', dir: 'desc' })
     expect(sortCafeTraffic([
-      cafe({ shopId: 'a', name: 'Alpha', reach: 2 }),
-      cafe({ shopId: 'b', name: 'Beta', reach: 9 }),
-      cafe({ shopId: 'c', name: 'Gamma', reach: 4 }),
-    ], 'reach', 'desc').map((item) => item.shopId)).toEqual(['b', 'c', 'a'])
+      cafe({ shopId: 'a', name: 'Alpha', visits: 2 }),
+      cafe({ shopId: 'b', name: 'Beta', visits: 9 }),
+      cafe({ shopId: 'c', name: 'Gamma', visits: 4 }),
+    ], 'visits', 'desc').map((item) => item.shopId)).toEqual(['b', 'c', 'a'])
   })
 })
 
 describe('records filters', () => {
   test('maps chips onto kinds', () => {
     expect(recordsKindsForFilter('all')).toBe(null)
-    expect(recordsKindsForFilter('reach')).toEqual(['card_click', 'detail_view'])
+    expect(recordsKindsForFilter('visits')).toEqual(['detail_view'])
     expect(recordsKindsForFilter('engagement')).toEqual(['navigate', 'call', 'photo_view'])
   })
 
-  test('counts reach as clicks plus café pages, not impressions', () => {
+  test('counts visits as café pages only, never card clicks or impressions', () => {
     expect(recordsFilterCounts([
       row({ kind: 'card_impression', hits: 4 }),
       row({ kind: 'detail_view', hits: 2 }),
@@ -217,17 +217,16 @@ describe('records filters', () => {
       row({ kind: 'call', hits: 1, shop_id: 'cafe-b' }),
     ])).toEqual({
       all: 10,
-      reach: 5,
+      visits: 2,
       impressions: 4,
       clicks: 3,
-      detail: 2,
       engagement: 1,
     })
     expect(recordsFilterCounts([
       row({ kind: 'card_impression', hits: 4 }),
       row({ kind: 'card_click', hits: 2 }),
       row({ kind: 'call', hits: 1, shop_id: 'cafe-b' }),
-    ], 'cafe-a').reach).toBe(2)
+    ], 'cafe-a').visits).toBe(0)
   })
 })
 

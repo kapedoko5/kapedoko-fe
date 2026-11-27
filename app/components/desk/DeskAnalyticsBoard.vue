@@ -1,35 +1,24 @@
 <template>
   <div class="analytics-board">
-    <div class="analytics-controls">
-      <div :class="toolbarClass" role="tablist" aria-label="Analytics">
+    <RangeTabs
+      v-model:tab="tab"
+      v-model:range="range"
+      :tone="tone"
+      :tabs="tabs"
+      :ranges="ranges"
+    >
+      <template #actions>
         <button
-          v-for="item in tabs"
-          :id="`analytics-tab-${item.id}`"
-          :key="item.id"
+          v-if="canExport"
           type="button"
-          role="tab"
-          :class="[chipClass, { 'is-active': tab === item.id }]"
-          :aria-selected="tab === item.id"
-          :aria-controls="`analytics-panel-${item.id}`"
-          @click="tab = item.id"
+          :class="tone === 'admin' ? 'admin-btn' : 'owner-btn'"
+          :disabled="exportRows.length === 0"
+          @click="onExport"
         >
-          {{ item.label }}
+          Export CSV
         </button>
-      </div>
-
-      <div :class="toolbarClass" aria-label="Date range">
-        <button
-          v-for="days in ranges"
-          :key="days"
-          type="button"
-          :class="[chipClass, { 'is-active': range === days }]"
-          :aria-pressed="range === days"
-          @click="range = days"
-        >
-          {{ days }} days
-        </button>
-      </div>
-    </div>
+      </template>
+    </RangeTabs>
 
     <div
       :id="`analytics-panel-${tab}`"
@@ -38,48 +27,37 @@
       :aria-labelledby="`analytics-tab-${tab}`"
     >
       <template v-if="tab === 'statistics' || tab === 'promotion'">
-        <ul class="analytics-tallies" aria-label="Traffic totals">
-          <li v-for="card in tallyCards" :key="card.label" class="analytics-tallies__item">
-            <span class="analytics-tallies__num">{{ card.value }}</span>
-            <span class="analytics-tallies__label">{{ card.label }}</span>
-          </li>
-        </ul>
+        <EmptyState
+          v-if="tab === 'statistics' && emptyKind"
+          :tone="tone"
+          :kind="emptyKind"
+          :days="range"
+        />
+        <template v-else>
+          <KpiStrip :cards="kpiCards" :days="range" />
 
-        <section class="analytics-trend" aria-labelledby="analytics-trend-title">
-          <h2 id="analytics-trend-title">Clicks and café pages</h2>
-          <p v-if="maxBar === 0" class="analytics-trend__empty">
-            {{ tab === 'promotion' ? promotionEmptyCopy() : 'No café listing traffic in this window yet.' }}
-          </p>
-          <ol v-else class="analytics-bars">
-            <li v-for="bar in bars" :key="bar.day" class="analytics-bars__item">
-              <span class="analytics-bars__pair">
-                <span
-                  class="analytics-bars__fill analytics-bars__fill--clicks"
-                  :style="{ height: barHeight(bar.clicks) }"
-                  :title="`${formatTrafficCount(bar.clicks)} clicks`"
-                />
-                <span
-                  class="analytics-bars__fill analytics-bars__fill--views"
-                  :style="{ height: barHeight(bar.detailViews) }"
-                  :title="`${formatTrafficCount(bar.detailViews)} café pages`"
-                />
-              </span>
-              <span class="analytics-bars__day">{{ formatTrafficDay(bar.day) }}</span>
-            </li>
-          </ol>
-          <p v-if="maxBar > 0" class="analytics-legend">
-            <span class="analytics-legend__swatch analytics-legend__swatch--clicks" /> Clicks
-            <span class="analytics-legend__swatch analytics-legend__swatch--views" /> Café pages
-          </p>
-        </section>
+          <TrendChart
+            :points="series"
+            :empty-text="tab === 'promotion' ? promotionEmptyCopy() : 'No café listing traffic in this window yet.'"
+          />
 
-        <section
-          v-if="!isCafeDesk"
-          class="analytics-cafes"
-          aria-labelledby="analytics-cafes-title"
+          <Funnel :steps="funnel" />
+
+          <Sources v-if="tab === 'statistics'" :rows="sources" />
+        </template>
+
+        <CafeLedger
+          v-if="!isCafeDesk && !(tab === 'statistics' && emptyKind)"
+          title="Cafes"
+          title-id="analytics-cafes-title"
+          :columns="statsColumns"
+          :rows="statsLedgerRows"
+          :sort-key="statsSortKey"
+          :sort-dir="statsSortDir"
+          :empty-text="statsEmpty"
+          @sort="onStatsSort"
         >
-          <div class="analytics-cafes__head">
-            <h2 id="analytics-cafes-title">Cafes</h2>
+          <template #controls>
             <input
               v-model="statsQuery"
               :class="tone === 'admin' ? 'admin-search' : 'owner-search'"
@@ -87,194 +65,51 @@
               placeholder="Search cafe"
               aria-label="Search cafe"
             />
-          </div>
-          <p v-if="matchedStatsCafeRows.length === 0" class="analytics-cafes__empty">{{ statsEmpty }}</p>
-          <template v-else>
-            <div class="admin-table-wrap analytics-table analytics-cafes__table">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th
-                      v-for="column in statsColumns"
-                      :key="column.key"
-                      :aria-sort="statsSortKey === column.key
-                        ? (statsSortDir === 'asc' ? 'ascending' : 'descending')
-                        : 'none'"
-                    >
-                      <button
-                        type="button"
-                        class="analytics-sort"
-                        :class="{ 'is-active': statsSortKey === column.key }"
-                        :aria-label="sortColumnLabel(column, statsSortKey, statsSortDir)"
-                        @click="onStatsSort(column.key)"
-                      >
-                        {{ column.label }}
-                        <span
-                          v-if="statsSortKey === column.key"
-                          class="analytics-sort__mark"
-                          aria-hidden="true"
-                        >{{ statsSortDir === 'desc' ? '↓' : '↑' }}</span>
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in pagedStatsCafeRows" :key="row.shopId">
-                    <td>
-                      <NuxtLink class="analytics-cafe" :to="cafeHref(row.shopId)">{{ row.name }}</NuxtLink>
-                    </td>
-                    <td>{{ formatTrafficCount(row.reach) }}</td>
-                    <td>{{ formatTrafficCount(row.impressions) }}</td>
-                    <td>{{ formatTrafficCount(row.clicks) }}</td>
-                    <td>{{ formatTrafficRatio(row.ctr) }}</td>
-                    <td>{{ formatTrafficCount(row.detailViews) }}</td>
-                    <td>{{ formatTrafficCount(row.engagement) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="admin-cards analytics-cards analytics-cafes__cards">
-              <article v-for="row in pagedStatsCafeRows" :key="row.shopId" class="admin-card">
-                <h2>
-                  <NuxtLink class="analytics-cafe" :to="cafeHref(row.shopId)">{{ row.name }}</NuxtLink>
-                </h2>
-                <p>{{ formatTrafficCount(row.reach) }} reach · {{ formatTrafficCount(row.impressions) }} impressions · {{ formatTrafficCount(row.clicks) }} clicks</p>
-                <p>{{ formatTrafficRatio(row.ctr) }} CTR · {{ formatTrafficCount(row.detailViews) }} pages · {{ formatTrafficCount(row.engagement) }} engagement</p>
-              </article>
-            </div>
-            <p v-if="hasMoreStats" ref="statsSentinel" class="analytics-more">Scroll for more</p>
           </template>
-        </section>
+          <template #footer>
+            <p v-if="hasMoreStats" ref="statsSentinel" class="analytics-muted">Scroll for more</p>
+          </template>
+        </CafeLedger>
 
-        <section
-          v-else-if="tab === 'statistics'"
-          class="analytics-cafes"
-          aria-labelledby="analytics-surfaces-title"
-        >
-          <div class="analytics-cafes__head">
-            <h2 id="analytics-surfaces-title">Where people find it</h2>
-          </div>
-          <div class="admin-table-wrap analytics-table analytics-cafes__table">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th
-                    v-for="column in surfaceColumns"
-                    :key="column.key"
-                    :aria-sort="statsSortKey === column.key
-                      ? (statsSortDir === 'asc' ? 'ascending' : 'descending')
-                      : 'none'"
-                  >
-                    <button
-                      type="button"
-                      class="analytics-sort"
-                      :class="{ 'is-active': statsSortKey === column.key }"
-                      :aria-label="sortColumnLabel(column, statsSortKey, statsSortDir)"
-                      @click="onStatsSort(column.key)"
-                    >
-                      {{ column.label }}
-                      <span
-                        v-if="statsSortKey === column.key"
-                        class="analytics-sort__mark"
-                        aria-hidden="true"
-                      >{{ statsSortDir === 'desc' ? '↓' : '↑' }}</span>
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in sortedSurfaceRows" :key="row.surface">
-                  <td>{{ row.name }}</td>
-                  <td>{{ formatTrafficCount(row.reach) }}</td>
-                  <td>{{ formatTrafficCount(row.impressions) }}</td>
-                  <td>{{ formatTrafficCount(row.clicks) }}</td>
-                  <td>{{ formatTrafficRatio(row.ctr) }}</td>
-                  <td>{{ formatTrafficCount(row.detailViews) }}</td>
-                  <td>{{ formatTrafficCount(row.engagement) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="admin-cards analytics-cards analytics-cafes__cards">
-            <article v-for="row in sortedSurfaceRows" :key="row.surface" class="admin-card">
-              <h2>{{ row.name }}</h2>
-              <p>{{ formatTrafficCount(row.reach) }} reach · {{ formatTrafficCount(row.impressions) }} impressions · {{ formatTrafficCount(row.clicks) }} clicks</p>
-              <p>{{ formatTrafficRatio(row.ctr) }} CTR · {{ formatTrafficCount(row.detailViews) }} pages · {{ formatTrafficCount(row.engagement) }} engagement</p>
-            </article>
-          </div>
-        </section>
-
-        <div v-if="tab === 'promotion'" class="analytics-panel__filters">
-          <div :class="toolbarClass">
-            <button
-              v-for="item in recordFilters"
-              :key="item.id"
-              type="button"
-              :class="[chipClass, { 'is-active': recordsFilter === item.id }]"
-              :aria-pressed="recordsFilter === item.id"
-              @click="recordsFilter = item.id"
-            >
-              {{ item.label }}
-              <span class="analytics-count">{{ formatTrafficCount(recordsCounts[item.id]) }}</span>
-            </button>
-          </div>
-          <label v-if="!isCafeDesk && tone === 'admin'" class="analytics-search">
-            Search cafe
-            <input v-model="shopQuery" type="search" placeholder="Cafe name" />
-          </label>
-        </div>
         <template v-if="tab === 'promotion'">
-          <p v-if="eventsError" class="admin-empty">{{ eventsError }}</p>
-          <p v-else-if="visibleEvents.length === 0 && eventsStatus !== 'loading'" :class="emptyClass">
-            No promotion records in this window.
-          </p>
-          <template v-else-if="visibleEvents.length > 0 || eventsStatus === 'loading'">
-            <div class="admin-table-wrap analytics-table">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>When</th>
-                    <th v-if="!isCafeDesk">Cafe</th>
-                    <th>What</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in visibleEvents" :key="row.id">
-                    <td>{{ formatTrafficWhen(row.created_at) }}</td>
-                    <td v-if="!isCafeDesk">
-                      <NuxtLink class="analytics-cafe" :to="cafeHref(row.shop_id)">{{ shopName(row.shop_id) }}</NuxtLink>
-                    </td>
-                    <td>{{ shopTrafficKindLabel(row.kind) }}</td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="analytics-panel__filters">
+            <div :class="toolbarClass" role="group" aria-label="Record type">
+              <button
+                v-for="item in recordFilters"
+                :key="item.id"
+                type="button"
+                :class="[chipClass, { 'is-active': recordsFilter === item.id }]"
+                :aria-pressed="recordsFilter === item.id"
+                @click="recordsFilter = item.id"
+              >
+                {{ item.label }}
+                <span class="analytics-count">{{ formatTrafficCount(recordsCounts[item.id]) }}</span>
+              </button>
             </div>
-            <div class="admin-cards analytics-cards">
-              <article v-for="row in visibleEvents" :key="row.id" class="admin-card">
-                <h2 v-if="isCafeDesk">{{ shopTrafficKindLabel(row.kind) }}</h2>
-                <h2 v-else>
-                  <NuxtLink class="analytics-cafe" :to="cafeHref(row.shop_id)">{{ shopName(row.shop_id) }}</NuxtLink>
-                </h2>
-                <p v-if="!isCafeDesk">{{ shopTrafficKindLabel(row.kind) }}</p>
-                <p class="admin-meta">{{ formatTrafficWhen(row.created_at) }}</p>
-              </article>
-            </div>
-            <button
-              v-if="!eventsDone"
-              type="button"
-              :class="tone === 'admin' ? 'admin-btn' : 'owner-btn'"
-              :disabled="eventsStatus === 'loading'"
-              @click="emit('more-events')"
-            >
-              {{ eventsStatus === 'loading' ? 'Loading…' : 'Load more' }}
-            </button>
-          </template>
+            <label v-if="!isCafeDesk && tone === 'admin'" class="analytics-search">
+              Search cafe
+              <input v-model="shopQuery" type="search" placeholder="Cafe name" />
+            </label>
+          </div>
+          <ActivityLog
+            :tone="tone"
+            :events="visibleEvents"
+            :done="eventsDone"
+            :status="eventsStatus"
+            :error="eventsError"
+            empty-text="No promotion records in this window."
+            :show-cafe="!isCafeDesk"
+            :show-where="false"
+            :name-for="shopName"
+            :cafe-href="cafeHref"
+            @more="emit('more-events')"
+          />
         </template>
       </template>
 
       <template v-else-if="tab === 'records'">
         <div class="analytics-panel__filters">
-          <div :class="toolbarClass">
+          <div :class="toolbarClass" role="group" aria-label="Record type">
             <button
               v-for="item in recordFilters"
               :key="item.id"
@@ -299,55 +134,19 @@
             </select>
           </label>
         </div>
-
-        <p v-if="eventsError" class="admin-empty">{{ eventsError }}</p>
-        <p v-else-if="visibleEvents.length === 0 && eventsStatus !== 'loading'" :class="emptyClass">
-          No records in this window.
-        </p>
-        <template v-else>
-          <div class="admin-table-wrap analytics-table">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th v-if="!isCafeDesk">Cafe</th>
-                  <th>What</th>
-                  <th>Where</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in visibleEvents" :key="row.id">
-                  <td>{{ formatTrafficWhen(row.created_at) }}</td>
-                  <td v-if="!isCafeDesk">
-                    <NuxtLink class="analytics-cafe" :to="cafeHref(row.shop_id)">{{ shopName(row.shop_id) }}</NuxtLink>
-                  </td>
-                  <td>{{ shopTrafficKindLabel(row.kind) }}</td>
-                  <td>{{ shopTrafficSurfaceLabel(row.surface) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="admin-cards analytics-cards">
-            <article v-for="row in visibleEvents" :key="row.id" class="admin-card">
-              <h2 v-if="isCafeDesk">{{ shopTrafficKindLabel(row.kind) }}</h2>
-              <h2 v-else>
-                <NuxtLink class="analytics-cafe" :to="cafeHref(row.shop_id)">{{ shopName(row.shop_id) }}</NuxtLink>
-              </h2>
-              <p v-if="isCafeDesk">{{ shopTrafficSurfaceLabel(row.surface) }}</p>
-              <p v-else>{{ shopTrafficKindLabel(row.kind) }} · {{ shopTrafficSurfaceLabel(row.surface) }}</p>
-              <p class="admin-meta">{{ formatTrafficWhen(row.created_at) }}</p>
-            </article>
-          </div>
-          <button
-            v-if="!eventsDone"
-            type="button"
-            :class="tone === 'admin' ? 'admin-btn' : 'owner-btn'"
-            :disabled="eventsStatus === 'loading'"
-            @click="emit('more-events')"
-          >
-            {{ eventsStatus === 'loading' ? 'Loading…' : 'Load more' }}
-          </button>
-        </template>
+        <ActivityLog
+          :tone="tone"
+          :events="visibleEvents"
+          :done="eventsDone"
+          :status="eventsStatus"
+          :error="eventsError"
+          empty-text="No records in this window."
+          :show-cafe="!isCafeDesk"
+          :show-where="true"
+          :name-for="shopName"
+          :cafe-href="cafeHref"
+          @more="emit('more-events')"
+        />
       </template>
 
       <template v-else-if="tab === 'traffic'">
@@ -360,7 +159,7 @@
             aria-label="Search cafe"
           />
           <div class="analytics-panel__chips">
-            <div :class="toolbarClass" aria-label="Activity">
+            <div :class="toolbarClass" role="group" aria-label="Activity">
               <button
                 v-for="item in activityFilters"
                 :key="item.id"
@@ -372,7 +171,7 @@
                 {{ item.label }}
               </button>
             </div>
-            <div :class="toolbarClass" aria-label="Surface">
+            <div :class="toolbarClass" role="group" aria-label="Surface">
               <button
                 v-for="item in surfaceFilters"
                 :key="item.id"
@@ -387,159 +186,96 @@
           </div>
         </div>
         <p v-if="!isCafeDesk && matchedCafeRows.length === 0" :class="emptyClass">{{ trafficEmpty }}</p>
-        <template v-else-if="!isCafeDesk">
-          <div class="admin-table-wrap analytics-table">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th
-                    v-for="column in trafficColumns"
-                    :key="column.key"
-                    :aria-sort="trafficSortKey === column.key
-                      ? (trafficSortDir === 'asc' ? 'ascending' : 'descending')
-                      : 'none'"
-                  >
-                    <button
-                      type="button"
-                      class="analytics-sort"
-                      :class="{ 'is-active': trafficSortKey === column.key }"
-                      :aria-label="sortColumnLabel(column, trafficSortKey, trafficSortDir)"
-                      @click="onTrafficSort(column.key)"
-                    >
-                      {{ column.label }}
-                      <span
-                        v-if="trafficSortKey === column.key"
-                        class="analytics-sort__mark"
-                        aria-hidden="true"
-                      >{{ trafficSortDir === 'desc' ? '↓' : '↑' }}</span>
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in pagedCafeRows" :key="row.shopId">
-                  <td>
-                    <NuxtLink class="analytics-cafe" :to="cafeHref(row.shopId)">{{ row.name }}</NuxtLink>
-                  </td>
-                  <td>{{ formatTrafficCount(row.impressions) }}</td>
-                  <td>{{ formatTrafficCount(row.clicks) }}</td>
-                  <td>{{ formatTrafficRatio(row.ctr) }}</td>
-                  <td>{{ formatTrafficCount(row.detailViews) }}</td>
-                  <td>{{ formatTrafficCount(row.navigate) }}</td>
-                  <td>{{ formatTrafficCount(row.call) }}</td>
-                  <td>{{ formatTrafficCount(row.photos) }}</td>
-                  <td>{{ formatTrafficRatio(row.engagementRate) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="admin-cards analytics-cards">
-            <article v-for="row in pagedCafeRows" :key="row.shopId" class="admin-card">
-              <h2>
-                <NuxtLink class="analytics-cafe" :to="cafeHref(row.shopId)">{{ row.name }}</NuxtLink>
-              </h2>
-              <p>{{ formatTrafficCount(row.impressions) }} impressions · {{ formatTrafficCount(row.clicks) }} clicks · {{ formatTrafficRatio(row.ctr) }} CTR</p>
-              <p>{{ formatTrafficCount(row.detailViews) }} pages · {{ formatTrafficCount(row.navigate) }} directions · {{ formatTrafficCount(row.call) }} calls · {{ formatTrafficCount(row.photos) }} photos</p>
-            </article>
-          </div>
-          <p v-if="hasMoreTraffic" ref="trafficSentinel" class="analytics-more">Scroll for more</p>
-        </template>
-        <template v-else>
-          <div class="admin-table-wrap analytics-table">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th
-                    v-for="column in cafeTrafficColumns"
-                    :key="column.key"
-                    :aria-sort="trafficSortKey === column.key
-                      ? (trafficSortDir === 'asc' ? 'ascending' : 'descending')
-                      : 'none'"
-                  >
-                    <button
-                      type="button"
-                      class="analytics-sort"
-                      :class="{ 'is-active': trafficSortKey === column.key }"
-                      :aria-label="sortColumnLabel(column, trafficSortKey, trafficSortDir)"
-                      @click="onTrafficSort(column.key)"
-                    >
-                      {{ column.label }}
-                      <span
-                        v-if="trafficSortKey === column.key"
-                        class="analytics-sort__mark"
-                        aria-hidden="true"
-                      >{{ trafficSortDir === 'desc' ? '↓' : '↑' }}</span>
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in sortedCafeSurfaceRows" :key="row.surface">
-                  <td>{{ row.name }}</td>
-                  <td>{{ formatTrafficCount(row.impressions) }}</td>
-                  <td>{{ formatTrafficCount(row.clicks) }}</td>
-                  <td>{{ formatTrafficRatio(row.ctr) }}</td>
-                  <td>{{ formatTrafficCount(row.detailViews) }}</td>
-                  <td>{{ formatTrafficCount(row.navigate) }}</td>
-                  <td>{{ formatTrafficCount(row.call) }}</td>
-                  <td>{{ formatTrafficCount(row.photos) }}</td>
-                  <td>{{ formatTrafficRatio(row.engagementRate) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="admin-cards analytics-cards">
-            <article v-for="row in sortedCafeSurfaceRows" :key="row.surface" class="admin-card">
-              <h2>{{ row.name }}</h2>
-              <p>{{ formatTrafficCount(row.impressions) }} impressions · {{ formatTrafficCount(row.clicks) }} clicks · {{ formatTrafficRatio(row.ctr) }} CTR</p>
-              <p>{{ formatTrafficCount(row.detailViews) }} pages · {{ formatTrafficCount(row.navigate) }} directions · {{ formatTrafficCount(row.call) }} calls · {{ formatTrafficCount(row.photos) }} photos</p>
-            </article>
-          </div>
-        </template>
+        <CafeLedger
+          v-else-if="!isCafeDesk"
+          title="Cafe traffic"
+          title-id="analytics-traffic-title"
+          :columns="trafficColumns"
+          :rows="trafficLedgerRows"
+          :sort-key="trafficSortKey"
+          :sort-dir="trafficSortDir"
+          empty-text=""
+          @sort="onTrafficSort"
+        >
+          <template #footer>
+            <p v-if="hasMoreTraffic" ref="trafficSentinel" class="analytics-muted">Scroll for more</p>
+          </template>
+        </CafeLedger>
+        <CafeLedger
+          v-else
+          title="Traffic by source"
+          title-id="analytics-traffic-title"
+          :columns="trafficColumns"
+          :rows="surfaceLedgerRows"
+          :sort-key="trafficSortKey"
+          :sort-dir="trafficSortDir"
+          empty-text="No sources in this window."
+          @sort="onTrafficSort"
+        />
       </template>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
+import { Capacitor } from '@capacitor/core'
+import ActivityLog from '~/components/desk/analytics/ActivityLog.vue'
+import CafeLedger, { type LedgerColumn, type LedgerRow } from '~/components/desk/analytics/CafeLedger.vue'
+import EmptyState from '~/components/desk/analytics/EmptyState.vue'
+import Funnel from '~/components/desk/analytics/Funnel.vue'
+import KpiStrip, { type KpiCard } from '~/components/desk/analytics/KpiStrip.vue'
+import RangeTabs from '~/components/desk/analytics/RangeTabs.vue'
+import Sources from '~/components/desk/analytics/Sources.vue'
+import TrendChart from '~/components/desk/analytics/TrendChart.vue'
+import {
+  analyticsCsvFilename,
+  dailyRowsToCsv,
+  downloadCsv,
+} from '~/utils/analytics-export'
 import {
   TRAFFIC_LEDGER_SURFACES,
   TRAFFIC_PAGE_SIZE,
   TRAFFIC_RANGES,
   TRAFFIC_TABS,
   cafeAnalyticsPath,
-  dailyBars,
   filterCafeTraffic,
   filterDailyRows,
-  recordsFilterCounts,
   formatTrafficCount,
-  formatTrafficDay,
   formatTrafficRatio,
-  formatTrafficWhen,
   manilaDateString,
   nextTrafficSort,
   perCafeTraffic,
   perSurfaceTraffic,
   promotionEmptyCopy,
-  shopTrafficKindLabel,
+  recordsFilterCounts,
   shopTrafficSurfaceLabel,
   sortCafeTraffic,
   sortSurfaceTraffic,
   tallyFromDaily,
   trafficLedgerEmptyCopy,
-  trafficRangeStartDay,
   type RecordsKindFilter,
-  type ShopTrafficRecordsQuery,
   type ShopTrafficDailyRow,
   type ShopTrafficEventRow,
   type ShopTrafficName,
+  type ShopTrafficRecordsQuery,
   type ShopTrafficSurface,
+  type ShopTrafficTally,
   type TrafficActivityFilter,
   type TrafficRangeDays,
   type TrafficSortDir,
   type TrafficSortKey,
   type TrafficTabId,
 } from '~/utils/shop-traffic'
+import {
+  analyticsEmptyKind,
+  buildAnalyticsQuery,
+  dailySeries,
+  funnelSteps,
+  kpiDelta,
+  parseAnalyticsQuery,
+  rankSources,
+  splitTrafficPeriods,
+} from '~/utils/traffic-analytics'
 
 const props = defineProps<{
   tone: 'admin' | 'owner'
@@ -558,8 +294,12 @@ const emit = defineEmits<{
   'more-events': []
 }>()
 
-const tab = ref<TrafficTabId>('statistics')
-const range = ref<TrafficRangeDays>(30)
+const route = useRoute()
+const basePath = route.path
+const initial = parseAnalyticsQuery(route.query)
+
+const tab = ref<TrafficTabId>(initial.tab)
+const range = ref<TrafficRangeDays>(initial.range)
 const recordsFilter = ref<RecordsKindFilter>('all')
 const recordsShopId = ref('')
 const shopQuery = ref('')
@@ -569,26 +309,23 @@ const trafficActivity = ref<TrafficActivityFilter>('all')
 const trafficSortKey = ref<TrafficSortKey>('clicks')
 const trafficSortDir = ref<TrafficSortDir>('desc')
 const statsQuery = ref('')
-const statsSortKey = ref<TrafficSortKey>('reach')
+const statsSortKey = ref<TrafficSortKey>('visits')
 const statsSortDir = ref<TrafficSortDir>('desc')
+const canExport = ref(false)
 
-const tabs = TRAFFIC_TABS.map((id) => ({
-  id,
-  label: id === 'statistics'
-    ? 'Statistics'
-    : id === 'records'
-      ? 'Records'
-      : id === 'promotion'
-        ? 'Promotion'
-        : 'Traffic',
-}))
+const TAB_LABEL: Record<TrafficTabId, string> = {
+  statistics: 'Statistics',
+  records: 'Records',
+  traffic: 'Traffic',
+  promotion: 'Promotion',
+}
+const tabs = TRAFFIC_TABS.map((id) => ({ id, label: TAB_LABEL[id] }))
 const ranges = TRAFFIC_RANGES
 const recordFilters: Array<{ id: RecordsKindFilter, label: string }> = [
   { id: 'all', label: 'All' },
-  { id: 'reach', label: 'Reach' },
+  { id: 'visits', label: 'Visits' },
   { id: 'impressions', label: 'Impressions' },
   { id: 'clicks', label: 'Clicks' },
-  { id: 'detail', label: 'Café pages' },
   { id: 'engagement', label: 'Engagement' },
 ]
 const surfaceFilters: Array<{ id: 'all' | ShopTrafficSurface, label: string }> = [
@@ -600,45 +337,24 @@ const activityFilters: Array<{ id: TrafficActivityFilter, label: string }> = [
   { id: 'active', label: 'With traffic' },
   { id: 'quiet', label: 'No traffic' },
 ]
-const trafficColumns: Array<{ key: TrafficSortKey, label: string }> = [
+const trafficColumns: LedgerColumn[] = [
   { key: 'name', label: 'Cafe' },
   { key: 'impressions', label: 'Impressions' },
   { key: 'clicks', label: 'Clicks' },
   { key: 'ctr', label: 'CTR' },
-  { key: 'detailViews', label: 'Pages' },
+  { key: 'visits', label: 'Visits' },
   { key: 'navigate', label: 'Directions' },
   { key: 'call', label: 'Call' },
   { key: 'photos', label: 'Photos' },
   { key: 'engagementRate', label: 'Engagement' },
 ]
-const statsColumns: Array<{ key: TrafficSortKey, label: string }> = [
+const statsColumns: LedgerColumn[] = [
   { key: 'name', label: 'Cafe' },
-  { key: 'reach', label: 'Reach' },
+  { key: 'visits', label: 'Visits' },
   { key: 'impressions', label: 'Impressions' },
   { key: 'clicks', label: 'Clicks' },
   { key: 'ctr', label: 'CTR' },
-  { key: 'detailViews', label: 'Pages' },
   { key: 'engagement', label: 'Engagement' },
-]
-const surfaceColumns: Array<{ key: TrafficSortKey, label: string }> = [
-  { key: 'name', label: 'Where' },
-  { key: 'reach', label: 'Reach' },
-  { key: 'impressions', label: 'Impressions' },
-  { key: 'clicks', label: 'Clicks' },
-  { key: 'ctr', label: 'CTR' },
-  { key: 'detailViews', label: 'Pages' },
-  { key: 'engagement', label: 'Engagement' },
-]
-const cafeTrafficColumns: Array<{ key: TrafficSortKey, label: string }> = [
-  { key: 'name', label: 'Where' },
-  { key: 'impressions', label: 'Impressions' },
-  { key: 'clicks', label: 'Clicks' },
-  { key: 'ctr', label: 'CTR' },
-  { key: 'detailViews', label: 'Pages' },
-  { key: 'navigate', label: 'Directions' },
-  { key: 'call', label: 'Call' },
-  { key: 'photos', label: 'Photos' },
-  { key: 'engagementRate', label: 'Engagement' },
 ]
 
 const chipClass = computed(() => (props.tone === 'admin' ? 'admin-chip' : 'owner-chip'))
@@ -649,38 +365,90 @@ const focusedShopId = computed(() => props.shopId?.trim() || '')
 const isCafeDesk = computed(() => Boolean(focusedShopId.value))
 const cafeHref = (shopId: string) => cafeAnalyticsPath(props.tone, shopId)
 
-const fromDay = computed(() => trafficRangeStartDay(range.value))
 const today = computed(() => manilaDateString(new Date()))
-const rangeDaily = computed(() => filterDailyRows(props.daily, {
-  fromDay: fromDay.value,
+// daily holds 2x the range; the split yields the current and the previous window.
+const split = computed(() => splitTrafficPeriods(props.daily, range.value, {
   shopIds: focusedShopId.value ? [focusedShopId.value] : null,
 }))
-const overviewDaily = computed(() => filterDailyRows(props.daily, {
-  fromDay: fromDay.value,
-  shopIds: focusedShopId.value ? [focusedShopId.value] : null,
-  surfaces: tab.value === 'promotion' ? ['promotion'] : null,
-}))
-const filteredDaily = computed(() => filterDailyRows(props.daily, {
-  fromDay: fromDay.value,
-  shopIds: focusedShopId.value ? [focusedShopId.value] : null,
+const scoped = (rows: ShopTrafficDailyRow[]) =>
+  tab.value === 'promotion' ? rows.filter((row) => row.surface === 'promotion') : rows
+const currentRows = computed(() => split.value.current)
+const overviewRows = computed(() => scoped(split.value.current))
+const previousOverviewRows = computed(() => scoped(split.value.previous))
+
+const tally = computed(() => tallyFromDaily(overviewRows.value))
+const previousTally = computed(() => tallyFromDaily(previousOverviewRows.value))
+const emptyKind = computed(() => analyticsEmptyKind(tally.value, previousTally.value))
+const series = computed(() => dailySeries(overviewRows.value, split.value.currentFrom, split.value.currentTo))
+const funnel = computed(() => funnelSteps(tally.value))
+const sources = computed(() => rankSources(currentRows.value))
+
+const count = (value: number) => formatTrafficCount(value)
+const kpiCards = computed<KpiCard[]>(() => {
+  const now = tally.value
+  const before = previousTally.value
+  const points = series.value
+  return [
+    {
+      id: 'impressions',
+      label: 'Card impressions',
+      value: count(now.impressions),
+      delta: kpiDelta('impressions', now.impressions, before.impressions),
+      previousValue: count(before.impressions),
+      series: points.map((p) => p.impressions),
+    },
+    {
+      id: 'clicks',
+      label: 'Card clicks',
+      value: count(now.clicks),
+      delta: kpiDelta('clicks', now.clicks, before.clicks),
+      previousValue: count(before.clicks),
+      series: points.map((p) => p.clicks),
+    },
+    {
+      id: 'ctr',
+      label: 'Card CTR',
+      value: formatTrafficRatio(now.ctr),
+      previousValue: formatTrafficRatio(before.ctr),
+    },
+    {
+      id: 'visits',
+      label: 'Visits',
+      value: count(now.visits),
+      delta: kpiDelta('visits', now.visits, before.visits),
+      previousValue: count(before.visits),
+      series: points.map((p) => p.visits),
+    },
+    {
+      id: 'actions',
+      label: 'Actions',
+      value: count(now.engagement),
+      delta: kpiDelta('actions', now.engagement, before.engagement),
+      previousValue: count(before.engagement),
+      series: points.map((p) => p.actions),
+    },
+    {
+      id: 'rate',
+      label: 'Actions per visit',
+      value: formatTrafficRatio(now.engagementRate),
+      previousValue: formatTrafficRatio(before.engagementRate),
+    },
+  ]
+})
+
+const filteredRows = computed(() => filterDailyRows(currentRows.value, {
+  fromDay: split.value.currentFrom,
   surfaces: surfaceFilter.value === 'all' || tab.value !== 'traffic' ? null : [surfaceFilter.value],
 }))
-const tally = computed(() => tallyFromDaily(overviewDaily.value))
-const bars = computed(() => dailyBars(overviewDaily.value, fromDay.value, today.value))
-const maxBar = computed(() => Math.max(0, ...bars.value.flatMap((bar) => [bar.clicks, bar.detailViews])))
-const cafeRows = computed(() => perCafeTraffic(filteredDaily.value, props.names))
-const statsCafeRows = computed(() => perCafeTraffic(overviewDaily.value, props.names))
-const surfaceRows = computed(() => perSurfaceTraffic(rangeDaily.value))
-const recordsDaily = computed(() => filterDailyRows(props.daily, {
-  fromDay: fromDay.value,
-  shopIds: focusedShopId.value
-    ? [focusedShopId.value]
-    : recordsShopId.value
-      ? [recordsShopId.value]
-      : null,
-  surfaces: tab.value === 'promotion' ? ['promotion'] : null,
+const cafeRows = computed(() => perCafeTraffic(filteredRows.value, props.names))
+const statsCafeRows = computed(() => perCafeTraffic(overviewRows.value, props.names))
+const surfaceRows = computed(() => perSurfaceTraffic(currentRows.value))
+const recordsDaily = computed(() => filterDailyRows(overviewRows.value, {
+  fromDay: split.value.currentFrom,
+  shopIds: !focusedShopId.value && recordsShopId.value ? [recordsShopId.value] : null,
 }))
 const recordsCounts = computed(() => recordsFilterCounts(recordsDaily.value))
+
 const matchedCafeRows = computed(() => filterCafeTraffic(cafeRows.value, {
   query: trafficQuery.value,
   activity: trafficActivity.value,
@@ -721,9 +489,7 @@ const sortedStatsCafeRows = computed(() => sortCafeTraffic(
 ))
 const statsEmpty = computed(() => tab.value === 'promotion'
   ? promotionEmptyCopy(statsQuery.value)
-  : trafficLedgerEmptyCopy({
-    query: statsQuery.value,
-  }))
+  : trafficLedgerEmptyCopy({ query: statsQuery.value }))
 const statsResetKey = computed(() => [
   tab.value,
   range.value,
@@ -738,16 +504,40 @@ const {
   sentinel: statsSentinel,
 } = useInfiniteWindow(sortedStatsCafeRows, statsResetKey, TRAFFIC_PAGE_SIZE)
 
-const sortedSurfaceRows = computed(() => sortSurfaceTraffic(
-  surfaceRows.value,
-  statsSortKey.value,
-  statsSortDir.value,
-))
 const sortedCafeSurfaceRows = computed(() => sortSurfaceTraffic(
   surfaceRows.value,
   trafficSortKey.value,
   trafficSortDir.value,
 ))
+
+const cellsFor = (row: ShopTrafficTally): LedgerRow['cells'] => ({
+  visits: count(row.visits),
+  impressions: count(row.impressions),
+  clicks: count(row.clicks),
+  ctr: formatTrafficRatio(row.ctr),
+  navigate: count(row.navigate),
+  call: count(row.call),
+  photos: count(row.photos),
+  engagement: count(row.engagement),
+  engagementRate: formatTrafficRatio(row.engagementRate),
+})
+const statsLedgerRows = computed<LedgerRow[]>(() => pagedStatsCafeRows.value.map((row) => ({
+  id: row.shopId,
+  name: row.name,
+  href: cafeHref(row.shopId),
+  cells: cellsFor(row),
+})))
+const trafficLedgerRows = computed<LedgerRow[]>(() => pagedCafeRows.value.map((row) => ({
+  id: row.shopId,
+  name: row.name,
+  href: cafeHref(row.shopId),
+  cells: cellsFor(row),
+})))
+const surfaceLedgerRows = computed<LedgerRow[]>(() => sortedCafeSurfaceRows.value.map((row) => ({
+  id: row.surface,
+  name: row.name,
+  cells: cellsFor(row),
+})))
 
 const onTrafficSort = (key: TrafficSortKey) => {
   const next = nextTrafficSort(trafficSortKey.value, trafficSortDir.value, key)
@@ -761,43 +551,6 @@ const onStatsSort = (key: TrafficSortKey) => {
   statsSortDir.value = next.dir
 }
 
-const sortColumnLabel = (
-  column: { key: TrafficSortKey, label: string },
-  activeKey: TrafficSortKey,
-  dir: TrafficSortDir,
-) => {
-  const active = activeKey === column.key
-  if (column.key === 'name') {
-    if (!active) return `Sort by ${column.label}, A to Z`
-    return dir === 'asc' ? `Sort by ${column.label}, Z to A` : `Sort by ${column.label}, A to Z`
-  }
-  if (!active) return `Sort by ${column.label}, highest first`
-  return dir === 'desc'
-    ? `Sort by ${column.label}, lowest first`
-    : `Sort by ${column.label}, highest first`
-}
-
-const tallyCards = computed(() => {
-  if (isCafeDesk.value || tab.value === 'promotion') {
-    return [
-      { label: 'Reach', value: formatTrafficCount(tally.value.reach) },
-      { label: 'Card impressions', value: formatTrafficCount(tally.value.impressions) },
-      { label: 'Card clicks', value: formatTrafficCount(tally.value.clicks) },
-      { label: 'Card CTR', value: formatTrafficRatio(tally.value.ctr) },
-      { label: 'Café pages', value: formatTrafficCount(tally.value.detailViews) },
-      { label: 'Engagement', value: formatTrafficCount(tally.value.engagement) },
-    ]
-  }
-  return [
-    { label: 'Card impressions', value: formatTrafficCount(tally.value.impressions) },
-    { label: 'Card clicks', value: formatTrafficCount(tally.value.clicks) },
-    { label: 'Card CTR', value: formatTrafficRatio(tally.value.ctr) },
-    { label: 'Café pages', value: formatTrafficCount(tally.value.detailViews) },
-    { label: 'Engagement', value: formatTrafficCount(tally.value.engagement) },
-    { label: 'Page engagement', value: formatTrafficRatio(tally.value.engagementRate) },
-  ]
-})
-
 const nameById = computed(() => new Map(props.names.map((shop) => [shop.id, shop.name])))
 const shopName = (id: string) => nameById.value.get(id) || 'Unknown cafe'
 
@@ -807,15 +560,20 @@ const visibleEvents = computed(() => {
   return props.events.filter((row) => shopName(row.shop_id).toLowerCase().includes(query))
 })
 
-const barHeight = (value: number) => {
-  if (maxBar.value <= 0) return '0'
-  return `${Math.max(2, Math.round((value / maxBar.value) * 48))}px`
+const exportRows = computed(() => overviewRows.value)
+const onExport = () => {
+  const scope = isCafeDesk.value ? shopName(focusedShopId.value) : 'all cafes'
+  downloadCsv(
+    analyticsCsvFilename(scope, range.value, today.value),
+    dailyRowsToCsv(exportRows.value, props.names),
+  )
 }
 
 watch(range, (days) => {
   emit('range', days)
 })
 
+// Records are re-fetched here only; parents must not fetch events on range change.
 watch(
   [tab, range, recordsFilter, recordsShopId, focusedShopId],
   () => {
@@ -827,7 +585,26 @@ watch(
       surface: tab.value === 'promotion' ? 'promotion' : null,
     })
   },
+  { immediate: true },
 )
+
+// Keep ?tab=&range= in the URL. Uses history.replaceState instead of router.replace:
+// a router navigation under Ionic's outlet re-resolves the page and was bouncing users to Home.
+watch([tab, range], () => {
+  if (typeof window === 'undefined' || route.path !== basePath) return
+  const query = buildAnalyticsQuery(route.query, { tab: tab.value, range: range.value }) as Record<string, string>
+  const search = new URLSearchParams(query).toString()
+  const url = `${basePath}${search ? `?${search}` : ''}${route.hash || ''}`
+  try {
+    window.history.replaceState(window.history.state, '', url)
+  } catch {
+    // Ignore: URL state is a convenience only.
+  }
+})
+
+onMounted(() => {
+  canExport.value = !Capacitor.isNativePlatform()
+})
 </script>
 
 <style scoped>
@@ -838,7 +615,6 @@ watch(
   width: 100%;
 }
 
-.analytics-controls,
 .analytics-panel,
 .analytics-panel__filters {
   display: flex;
@@ -858,255 +634,19 @@ watch(
 .analytics-panel__chips {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px 24px;
 }
 
 .analytics-panel__chips > * {
-  flex: 1 1 0;
+  flex: 1 1 240px;
   min-width: 0;
-}
-
-.analytics-tallies {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  border-radius: 16px;
-  background: #faf8f5;
-  overflow: hidden;
-}
-
-.analytics-tallies__item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  min-width: 0;
-  padding: 16px 16px 14px;
-  border-right: 1px solid color-mix(in srgb, var(--kd-ink) 14%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--kd-ink) 14%, transparent);
-}
-
-.analytics-tallies__item:nth-child(2n) {
-  border-right: 0;
-}
-
-.analytics-tallies__item:nth-last-child(-n + 2) {
-  border-bottom: 0;
-}
-
-.analytics-tallies__num {
-  color: var(--kd-ink);
-  font-size: 1.2rem;
-  font-weight: 700;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.analytics-tallies__label {
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.75rem;
-  font-weight: 400;
-  line-height: 1.3;
-}
-
-.analytics-trend,
-.analytics-cafes {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--kd-ink) 22%, transparent);
-  border-radius: 16px;
-  background: #faf8f5;
-}
-
-.analytics-trend h2,
-.analytics-cafes h2 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.analytics-cafes__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 16px;
-}
-
-.analytics-cafes__head > .admin-search,
-.analytics-cafes__head > .owner-search {
-  flex: 1 1 180px;
-  max-width: 280px;
-}
-
-.analytics-cafes__table {
-  margin: 0 -16px;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--kd-ink) 14%, transparent);
-  border-radius: 0;
-  background: transparent;
-}
-
-.analytics-cafes__cards {
-  margin: 0;
-}
-
-.analytics-trend__empty,
-.analytics-cafes__empty {
-  margin: 0;
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.7875rem;
-  line-height: 1.3;
-}
-
-.analytics-bars {
-  display: flex;
-  gap: 6px;
-  align-items: flex-end;
-  overflow-x: auto;
-  margin: 0;
-  padding: 4px 0 0;
-  list-style: none;
-  min-height: 72px;
-}
-
-.analytics-bars__item {
-  display: flex;
-  flex: 1 0 18px;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-width: 18px;
-}
-
-.analytics-bars__pair {
-  display: flex;
-  gap: 2px;
-  align-items: flex-end;
-  height: 48px;
-}
-
-.analytics-bars__fill {
-  width: 6px;
-  border-radius: 4px 4px 0 0;
-  background: var(--kd-primary);
-}
-
-.analytics-bars__fill--clicks {
-  background: var(--kd-accent);
-}
-
-.analytics-bars__day {
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.65rem;
-  white-space: nowrap;
-}
-
-.analytics-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 0;
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.75rem;
-  line-height: 1.3;
-}
-
-.analytics-legend__swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 6px;
-  border-radius: 2px;
-  background: var(--kd-primary);
-}
-
-.analytics-legend__swatch--clicks {
-  background: var(--kd-accent);
-}
-
-.analytics-panel > .admin-btn,
-.analytics-panel > .owner-btn {
-  align-self: flex-start;
-}
-
-.analytics-more {
-  margin: 0;
-  color: color-mix(in srgb, var(--kd-ink) 72%, #faf8f5);
-  font-size: 0.7875rem;
-  line-height: 1.3;
 }
 
 .analytics-count {
   font-variant-numeric: tabular-nums;
-}
-
-.analytics-cafe {
-  position: relative;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin: -12px -16px;
-  padding: 12px 16px;
-  color: inherit;
-  font: inherit;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.analytics-cafe:hover {
-  color: var(--kd-primary);
-}
-
-.analytics-cafe:focus-visible {
-  outline: 2px solid var(--kd-primary);
-  outline-offset: 2px;
-}
-
-.analytics-cafes__cards .analytics-cafe,
-.analytics-cards .analytics-cafe {
-  margin: -8px -4px;
-  padding: 8px 4px;
-}
-
-.analytics-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  margin: -12px -16px;
-  padding: 12px 16px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.analytics-sort.is-active {
-  color: var(--kd-ink);
-}
-
-.analytics-sort__mark {
-  font-weight: 700;
-  line-height: 1;
 }
 
 .analytics-search {
@@ -1124,54 +664,5 @@ watch(
   border-radius: 16px;
   background: #faf8f5;
   font: inherit;
-}
-
-.analytics-cards {
-  display: none;
-}
-
-@media (max-width: 767px) {
-  .analytics-table {
-    display: none;
-  }
-
-  .analytics-cards {
-    display: grid;
-    gap: 12px;
-  }
-
-  .analytics-cafes__cards .admin-card {
-    padding: 12px 0;
-    border: 0;
-    border-top: 1px solid color-mix(in srgb, var(--kd-ink) 14%, transparent);
-    border-radius: 0;
-    background: transparent;
-  }
-}
-
-@media (min-width: 720px) {
-  .analytics-controls {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px 16px;
-  }
-
-  .analytics-tallies {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .analytics-tallies__item:nth-child(2n) {
-    border-right: 1px solid color-mix(in srgb, var(--kd-ink) 14%, transparent);
-  }
-
-  .analytics-tallies__item:nth-child(3n) {
-    border-right: 0;
-  }
-
-  .analytics-tallies__item:nth-last-child(-n + 3) {
-    border-bottom: 0;
-  }
 }
 </style>
