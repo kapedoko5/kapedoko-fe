@@ -20,6 +20,8 @@
         :events-done="eventsDone"
         :events-status="eventsStatus"
         :events-error="eventsError"
+        :ad-summary="adStats.summary.value"
+        :benchmark="benchmark.rows.value"
         @range="onRange"
         @records="onRecords"
         @more-events="onMore"
@@ -65,6 +67,8 @@ const {
   loadEvents,
 } = desk
 
+const adStats = useAdCampaignStats()
+const benchmark = useShopTrafficBenchmark()
 const range = ref<TrafficRangeDays>(parseAnalyticsQuery(route.query).range)
 const records = ref<ShopTrafficRecordsQuery | null>(null)
 
@@ -85,6 +89,11 @@ const pageError = computed(() => portalError.value || error.value)
 const reload = (days: TrafficRangeDays) => {
   if (ownedNames.value.length === 0) return
   void loadDaily(days, ownedNames.value)
+  void adStats.loadOwnerFeatured(ownedIds(), days)
+  // A benchmark compares one cafe, so it only shows for owners with a single cafe here.
+  const only = ownedNames.value.length === 1 ? ownedNames.value[0] : null
+  if (only) void benchmark.load(only.id, days)
+  else benchmark.clear()
 }
 
 const onRange = (days: TrafficRangeDays) => {

@@ -3,10 +3,14 @@ import { SHOP_ID_GET_CHUNK, chunkIds, fetchPages } from '~/utils/approved-shops'
 import {
   RECORDS_PAGE_SIZE,
   isShopTrafficKind,
+  isMissingRpcError,
   isShopTrafficSurface,
   recordsKindsForFilter,
+  rollupRowsToDaily,
   trafficRangeStartDay,
   trafficRangeStartIso,
+  trafficRangeWindow,
+  TRAFFIC_VIEW_RANGES,
   type RecordsKindFilter,
   type ShopTrafficDailyRow,
   type ShopTrafficEventRow,
@@ -30,8 +34,21 @@ type TrafficDatabase = {
         Row: ShopTrafficDailyRow
       }
     }
+    Functions: {
+      shop_traffic_rollup: {
+        Args: { p_from: string, p_to: string, p_shop_ids: string[] | null, p_grain: string }
+        Returns: Array<{ shop_id: string, kind: string, surface: string, bucket: string, hits: number }>
+      }
+    }
   }
 }
+
+/**
+ * Set once the shop_traffic_rollup RPC is known to be missing (migration not
+ * applied yet). Shared so the range tabs can hide 90 days and later loads skip
+ * the failing call.
+ */
+export const trafficRollupMissing = ref(false)
 
 const parseDaily = (rows: unknown): ShopTrafficDailyRow[] => {
   if (!Array.isArray(rows)) return []
@@ -129,6 +146,25 @@ export function useShopTrafficDesk() {
     names.value = shop ? [{ id: shop.id, name: shop.name }] : []
   }
 
+  const loadRollup = async (days: number, shopIds: string[] | null): Promise<ShopTrafficDailyRow[]> => {
+    const window = trafficRangeWindow(days * 2)
+    const rows = await fetchPages((from, to) =>
+      supabase
+        .rpc('shop_traffic_rollup', {
+          p_from: window.from,
+          p_to: window.to,
+          p_shop_ids: shopIds,
+          p_grain: 'day',
+        })
+        .order('shop_id')
+        .order('kind')
+        .order('surface')
+        .order('bucket')
+        .range(from, to),
+    )
+    return rollupRowsToDaily(rows)
+  }
+
   /**
    * Loads days * 2 so the board can compare against the previous period of equal
    * length. A newer call makes older in-flight calls drop their results.
@@ -152,23 +188,39 @@ export function useShopTrafficDesk() {
         await loadNames(owned)
         if (!isCurrent()) return
       }
-      const fromDay = trafficRangeStartDay(days * 2)
-      const rows = await fetchPages((from, to) => {
-        let query = supabase
-          .from('shop_traffic_daily')
-          .select('shop_id, kind, surface, day, hits')
-          .gte('day', fromDay)
-          .order('shop_id')
-          .order('kind')
-          .order('surface')
-          .order('day')
-          .range(from, to)
-        if (shopId) query = query.eq('shop_id', shopId)
-        else if (owned?.length) query = query.in('shop_id', owned.map((shop) => shop.id))
-        return query
-      })
+      const scopeIds = shopId ? [shopId] : owned?.length ? owned.map((shop) => shop.id) : null
+      let parsed: ShopTrafficDailyRow[] | null = null
+      if (!trafficRollupMissing.value) {
+        try {
+          parsed = await loadRollup(days, scopeIds)
+        } catch (rpcError) {
+          if (!isMissingRpcError(rpcError)) throw rpcError
+          trafficRollupMissing.value = true
+        }
+      }
       if (!isCurrent()) return
-      daily.value = parseDaily(rows)
+      if (!parsed) {
+        // Fallback: the view pages every row, so cap at the ranges it can serve.
+        const viewDays = Math.min(days, Math.max(...TRAFFIC_VIEW_RANGES))
+        const fromDay = trafficRangeStartDay(viewDays * 2)
+        const rows = await fetchPages((from, to) => {
+          let query = supabase
+            .from('shop_traffic_daily')
+            .select('shop_id, kind, surface, day, hits')
+            .gte('day', fromDay)
+            .order('shop_id')
+            .order('kind')
+            .order('surface')
+            .order('day')
+            .range(from, to)
+          if (shopId) query = query.eq('shop_id', shopId)
+          else if (owned?.length) query = query.in('shop_id', owned.map((shop) => shop.id))
+          return query
+        })
+        parsed = parseDaily(rows)
+      }
+      if (!isCurrent()) return
+      daily.value = parsed
       await mergeNames(daily.value.map((row) => row.shop_id))
       if (!isCurrent()) return
       status.value = 'ready'

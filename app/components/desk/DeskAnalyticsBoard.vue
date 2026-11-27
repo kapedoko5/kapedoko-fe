@@ -34,6 +34,12 @@
           :days="range"
         />
         <template v-else>
+          <PromotionSplit
+            v-if="tab === 'promotion' && adSummary && (tone === 'admin' || hasAdTraffic(adSummary))"
+            :tone="tone"
+            :summary="adSummary"
+          />
+
           <KpiStrip :cards="kpiCards" :days="range" />
 
           <TrendChart
@@ -42,6 +48,8 @@
           />
 
           <Funnel :steps="funnel" />
+
+          <BenchmarkCard v-if="tab === 'statistics' && tone === 'owner' && benchmark?.length" :rows="benchmark" />
 
           <Sources v-if="tab === 'statistics'" :rows="sources" />
         </template>
@@ -223,6 +231,8 @@ import ActivityLog from '~/components/desk/analytics/ActivityLog.vue'
 import CafeLedger, { type LedgerColumn, type LedgerRow } from '~/components/desk/analytics/CafeLedger.vue'
 import EmptyState from '~/components/desk/analytics/EmptyState.vue'
 import Funnel from '~/components/desk/analytics/Funnel.vue'
+import BenchmarkCard from '~/components/desk/analytics/BenchmarkCard.vue'
+import PromotionSplit from '~/components/desk/analytics/PromotionSplit.vue'
 import KpiStrip, { type KpiCard } from '~/components/desk/analytics/KpiStrip.vue'
 import RangeTabs from '~/components/desk/analytics/RangeTabs.vue'
 import Sources from '~/components/desk/analytics/Sources.vue'
@@ -235,8 +245,8 @@ import {
 import {
   TRAFFIC_LEDGER_SURFACES,
   TRAFFIC_PAGE_SIZE,
-  TRAFFIC_RANGES,
   TRAFFIC_TABS,
+  availableTrafficRanges,
   cafeAnalyticsPath,
   filterCafeTraffic,
   filterDailyRows,
@@ -266,6 +276,9 @@ import {
   type TrafficSortKey,
   type TrafficTabId,
 } from '~/utils/shop-traffic'
+import { hasAdTraffic, type AdPlacementSummary } from '~/utils/ad-attribution'
+import type { BenchmarkRow } from '~/utils/traffic-benchmark'
+import { trafficRollupMissing } from '~/composables/useShopTrafficDesk'
 import {
   analyticsEmptyKind,
   buildAnalyticsQuery,
@@ -286,6 +299,10 @@ const props = defineProps<{
   eventsStatus: 'idle' | 'loading' | 'ready' | 'error'
   eventsError: string
   shopId?: string
+  /** Banner vs featured totals. Omit (or null) until the attribution RPCs exist. */
+  adSummary?: AdPlacementSummary | null
+  /** Peer benchmark rows. Omit or leave empty to hide the card. */
+  benchmark?: BenchmarkRow[] | null
 }>()
 
 const emit = defineEmits<{
@@ -320,7 +337,11 @@ const TAB_LABEL: Record<TrafficTabId, string> = {
   promotion: 'Promotion',
 }
 const tabs = TRAFFIC_TABS.map((id) => ({ id, label: TAB_LABEL[id] }))
-const ranges = TRAFFIC_RANGES
+// 90 days needs the rollup RPC. Until it is deployed, only the ranges the view can serve show.
+const ranges = computed(() => availableTrafficRanges(!trafficRollupMissing.value))
+watch(ranges, (list) => {
+  if (!list.includes(range.value)) range.value = 30
+})
 const recordFilters: Array<{ id: RecordsKindFilter, label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'visits', label: 'Visits' },
@@ -346,6 +367,7 @@ const trafficColumns: LedgerColumn[] = [
   { key: 'navigate', label: 'Directions' },
   { key: 'call', label: 'Call' },
   { key: 'photos', label: 'Photos' },
+  { key: 'posters', label: 'Posters' },
   { key: 'engagementRate', label: 'Engagement' },
 ]
 const statsColumns: LedgerColumn[] = [
@@ -518,6 +540,7 @@ const cellsFor = (row: ShopTrafficTally): LedgerRow['cells'] => ({
   navigate: count(row.navigate),
   call: count(row.call),
   photos: count(row.photos),
+  posters: count(row.posters),
   engagement: count(row.engagement),
   engagementRate: formatTrafficRatio(row.engagementRate),
 })

@@ -25,6 +25,15 @@ import {
   tallyFromDaily,
   trafficLedgerEmptyCopy,
   trafficRangeStartDay,
+  trafficRangeWindow,
+  availableTrafficRanges,
+  isMissingRpcError,
+  rollupRowsToDaily,
+  shopTrafficKindLabel,
+  shopTrafficSurfaceLabel,
+  isShopTrafficKind,
+  isShopTrafficSurface,
+  TRAFFIC_RANGES,
   trafficRatio,
   type ShopTrafficCafeRow,
   type ShopTrafficDailyRow,
@@ -119,7 +128,7 @@ describe('tallies', () => {
       row({ surface: 'home', kind: 'detail_view', hits: 1 }),
       row({ surface: 'search', kind: 'card_impression', hits: 8 }),
     ])
-    expect(list.map((item) => item.surface)).toEqual(['home', 'search', 'map', 'favorites', 'promotion', 'direct'])
+    expect(list.map((item) => item.surface)).toEqual(['home', 'search', 'map', 'favorites', 'promotion', 'direct', 'share'])
     expect(list[0]?.visits).toBe(1)
     expect(list[1]?.impressions).toBe(8)
     expect(list[2]?.clicks).toBe(0)
@@ -154,6 +163,7 @@ describe('traffic ledger', () => {
     navigate: 0,
     call: 0,
     photos: 0,
+    posters: 0,
     engagement: 0,
     engagementRate: null,
     visits: 0,
@@ -206,7 +216,7 @@ describe('records filters', () => {
   test('maps chips onto kinds', () => {
     expect(recordsKindsForFilter('all')).toBe(null)
     expect(recordsKindsForFilter('visits')).toEqual(['detail_view'])
-    expect(recordsKindsForFilter('engagement')).toEqual(['navigate', 'call', 'photo_view'])
+    expect(recordsKindsForFilter('engagement')).toEqual(['navigate', 'call', 'photo_view', 'poster_view'])
   })
 
   test('counts visits as café pages only, never card clicks or impressions', () => {
@@ -256,7 +266,7 @@ describe('tabs and ranges', () => {
     expect(isTrafficTabId('traffic')).toBe(true)
     expect(isTrafficTabId('promotion')).toBe(true)
     expect(isTrafficTabId('funnels')).toBe(false)
-    expect(TRAFFIC_LEDGER_SURFACES).toEqual(['home', 'search', 'map', 'favorites', 'direct'])
+    expect(TRAFFIC_LEDGER_SURFACES).toEqual(['home', 'search', 'map', 'favorites', 'direct', 'share'])
     expect(promotionEmptyCopy()).toBe('No promotion traffic in this window yet.')
     expect(promotionEmptyCopy('xyz')).toBe('No cafes match that search.')
   })
@@ -275,5 +285,80 @@ describe('owner empty copy', () => {
     expect(ownerAnalyticsEmptyCopy(1)).toBe('Analytics appear after a cafe you manage is live.')
     expect(ownerAnalyticsEmptyCopy(0)).toBe('Claim a cafe to see how people find it.')
     expect(ownerAnalyticsLockedCopy()).toMatch(/partnership/)
+  })
+})
+
+describe('poster views and the share surface', () => {
+  test('knows the new kind and surface', () => {
+    expect(isShopTrafficKind('poster_view')).toBe(true)
+    expect(isShopTrafficSurface('share')).toBe(true)
+    expect(isShopTrafficKind('poster')).toBe(false)
+    expect(shopTrafficKindLabel('poster_view')).toBe('Poster')
+    expect(shopTrafficSurfaceLabel('share')).toBe('Shared link')
+    expect(TRAFFIC_LEDGER_SURFACES).toContain('share')
+  })
+
+  test('maps ?from=share onto the share surface', () => {
+    expect(surfaceFromDetailSource('share')).toBe('share')
+    expect(surfaceFromDetailSource('email')).toBe('direct')
+  })
+
+  test('poster views count as their own stat and as an action, not as photos', () => {
+    const tally = tallyFromDaily([
+      row({ kind: 'detail_view', hits: 4 }),
+      row({ kind: 'photo_view', hits: 1 }),
+      row({ kind: 'poster_view', hits: 2 }),
+      row({ kind: 'navigate', hits: 1 }),
+    ])
+    expect(tally.photos).toBe(1)
+    expect(tally.posters).toBe(2)
+    expect(tally.engagement).toBe(4)
+    expect(tally.engagementRate).toBe(1)
+  })
+
+  test('share traffic shows up as its own source row', () => {
+    const share = perSurfaceTraffic([row({ kind: 'detail_view', hits: 3, surface: 'share' })])
+      .find((item) => item.surface === 'share')
+    expect(share?.visits).toBe(3)
+  })
+})
+
+describe('rollup helpers', () => {
+  test('offers 90 days only when the rollup RPC is available', () => {
+    expect(TRAFFIC_RANGES).toEqual([7, 30, 90])
+    expect(availableTrafficRanges(true)).toEqual([7, 30, 90])
+    expect(availableTrafficRanges(false)).toEqual([7, 30])
+  })
+
+  test('builds an inclusive Manila window ending today', () => {
+    const now = new Date('2026-11-27T20:00:00Z') // 2026-11-28 04:00 in Manila
+    expect(trafficRangeWindow(7, now)).toEqual({ from: '2026-11-22', to: '2026-11-28' })
+    expect(trafficRangeWindow(1, now)).toEqual({ from: '2026-11-28', to: '2026-11-28' })
+  })
+
+  test('recognizes a missing RPC but not other failures', () => {
+    expect(isMissingRpcError({ code: 'PGRST202', message: 'x' })).toBe(true)
+    expect(isMissingRpcError({ code: '42883', message: 'x' })).toBe(true)
+    expect(isMissingRpcError({ message: 'Could not find the function public.shop_traffic_rollup' })).toBe(true)
+    expect(isMissingRpcError({ code: 'P0001', message: 'Not allowed' })).toBe(false)
+    expect(isMissingRpcError(new Error('network'))).toBe(false)
+    expect(isMissingRpcError(null)).toBe(false)
+  })
+
+  test('maps rollup buckets onto daily rows and drops unknown values', () => {
+    const rows = rollupRowsToDaily([
+      { shop_id: 'a', kind: 'card_click', surface: 'home', bucket: '2026-11-20', hits: 3 },
+      { shop_id: 'a', kind: 'poster_view', surface: 'share', bucket: '2026-11-21', hits: '2' },
+      { shop_id: 'a', kind: 'future_kind', surface: 'home', bucket: '2026-11-21', hits: 1 },
+      { shop_id: 'a', kind: 'call', surface: 'mars', bucket: '2026-11-21', hits: 1 },
+      { shop_id: '', kind: 'call', surface: 'home', bucket: '2026-11-21', hits: 1 },
+      { shop_id: 'a', kind: 'call', surface: 'home', hits: 1 },
+      null,
+    ])
+    expect(rows).toEqual([
+      { shop_id: 'a', kind: 'card_click', surface: 'home', day: '2026-11-20', hits: 3 },
+      { shop_id: 'a', kind: 'poster_view', surface: 'share', day: '2026-11-21', hits: 2 },
+    ])
+    expect(rollupRowsToDaily(null)).toEqual([])
   })
 })

@@ -26,6 +26,8 @@
         :events-done="eventsDone"
         :events-status="eventsStatus"
         :events-error="eventsError"
+        :ad-summary="adStats.summary.value"
+        :benchmark="benchmark.rows.value"
         @range="onRange"
         @records="onRecords"
         @more-events="onMore"
@@ -74,6 +76,8 @@ const {
   loadEvents,
 } = desk
 
+const adStats = useAdCampaignStats()
+const benchmark = useShopTrafficBenchmark()
 const range = ref<TrafficRangeDays>(parseAnalyticsQuery(route.query).range)
 const records = ref<ShopTrafficRecordsQuery | null>(null)
 
@@ -121,6 +125,8 @@ const reload = (days: TrafficRangeDays) => {
   const cafe = ownedNames.value.find((shop) => shop.id === id)
   if (!cafe) return
   void loadDaily(days, [cafe], cafe.id)
+  void adStats.loadOwnerFeatured([cafe.id], days)
+  void benchmark.load(cafe.id, days)
 }
 
 const onRange = (days: TrafficRangeDays) => {

@@ -189,7 +189,8 @@ describe('url query', () => {
   })
 
   test('falls back on invalid, hidden or missing values', () => {
-    expect(parseAnalyticsQuery({ tab: 'nope', range: '90' })).toEqual({ tab: 'statistics', range: 30 })
+    expect(parseAnalyticsQuery({ tab: 'nope', range: '90' })).toEqual({ tab: 'statistics', range: 90 })
+    expect(parseAnalyticsQuery({ range: '365' }).range).toBe(30)
     expect(parseAnalyticsQuery({ range: 'abc' })).toEqual({ tab: 'statistics', range: 30 })
     expect(parseAnalyticsQuery({ range: '7.5' }).range).toBe(30)
     expect(parseAnalyticsQuery({ tab: 42, range: {} })).toEqual({ tab: 'statistics', range: 30 })

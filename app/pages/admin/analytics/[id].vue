@@ -16,6 +16,7 @@
         :events-done="eventsDone"
         :events-status="eventsStatus"
         :events-error="eventsError"
+        :ad-summary="adStats.summary.value"
         @range="onRange"
         @records="onRecords"
         @more-events="onMore"
@@ -52,6 +53,7 @@ const {
   loadEvents,
 } = desk
 
+const adStats = useAdCampaignStats()
 const range = ref<TrafficRangeDays>(parseAnalyticsQuery(route.query).range)
 const records = ref<ShopTrafficRecordsQuery | null>(null)
 
@@ -84,6 +86,7 @@ const reload = (days: TrafficRangeDays) => {
     return
   }
   void loadDaily(days, undefined, id)
+  void adStats.loadAdmin(days, id)
 }
 
 const onRange = (days: TrafficRangeDays) => {

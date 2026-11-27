@@ -5,6 +5,7 @@ export const SHOP_TRAFFIC_KINDS = [
   'navigate',
   'call',
   'photo_view',
+  'poster_view',
 ] as const
 
 export type ShopTrafficKind = (typeof SHOP_TRAFFIC_KINDS)[number]
@@ -16,6 +17,7 @@ export const SHOP_TRAFFIC_SURFACES = [
   'favorites',
   'promotion',
   'direct',
+  'share',
 ] as const
 
 export type ShopTrafficSurface = (typeof SHOP_TRAFFIC_SURFACES)[number]
@@ -27,7 +29,10 @@ export const TRAFFIC_LEDGER_SURFACES = SHOP_TRAFFIC_SURFACES.filter(
   (surface): surface is Exclude<ShopTrafficSurface, 'promotion'> => surface !== 'promotion',
 )
 
-export const TRAFFIC_RANGES = [7, 30] as const // 90 stays hidden until the rollup RPC lands
+/** 90 needs the shop_traffic_rollup RPC; the board hides it until the RPC answers. */
+export const TRAFFIC_RANGES = [7, 30, 90] as const
+/** Ranges the old shop_traffic_daily view can serve (it pages every row). */
+export const TRAFFIC_VIEW_RANGES = [7, 30] as const
 export type TrafficRangeDays = (typeof TRAFFIC_RANGES)[number]
 
 export const CARD_IMPRESSION_RATIO = 0.5
@@ -65,6 +70,7 @@ export type ShopTrafficTally = {
   navigate: number
   call: number
   photos: number
+  posters: number
   engagement: number
   engagementRate: number | null
   /** Visits = cafe page opens (detail_view only; card clicks are not added). */
@@ -107,6 +113,7 @@ export type TrafficSortKey =
   | 'navigate'
   | 'call'
   | 'photos'
+  | 'posters'
   | 'engagement'
   | 'engagementRate'
 export type TrafficSortDir = 'asc' | 'desc'
@@ -121,6 +128,7 @@ const KIND_LABEL: Record<ShopTrafficKind, string> = {
   navigate: 'Directions',
   call: 'Call',
   photo_view: 'Photo',
+  poster_view: 'Poster',
 }
 
 const SURFACE_LABEL: Record<ShopTrafficSurface, string> = {
@@ -130,6 +138,7 @@ const SURFACE_LABEL: Record<ShopTrafficSurface, string> = {
   favorites: 'Favorites',
   promotion: 'Promotion',
   direct: 'Direct',
+  share: 'Shared link',
 }
 
 const DETAIL_SOURCE_TO_SURFACE: Record<string, ShopTrafficSurface> = {
@@ -140,13 +149,14 @@ const DETAIL_SOURCE_TO_SURFACE: Record<string, ShopTrafficSurface> = {
   favorites: 'favorites',
   promotion: 'promotion',
   direct: 'direct',
+  share: 'share',
 }
 
 const RECORDS_KIND_MAP: Record<Exclude<RecordsKindFilter, 'all'>, ShopTrafficKind[]> = {
   visits: ['detail_view'],
   impressions: ['card_impression'],
   clicks: ['card_click'],
-  engagement: ['navigate', 'call', 'photo_view'],
+  engagement: ['navigate', 'call', 'photo_view', 'poster_view'],
 }
 
 export function isShopTrafficKind(value: string): value is ShopTrafficKind {
@@ -291,6 +301,7 @@ function emptyTally(): ShopTrafficTally {
     navigate: 0,
     call: 0,
     photos: 0,
+    posters: 0,
     engagement: 0,
     engagementRate: null,
     visits: 0,
@@ -303,11 +314,12 @@ function addKind(tally: ShopTrafficTally, kind: ShopTrafficKind, hits: number) {
   else if (kind === 'detail_view') tally.detailViews += hits
   else if (kind === 'navigate') tally.navigate += hits
   else if (kind === 'call') tally.call += hits
-  else tally.photos += hits
+  else if (kind === 'photo_view') tally.photos += hits
+  else tally.posters += hits
 }
 
 function finishTally(tally: ShopTrafficTally): ShopTrafficTally {
-  tally.engagement = tally.navigate + tally.call + tally.photos
+  tally.engagement = tally.navigate + tally.call + tally.photos + tally.posters
   tally.visits = tally.detailViews
   tally.ctr = trafficRatio(tally.clicks, tally.impressions)
   tally.engagementRate = trafficRatio(tally.engagement, tally.detailViews)
@@ -469,6 +481,7 @@ export function sortSurfaceTraffic(
     navigate: row.navigate,
     call: row.call,
     photos: row.photos,
+    posters: row.posters,
     engagement: row.engagement,
     engagementRate: row.engagementRate,
     visits: row.visits,
@@ -536,4 +549,50 @@ export function formatTrafficDay(day: string): string {
     month: 'short',
     day: 'numeric',
   }).format(new Date(Date.UTC(year, month - 1, date, 12)))
+}
+
+/** Manila window for a range of days ending today (inclusive on both ends). */
+export function trafficRangeWindow(days: number, now = new Date()): { from: string, to: string } {
+  return { from: trafficRangeStartDay(days, now), to: manilaDateString(now) }
+}
+
+/** Ranges the board may offer: 90 days only once the rollup RPC is known to exist. */
+export function availableTrafficRanges(rollupAvailable: boolean): readonly TrafficRangeDays[] {
+  return rollupAvailable ? TRAFFIC_RANGES : TRAFFIC_VIEW_RANGES
+}
+
+/**
+ * True when a Supabase/PostgREST error means the RPC is not deployed yet
+ * (function missing from the schema cache), so callers can fall back quietly.
+ */
+export function isMissingRpcError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const item = error as { code?: unknown, message?: unknown }
+  const code = typeof item.code === 'string' ? item.code : ''
+  if (code === 'PGRST202' || code === '42883') return true
+  const message = typeof item.message === 'string' ? item.message.toLowerCase() : ''
+  return message.includes('could not find the function')
+    || (message.includes('function') && message.includes('does not exist'))
+}
+
+/**
+ * Map shop_traffic_rollup rows (bucket) onto daily rows (day). Rows with an
+ * unknown kind or surface are dropped, so a newer server never breaks an
+ * older app.
+ */
+export function rollupRowsToDaily(rows: unknown): ShopTrafficDailyRow[] {
+  if (!Array.isArray(rows)) return []
+  const next: ShopTrafficDailyRow[] = []
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue
+    const item = row as Record<string, unknown>
+    const shopId = typeof item.shop_id === 'string' ? item.shop_id : ''
+    const kind = typeof item.kind === 'string' ? item.kind : ''
+    const surface = typeof item.surface === 'string' ? item.surface : ''
+    const day = typeof item.bucket === 'string' ? item.bucket : ''
+    const hits = typeof item.hits === 'number' ? item.hits : Number(item.hits)
+    if (!shopId || !isShopTrafficKind(kind) || !isShopTrafficSurface(surface) || !day) continue
+    next.push({ shop_id: shopId, kind, surface, day, hits: Number.isFinite(hits) ? hits : 0 })
+  }
+  return next
 }
