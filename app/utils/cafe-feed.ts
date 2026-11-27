@@ -26,11 +26,12 @@ export function cafeFeedMode(input: {
   query: string
   origin: LatLng | null
   nearby: boolean
+  vibe?: boolean
 }): CafeFeedMode {
   if (input.query.trim()) return 'search'
   const scoped = input.filter === 'near' || input.nearby
   if (scoped && input.origin) return 'nearby'
-  if (input.filter !== 'near') return 'filter'
+  if (input.filter !== 'near' || input.vibe) return 'filter'
   return 'browse'
 }
 

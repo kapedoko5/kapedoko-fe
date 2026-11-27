@@ -689,6 +689,23 @@ export async function countApprovedShops(
   return count ?? 0
 }
 
+/** Shop ids carrying at least one of the picked vibe tags. */
+export async function fetchVibeShopIds(
+  supabase: ShopClient,
+  tagIds: string[],
+): Promise<string[]> {
+  if (!tagIds.length) return []
+  const rows = await fetchPages<Pick<ActiveShopVibeTagRow, 'shop_id'>>((from, to) =>
+    supabase
+      .from('active_shop_vibe_tags')
+      .select('shop_id')
+      .in('tag_id', tagIds)
+      .order('shop_id')
+      .range(from, to),
+  )
+  return [...new Set(rows.map((row) => row.shop_id))]
+}
+
 export async function fetchFilterShopIds(
   supabase: ShopClient,
   filter: CafeFilterId,
