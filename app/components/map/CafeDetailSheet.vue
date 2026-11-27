@@ -57,7 +57,21 @@ const emit = defineEmits<{
   checkin: []
 }>()
 
-const onPresent = () => emit('present')
+// Ionic's sheet gesture can't tell a custom scroller from the sheet body, so
+// keep touches that start in the scroller from reaching it. The handle/header
+// still drags the sheet; content scrolls freely.
+let scroller: HTMLElement | null = null
+const stop = (e: Event) => e.stopPropagation()
+const bindScroller = () => {
+  scroller?.removeEventListener('touchstart', stop)
+  scroller?.removeEventListener('pointerdown', stop)
+  scroller = document.querySelector<HTMLElement>('ion-modal.cafe-detail-modal .cafe-detail__scroll')
+  scroller?.addEventListener('touchstart', stop, { passive: true })
+  scroller?.addEventListener('pointerdown', stop)
+}
+watch(() => props.cafe, () => nextTick(bindScroller))
+onBeforeUnmount(() => { scroller?.removeEventListener('touchstart', stop); scroller?.removeEventListener('pointerdown', stop) })
+const onPresent = () => { bindScroller(); emit('present') }
 const onClose = () => {
   emit('update:open', false)
 }
