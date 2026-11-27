@@ -174,6 +174,9 @@
                   <th>Destination</th>
                   <th>Window</th>
                   <th>State</th>
+                  <th v-if="adStats.available.value">Impressions (30d)</th>
+                  <th v-if="adStats.available.value">Clicks</th>
+                  <th v-if="adStats.available.value">CTR</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -184,6 +187,9 @@
                   <td>
                     <span class="admin-status" :class="`admin-status--${adCampaignState(ad)}`">{{ adCampaignState(ad) }}</span>
                   </td>
+                  <td v-if="adStats.available.value">{{ formatTrafficCount(campaignTotals(ad.id).impressions) }}</td>
+                  <td v-if="adStats.available.value">{{ formatTrafficCount(campaignTotals(ad.id).clicks) }}</td>
+                  <td v-if="adStats.available.value">{{ formatTrafficRatio(campaignTotals(ad.id).ctr) }}</td>
                   <td>
                     <div class="admin-row-actions">
                       <button
@@ -274,6 +280,8 @@ import {
 import { formatAdminDate, toLocalInput } from '~/utils/admin-nav'
 import { cafePickerOptions } from '~/utils/admin-picker'
 import { publicObjectUrl } from '~/utils/shop-mapper'
+import { adStatsByCampaign, type AdTotals } from '~/utils/ad-attribution'
+import { formatTrafficCount, formatTrafficRatio } from '~/utils/shop-traffic'
 
 definePageMeta({
   middleware: ['auth', 'admin'],
@@ -286,6 +294,11 @@ const config = useRuntimeConfig()
 const publicBase = String(config.public.r2PublicBaseUrl || '')
 const { shops, ads, status, error, load, saveAd, reorderAds, cancelAd: cancelAdRow } = admin
 const formRef = ref<HTMLFormElement | null>(null)
+// Impressions and CTR per banner. Hidden until the ad_campaign_stats RPC exists.
+const adStats = useAdCampaignStats()
+const statsByCampaign = computed(() => adStatsByCampaign(adStats.rows.value))
+const NO_AD_TRAFFIC: AdTotals = { impressions: 0, clicks: 0, ctr: null }
+const campaignTotals = (id: string): AdTotals => statsByCampaign.value.get(id) ?? NO_AD_TRAFFIC
 const emptyDraft = () => ({
   destinationKind: 'cafe' as AdDestinationKind,
   shopId: '',
@@ -515,6 +528,7 @@ const onEndAd = async (ad: AdCampaignRow) => {
 }
 
 onMounted(() => {
+  void adStats.loadAdmin(30)
   void load()
 })
 

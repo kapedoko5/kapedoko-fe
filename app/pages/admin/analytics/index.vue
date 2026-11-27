@@ -14,6 +14,7 @@
         :events-done="eventsDone"
         :events-status="eventsStatus"
         :events-error="eventsError"
+        :ad-summary="adStats.summary.value"
         @range="onRange"
         @records="onRecords"
         @more-events="onMore"
@@ -25,12 +26,14 @@
 <script lang="ts" setup>
 import AdminShell from '~/components/admin/AdminShell.vue'
 import DeskAnalyticsBoard from '~/components/desk/DeskAnalyticsBoard.vue'
+import { parseAnalyticsQuery } from '~/utils/traffic-analytics'
 import type { ShopTrafficRecordsQuery, TrafficRangeDays } from '~/utils/shop-traffic'
 
 definePageMeta({
   middleware: ['auth', 'admin'],
 })
 
+const route = useRoute()
 const desk = useShopTrafficDesk()
 const {
   daily,
@@ -45,16 +48,15 @@ const {
   loadEvents,
 } = desk
 
-const range = ref<TrafficRangeDays>(30)
+const adStats = useAdCampaignStats()
+const range = ref<TrafficRangeDays>(parseAnalyticsQuery(route.query).range)
 const records = ref<ShopTrafficRecordsQuery | null>(null)
 
 const onRange = (days: TrafficRangeDays) => {
   range.value = days
   void loadDaily(days)
-  if (records.value) {
-    records.value = { ...records.value, days }
-    void loadEvents({ ...records.value, days })
-  }
+  void adStats.loadAdmin(days)
+  // Records are re-fetched by the board's own `records` event, not here.
 }
 
 const onRecords = (payload: ShopTrafficRecordsQuery) => {
@@ -69,5 +71,6 @@ const onMore = () => {
 
 onMounted(() => {
   void loadDaily(range.value)
+  void adStats.loadAdmin(range.value)
 })
 </script>

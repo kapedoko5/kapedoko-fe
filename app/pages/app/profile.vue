@@ -339,7 +339,7 @@ const radiusPresets = NEARBY_RADIUS_PRESETS_KM
 
 const analyticsCopy = computed(() => (
   analyticsOn.value
-    ? 'KapéDoko stores anonymous café listing events on our own servers: card views and taps, café page opens, directions, calls, and photo taps. We do not store your email, precise GPS, or search text. Admins and that café’s verified owner can see the counts.'
+    ? 'KapéDoko stores anonymous café listing events on our own servers: card views and taps, café page opens, directions, calls, photo and poster taps, and Home banner and featured café taps. We do not store your email, precise GPS, or search text. Admins and that café’s verified owner can see the counts.'
     : 'When this is off, we stop recording. Turn it on to count how people find café cards and pages. We do not store your email, precise GPS, or search text.'
 ))
 

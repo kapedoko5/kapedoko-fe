@@ -144,8 +144,10 @@
           <p>
             When you allow it, KapéDoko stores anonymous café listing traffic in the same database
             as the rest of the app (Supabase). We count café card views, café card taps, café page
-            opens, directions, calls, and photo taps, and which list they came from (Home, Search,
-            Map, Favorites, a promotion, or a direct link). We do not store who did it.
+            opens, directions, calls, photo taps, and poster opens, and which list they came from
+            (Home, Search, Map, Favorites, a promotion, a shared link, or a direct link). We also
+            count how often a Home banner or a featured café is shown and tapped, and which banner
+            or café it was. We do not store who did it.
           </p>
           <p>We do not store in analytics your:</p>
           <ul>
@@ -158,7 +160,9 @@
           </ul>
           <p>
             Admins can see counts and a log for every café. A verified café owner can see the same
-            for cafés they manage. You can turn analytics off in Profile. We then stop recording.
+            for cafés they manage. Owners can also see how many people saved their café (a count,
+            never who) and how their numbers compare with the typical café, shown only against a
+            group of at least five cafés. You can turn analytics off in Profile. We then stop recording.
             Counts already stored stay until the retention period ends. There is no identifier on
             this device to forget besides your Allow or Stop choice.
           </p>
@@ -239,7 +243,7 @@
             <li>On the website, a sign-in cookie can last up to about 400 days, and it ends when you sign out. In the phone app, the session is stored on the device.</li>
             <li>Reviews can remain on a café page so the Wi‑Fi and outlet record stays useful. There is no delete-account button in the app yet.</li>
             <li>Claims and reports stay while we need them to finish the check or the moderation.</li>
-            <li>Café listing traffic stays for one year in our database, then we delete it.</li>
+            <li>Café listing traffic and banner or featured-café counts stay for one year in our database, then we delete them automatically.</li>
           </ul>
         </section>
 

@@ -362,7 +362,16 @@ const { status: locationStatus, location, usingFallback, requestLocation } = use
 const { radiusKm: nearbyRadiusKm, radiusMeters, hydrate: hydrateNearbyRadius } = useNearbyRadius()
 const { user, loadProfile } = useAuth()
 const { consent } = useAnalytics()
-const { record } = useShopTrafficCapture()
+const { record, recordAd } = useShopTrafficCapture()
+
+// Banner ads carry their campaign id; featured cafes are attributed to the cafe.
+const recordPromoAd = (
+  ad: { id: string, shopId: string | null, kind: 'ad' | 'promoted' | 'partner' },
+  kind: 'impression' | 'click',
+) => {
+  if (ad.kind === 'ad') recordAd('banner', kind, { campaignId: ad.id })
+  else recordAd('featured', kind, { shopId: ad.shopId })
+}
 const supabase = useSupabaseClient()
 const runtimeConfig = useRuntimeConfig()
 const placementList = ref<Cafe[]>([])
@@ -604,6 +613,7 @@ const openPromotion = async (ad: {
   destinationUrl?: string | null
 }) => {
   if (ad.shopId) record(ad.shopId, 'card_click', 'promotion')
+  recordPromoAd(ad, 'click')
   if (ad.kind !== 'ad') {
     if (!ad.shopId) return
     const fallback = placementList.value.find((item) => item.id === ad.shopId)
@@ -732,6 +742,7 @@ const startPromoWatch = (id: string, node: Element) => {
     dwellMs: CARD_IMPRESSION_MS,
     onView: () => {
       if (ad.shopId) record(ad.shopId, 'card_impression', 'promotion')
+      recordPromoAd(ad, 'impression')
     },
   }))
 }

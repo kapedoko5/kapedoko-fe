@@ -5,6 +5,7 @@ export const SHOP_TRAFFIC_KINDS = [
   'navigate',
   'call',
   'photo_view',
+  'poster_view',
 ] as const
 
 export type ShopTrafficKind = (typeof SHOP_TRAFFIC_KINDS)[number]
@@ -16,18 +17,27 @@ export const SHOP_TRAFFIC_SURFACES = [
   'favorites',
   'promotion',
   'direct',
+  'share',
 ] as const
 
 export type ShopTrafficSurface = (typeof SHOP_TRAFFIC_SURFACES)[number]
 
-export const TRAFFIC_TABS = ['statistics', 'records', 'traffic', 'promotion'] as const
+export const TRAFFIC_TABS = ['statistics', 'records', 'traffic', 'promotion', 'vibes'] as const
 export type TrafficTabId = (typeof TRAFFIC_TABS)[number]
+
+/** Tabs a desk may show. Vibes compares many cafes, so it is admin only. */
+export function availableTrafficTabs(tone: 'admin' | 'owner'): readonly TrafficTabId[] {
+  return tone === 'admin' ? TRAFFIC_TABS : TRAFFIC_TABS.filter((id) => id !== 'vibes')
+}
 
 export const TRAFFIC_LEDGER_SURFACES = SHOP_TRAFFIC_SURFACES.filter(
   (surface): surface is Exclude<ShopTrafficSurface, 'promotion'> => surface !== 'promotion',
 )
 
-export const TRAFFIC_RANGES = [7, 30] as const
+/** 90 needs the shop_traffic_rollup RPC; the board hides it until the RPC answers. */
+export const TRAFFIC_RANGES = [7, 30, 90] as const
+/** Ranges the old shop_traffic_daily view can serve (it pages every row). */
+export const TRAFFIC_VIEW_RANGES = [7, 30] as const
 export type TrafficRangeDays = (typeof TRAFFIC_RANGES)[number]
 
 export const CARD_IMPRESSION_RATIO = 0.5
@@ -65,9 +75,11 @@ export type ShopTrafficTally = {
   navigate: number
   call: number
   photos: number
+  posters: number
   engagement: number
   engagementRate: number | null
-  reach: number
+  /** Visits = cafe page opens (detail_view only; card clicks are not added). */
+  visits: number
 }
 
 export type ShopTrafficCafeRow = ShopTrafficTally & {
@@ -86,7 +98,7 @@ export type ShopTrafficBar = {
   detailViews: number
 }
 
-export type RecordsKindFilter = 'all' | 'reach' | 'impressions' | 'clicks' | 'detail' | 'engagement'
+export type RecordsKindFilter = 'all' | 'visits' | 'impressions' | 'clicks' | 'engagement'
 
 export type ShopTrafficRecordsQuery = {
   days: TrafficRangeDays
@@ -98,7 +110,7 @@ export type ShopTrafficRecordsQuery = {
 export type TrafficActivityFilter = 'all' | 'active' | 'quiet'
 export type TrafficSortKey =
   | 'name'
-  | 'reach'
+  | 'visits'
   | 'impressions'
   | 'clicks'
   | 'ctr'
@@ -106,6 +118,7 @@ export type TrafficSortKey =
   | 'navigate'
   | 'call'
   | 'photos'
+  | 'posters'
   | 'engagement'
   | 'engagementRate'
 export type TrafficSortDir = 'asc' | 'desc'
@@ -120,6 +133,7 @@ const KIND_LABEL: Record<ShopTrafficKind, string> = {
   navigate: 'Directions',
   call: 'Call',
   photo_view: 'Photo',
+  poster_view: 'Poster',
 }
 
 const SURFACE_LABEL: Record<ShopTrafficSurface, string> = {
@@ -129,6 +143,7 @@ const SURFACE_LABEL: Record<ShopTrafficSurface, string> = {
   favorites: 'Favorites',
   promotion: 'Promotion',
   direct: 'Direct',
+  share: 'Shared link',
 }
 
 const DETAIL_SOURCE_TO_SURFACE: Record<string, ShopTrafficSurface> = {
@@ -139,14 +154,14 @@ const DETAIL_SOURCE_TO_SURFACE: Record<string, ShopTrafficSurface> = {
   favorites: 'favorites',
   promotion: 'promotion',
   direct: 'direct',
+  share: 'share',
 }
 
 const RECORDS_KIND_MAP: Record<Exclude<RecordsKindFilter, 'all'>, ShopTrafficKind[]> = {
-  reach: ['card_click', 'detail_view'],
+  visits: ['detail_view'],
   impressions: ['card_impression'],
   clicks: ['card_click'],
-  detail: ['detail_view'],
-  engagement: ['navigate', 'call', 'photo_view'],
+  engagement: ['navigate', 'call', 'photo_view', 'poster_view'],
 }
 
 export function isShopTrafficKind(value: string): value is ShopTrafficKind {
@@ -212,19 +227,17 @@ export function recordsFilterCounts(
 ): Record<RecordsKindFilter, number> {
   const counts: Record<RecordsKindFilter, number> = {
     all: 0,
-    reach: 0,
+    visits: 0,
     impressions: 0,
     clicks: 0,
-    detail: 0,
     engagement: 0,
   }
   for (const row of rows) {
     if (shopId && row.shop_id !== shopId) continue
     counts.all += row.hits
-    if (row.kind === 'card_click' || row.kind === 'detail_view') counts.reach += row.hits
     if (row.kind === 'card_impression') counts.impressions += row.hits
     else if (row.kind === 'card_click') counts.clicks += row.hits
-    else if (row.kind === 'detail_view') counts.detail += row.hits
+    else if (row.kind === 'detail_view') counts.visits += row.hits
     else counts.engagement += row.hits
   }
   return counts
@@ -239,7 +252,7 @@ export function manilaDateString(date: Date): string {
   }).format(date)
 }
 
-function shiftManilaDay(day: string, delta: number): string {
+export function shiftManilaDay(day: string, delta: number): string {
   const [year, month, date] = day.split('-').map(Number)
   const next = new Date(Date.UTC(year, (month ?? 1) - 1, (date ?? 1) + delta))
   const y = next.getUTCFullYear()
@@ -249,12 +262,12 @@ function shiftManilaDay(day: string, delta: number): string {
 }
 
 /** Inclusive start of a 7- or 30-day Manila window that ends today. */
-export function trafficRangeStartDay(days: TrafficRangeDays, now = new Date()): string {
+export function trafficRangeStartDay(days: number, now = new Date()): string {
   return shiftManilaDay(manilaDateString(now), 1 - days)
 }
 
 /** UTC instant of midnight Manila on the range start day. */
-export function trafficRangeStartIso(days: TrafficRangeDays, now = new Date()): string {
+export function trafficRangeStartIso(days: number, now = new Date()): string {
   const start = trafficRangeStartDay(days, now)
   return `${start}T00:00:00+08:00`
 }
@@ -293,9 +306,10 @@ function emptyTally(): ShopTrafficTally {
     navigate: 0,
     call: 0,
     photos: 0,
+    posters: 0,
     engagement: 0,
     engagementRate: null,
-    reach: 0,
+    visits: 0,
   }
 }
 
@@ -305,12 +319,13 @@ function addKind(tally: ShopTrafficTally, kind: ShopTrafficKind, hits: number) {
   else if (kind === 'detail_view') tally.detailViews += hits
   else if (kind === 'navigate') tally.navigate += hits
   else if (kind === 'call') tally.call += hits
-  else tally.photos += hits
+  else if (kind === 'photo_view') tally.photos += hits
+  else tally.posters += hits
 }
 
 function finishTally(tally: ShopTrafficTally): ShopTrafficTally {
-  tally.engagement = tally.navigate + tally.call + tally.photos
-  tally.reach = tally.clicks + tally.detailViews
+  tally.engagement = tally.navigate + tally.call + tally.photos + tally.posters
+  tally.visits = tally.detailViews
   tally.ctr = trafficRatio(tally.clicks, tally.impressions)
   tally.engagementRate = trafficRatio(tally.engagement, tally.detailViews)
   return tally
@@ -320,6 +335,8 @@ export function filterDailyRows(
   rows: ShopTrafficDailyRow[],
   input: {
     fromDay: string
+    /** Inclusive upper bound. */
+    toDay?: string
     surfaces?: ShopTrafficSurface[] | null
     shopIds?: string[] | null
   },
@@ -328,6 +345,7 @@ export function filterDailyRows(
   const surfaces = input.surfaces ? new Set(input.surfaces) : null
   return rows.filter((row) => {
     if (row.day < input.fromDay) return false
+    if (input.toDay && row.day > input.toDay) return false
     if (shops && !shops.has(row.shop_id)) return false
     if (surfaces && !surfaces.has(row.surface)) return false
     return true
@@ -468,9 +486,10 @@ export function sortSurfaceTraffic(
     navigate: row.navigate,
     call: row.call,
     photos: row.photos,
+    posters: row.posters,
     engagement: row.engagement,
     engagementRate: row.engagementRate,
-    reach: row.reach,
+    visits: row.visits,
   }))
 }
 
@@ -535,4 +554,50 @@ export function formatTrafficDay(day: string): string {
     month: 'short',
     day: 'numeric',
   }).format(new Date(Date.UTC(year, month - 1, date, 12)))
+}
+
+/** Manila window for a range of days ending today (inclusive on both ends). */
+export function trafficRangeWindow(days: number, now = new Date()): { from: string, to: string } {
+  return { from: trafficRangeStartDay(days, now), to: manilaDateString(now) }
+}
+
+/** Ranges the board may offer: 90 days only once the rollup RPC is known to exist. */
+export function availableTrafficRanges(rollupAvailable: boolean): readonly TrafficRangeDays[] {
+  return rollupAvailable ? TRAFFIC_RANGES : TRAFFIC_VIEW_RANGES
+}
+
+/**
+ * True when a Supabase/PostgREST error means the RPC is not deployed yet
+ * (function missing from the schema cache), so callers can fall back quietly.
+ */
+export function isMissingRpcError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const item = error as { code?: unknown, message?: unknown }
+  const code = typeof item.code === 'string' ? item.code : ''
+  if (code === 'PGRST202' || code === '42883') return true
+  const message = typeof item.message === 'string' ? item.message.toLowerCase() : ''
+  return message.includes('could not find the function')
+    || (message.includes('function') && message.includes('does not exist'))
+}
+
+/**
+ * Map shop_traffic_rollup rows (bucket) onto daily rows (day). Rows with an
+ * unknown kind or surface are dropped, so a newer server never breaks an
+ * older app.
+ */
+export function rollupRowsToDaily(rows: unknown): ShopTrafficDailyRow[] {
+  if (!Array.isArray(rows)) return []
+  const next: ShopTrafficDailyRow[] = []
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue
+    const item = row as Record<string, unknown>
+    const shopId = typeof item.shop_id === 'string' ? item.shop_id : ''
+    const kind = typeof item.kind === 'string' ? item.kind : ''
+    const surface = typeof item.surface === 'string' ? item.surface : ''
+    const day = typeof item.bucket === 'string' ? item.bucket : ''
+    const hits = typeof item.hits === 'number' ? item.hits : Number(item.hits)
+    if (!shopId || !isShopTrafficKind(kind) || !isShopTrafficSurface(surface) || !day) continue
+    next.push({ shop_id: shopId, kind, surface, day, hits: Number.isFinite(hits) ? hits : 0 })
+  }
+  return next
 }

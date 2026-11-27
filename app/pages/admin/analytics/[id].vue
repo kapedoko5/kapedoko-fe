@@ -16,6 +16,7 @@
         :events-done="eventsDone"
         :events-status="eventsStatus"
         :events-error="eventsError"
+        :ad-summary="adStats.summary.value"
         @range="onRange"
         @records="onRecords"
         @more-events="onMore"
@@ -29,6 +30,7 @@ import { onIonViewWillEnter, useIonRouter } from '@ionic/vue'
 import AdminShell from '~/components/admin/AdminShell.vue'
 import DeskAnalyticsBoard from '~/components/desk/DeskAnalyticsBoard.vue'
 import { shopIdFromRoute } from '~/utils/approved-shops'
+import { parseAnalyticsQuery } from '~/utils/traffic-analytics'
 import type { ShopTrafficRecordsQuery, TrafficRangeDays } from '~/utils/shop-traffic'
 
 definePageMeta({
@@ -51,7 +53,8 @@ const {
   loadEvents,
 } = desk
 
-const range = ref<TrafficRangeDays>(30)
+const adStats = useAdCampaignStats()
+const range = ref<TrafficRangeDays>(parseAnalyticsQuery(route.query).range)
 const records = ref<ShopTrafficRecordsQuery | null>(null)
 
 function resolveShopId(): string {
@@ -83,15 +86,13 @@ const reload = (days: TrafficRangeDays) => {
     return
   }
   void loadDaily(days, undefined, id)
+  void adStats.loadAdmin(days, id)
 }
 
 const onRange = (days: TrafficRangeDays) => {
   range.value = days
   reload(days)
-  if (records.value) {
-    records.value = { ...records.value, days }
-    void loadEvents({ ...records.value, days })
-  }
+  // Records are re-fetched by the board's own `records` event, not here.
 }
 
 const onRecords = (payload: ShopTrafficRecordsQuery) => {

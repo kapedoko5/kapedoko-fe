@@ -1,11 +1,16 @@
+import { createRequestGuard } from '~/utils/request-guard'
 import { SHOP_ID_GET_CHUNK, chunkIds, fetchPages } from '~/utils/approved-shops'
 import {
   RECORDS_PAGE_SIZE,
   isShopTrafficKind,
+  isMissingRpcError,
   isShopTrafficSurface,
   recordsKindsForFilter,
+  rollupRowsToDaily,
   trafficRangeStartDay,
   trafficRangeStartIso,
+  trafficRangeWindow,
+  TRAFFIC_VIEW_RANGES,
   type RecordsKindFilter,
   type ShopTrafficDailyRow,
   type ShopTrafficEventRow,
@@ -29,8 +34,21 @@ type TrafficDatabase = {
         Row: ShopTrafficDailyRow
       }
     }
+    Functions: {
+      shop_traffic_rollup: {
+        Args: { p_from: string, p_to: string, p_shop_ids: string[] | null, p_grain: string }
+        Returns: Array<{ shop_id: string, kind: string, surface: string, bucket: string, hits: number }>
+      }
+    }
   }
 }
+
+/**
+ * Set once the shop_traffic_rollup RPC is known to be missing (migration not
+ * applied yet). Shared so the range tabs can hide 90 days and later loads skip
+ * the failing call.
+ */
+export const trafficRollupMissing = ref(false)
 
 const parseDaily = (rows: unknown): ShopTrafficDailyRow[] => {
   if (!Array.isArray(rows)) return []
@@ -76,6 +94,8 @@ export function useShopTrafficDesk() {
   const error = ref('')
   const eventsError = ref('')
   const eventsDone = ref(false)
+  const dailyGuard = createRequestGuard()
+  const eventsGuard = createRequestGuard()
 
   const loadNames = async (owned?: ShopTrafficName[]) => {
     if (owned) {
@@ -126,13 +146,38 @@ export function useShopTrafficDesk() {
     names.value = shop ? [{ id: shop.id, name: shop.name }] : []
   }
 
+  const loadRollup = async (days: number, shopIds: string[] | null): Promise<ShopTrafficDailyRow[]> => {
+    const window = trafficRangeWindow(days * 2)
+    const rows = await fetchPages((from, to) =>
+      supabase
+        .rpc('shop_traffic_rollup', {
+          p_from: window.from,
+          p_to: window.to,
+          p_shop_ids: shopIds,
+          p_grain: 'day',
+        })
+        .order('shop_id')
+        .order('kind')
+        .order('surface')
+        .order('bucket')
+        .range(from, to),
+    )
+    return rollupRowsToDaily(rows)
+  }
+
+  /**
+   * Loads days * 2 so the board can compare against the previous period of equal
+   * length. A newer call makes older in-flight calls drop their results.
+   */
   const loadDaily = async (days: TrafficRangeDays, owned?: ShopTrafficName[], shopId?: string) => {
+    const isCurrent = dailyGuard.next()
     status.value = 'loading'
     error.value = ''
     try {
       if (shopId) {
         if (owned) names.value = owned.filter((shop) => shop.id === shopId)
         else await loadName(shopId)
+        if (!isCurrent()) return
         if (names.value.length === 0) {
           daily.value = []
           status.value = 'error'
@@ -141,26 +186,46 @@ export function useShopTrafficDesk() {
         }
       } else {
         await loadNames(owned)
+        if (!isCurrent()) return
       }
-      const fromDay = trafficRangeStartDay(days)
-      const rows = await fetchPages((from, to) => {
-        let query = supabase
-          .from('shop_traffic_daily')
-          .select('shop_id, kind, surface, day, hits')
-          .gte('day', fromDay)
-          .order('shop_id')
-          .order('kind')
-          .order('surface')
-          .order('day')
-          .range(from, to)
-        if (shopId) query = query.eq('shop_id', shopId)
-        else if (owned?.length) query = query.in('shop_id', owned.map((shop) => shop.id))
-        return query
-      })
-      daily.value = parseDaily(rows)
+      const scopeIds = shopId ? [shopId] : owned?.length ? owned.map((shop) => shop.id) : null
+      let parsed: ShopTrafficDailyRow[] | null = null
+      if (!trafficRollupMissing.value) {
+        try {
+          parsed = await loadRollup(days, scopeIds)
+        } catch (rpcError) {
+          if (!isMissingRpcError(rpcError)) throw rpcError
+          trafficRollupMissing.value = true
+        }
+      }
+      if (!isCurrent()) return
+      if (!parsed) {
+        // Fallback: the view pages every row, so cap at the ranges it can serve.
+        const viewDays = Math.min(days, Math.max(...TRAFFIC_VIEW_RANGES))
+        const fromDay = trafficRangeStartDay(viewDays * 2)
+        const rows = await fetchPages((from, to) => {
+          let query = supabase
+            .from('shop_traffic_daily')
+            .select('shop_id, kind, surface, day, hits')
+            .gte('day', fromDay)
+            .order('shop_id')
+            .order('kind')
+            .order('surface')
+            .order('day')
+            .range(from, to)
+          if (shopId) query = query.eq('shop_id', shopId)
+          else if (owned?.length) query = query.in('shop_id', owned.map((shop) => shop.id))
+          return query
+        })
+        parsed = parseDaily(rows)
+      }
+      if (!isCurrent()) return
+      daily.value = parsed
       await mergeNames(daily.value.map((row) => row.shop_id))
+      if (!isCurrent()) return
       status.value = 'ready'
     } catch (err) {
+      if (!isCurrent()) return
       status.value = 'error'
       error.value = err instanceof Error ? err.message : 'Could not load analytics.'
     }
@@ -174,6 +239,7 @@ export function useShopTrafficDesk() {
     surface?: ShopTrafficSurface | null
     append?: boolean
   }) => {
+    const isCurrent = eventsGuard.next()
     eventsStatus.value = 'loading'
     eventsError.value = ''
     if (!input.append) {
@@ -194,13 +260,16 @@ export function useShopTrafficDesk() {
       if (input.shopId) query = query.eq('shop_id', input.shopId)
       else if (input.shopIds?.length) query = query.in('shop_id', input.shopIds)
       const { data, error: queryError } = await query
+      if (!isCurrent()) return
       if (queryError) throw queryError
       const page = parseEvents(data)
       events.value = input.append ? [...events.value, ...page] : page
       eventsDone.value = page.length < RECORDS_PAGE_SIZE
       await mergeNames(page.map((row) => row.shop_id))
+      if (!isCurrent()) return
       eventsStatus.value = 'ready'
     } catch (err) {
+      if (!isCurrent()) return
       eventsStatus.value = 'error'
       eventsError.value = err instanceof Error ? err.message : 'Could not load records.'
     }
