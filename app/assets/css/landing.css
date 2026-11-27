@@ -30,6 +30,8 @@
 }
 
 .landing {
+  /* .ion-page is a flex column: without this the sheet shrinks to the viewport and the sticky header lets go. */
+  flex-shrink: 0;
   min-height: 100%;
   background: var(--color-paper);
   color: var(--color-ink);
@@ -122,7 +124,32 @@
   }
 }
 
+/* Scroll reveal (useRevealOnScroll): fade + 12px rise, once. */
+.landing-reveal {
+  opacity: 0;
+  translate: 0 12px;
+  transition:
+    opacity 520ms var(--ease-out),
+    translate 520ms var(--ease-out);
+}
+
+.landing-reveal.is-revealed {
+  opacity: 1;
+  translate: 0 0;
+}
+
+@media (scripting: none) {
+  .landing-reveal { opacity: 1; translate: 0 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .landing-reveal,
+  .landing-reveal.is-revealed {
+    opacity: 1;
+    translate: 0 0;
+    transition: none;
+  }
+
   .landing *:not(.keep-motion),
   .landing *:not(.keep-motion)::before,
   .landing *:not(.keep-motion)::after {

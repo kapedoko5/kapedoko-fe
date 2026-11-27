@@ -40,21 +40,18 @@
           <span class="bag__hours-time">{{ hoursLine }}</span>
         </span>
         <span class="bag__marks" :aria-label="stampAria">
-          <span
+          <CafeAmenityStamp
             v-for="(row, index) in stampMarks"
             :key="row.kind"
-            class="bag__mark-stamp"
-            :class="{ 'is-soft': row.soft, 'is-no': row.unavailable }"
-            :data-stamp="row.stamp"
-            :style="{ '--tilt': index % 2 ? '1.6deg' : '-1.4deg' }"
-            :aria-label="row.aria"
-          >
-            <span class="bag__mark-noun">
-              <component :is="row.icon" :size="15" :stroke-width="2.25" aria-hidden="true" />
-              {{ row.noun }}
-            </span>
-            <span v-if="row.words" class="bag__mark-word">{{ row.words }}</span>
-          </span>
+            :noun="row.noun"
+            :icon="row.icon"
+            :words="row.words"
+            :stamp="row.stamp"
+            :soft="row.soft"
+            :unavailable="row.unavailable"
+            :tilt="index % 2 ? '1.6deg' : '-1.4deg'"
+            :aria="row.aria"
+          />
         </span>
         <span
           v-if="vibeMarks.length"
@@ -111,6 +108,7 @@ import {
   vibeTagColorStyle,
   vibeTagLucideComponent,
 } from '~/utils/admin-vibe-tags'
+import CafeAmenityStamp from '~/components/cafe/CafeAmenityStamp.vue'
 import CafeBadgeChip from '~/components/cafe/CafeBadgeChip.vue'
 import type { Cafe } from '~/types/cafe'
 import { watchImpression } from '~/utils/analytics-impression'
@@ -439,36 +437,6 @@ onBeforeUnmount(() => {
   flex: 0 0 6px;
 }
 
-.bag__mark-stamp {
-  display: grid;
-  flex: 0 0 auto;
-  gap: 1px;
-  min-width: 92px;
-  padding: 8px 10px 7px;
-  border: 1px solid color-mix(in srgb, #1c1917 34%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, #d9793b 16%, #faf8f5);
-  color: #1c1917;
-  transform: rotate(var(--tilt, -1.4deg));
-  transform-origin: 30% 80%;
-  scroll-snap-align: start;
-}
-
-.bag__mark-stamp[data-stamp='community'] {
-  background: #faf8f5;
-}
-
-.bag__mark-stamp[data-stamp='recheck'],
-.bag__mark-stamp.is-no {
-  background: color-mix(in srgb, #8c3a2f 10%, #faf8f5);
-  border-color: color-mix(in srgb, #8c3a2f 40%, transparent);
-}
-
-.bag__mark-stamp.is-soft {
-  background: #faf8f5;
-  border-style: dashed;
-}
-
 .bag__vibes {
   display: flex;
   flex-wrap: nowrap;
@@ -523,32 +491,6 @@ onBeforeUnmount(() => {
 .bag__vibe :deep(svg) {
   color: var(--vibe-color, #d9793b);
   flex-shrink: 0;
-}
-
-.bag__mark-noun {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.bag__mark-noun :deep(svg) {
-  color: #d9793b;
-}
-
-.bag__mark-word {
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  white-space: nowrap;
-}
-
-.bag__mark-stamp.is-soft .bag__mark-word {
-  font-weight: 600;
-  color: color-mix(in srgb, #1c1917 72%, #faf8f5);
 }
 
 .bag__press {
